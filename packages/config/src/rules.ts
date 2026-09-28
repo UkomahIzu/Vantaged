@@ -1,0 +1,15 @@
+export const rules = {
+  receiptConfirmDays: 3,
+  receiptReminderDay: 2,
+  reviewReminderDays: [1, 3, 5],
+  reviewOverdueDays: 7,
+  repeatedRejectionAt: 3,
+  disputeUnresolvedDays: 14,
+  bankChangePaymentPauseHours: 48,
+  maxVideoSeconds: 60,
+  freeProjectMaxMonths: 12,
+  verificationValidityMonths: 12,
+  defaultSiteRadiusMeters: 200,
+  orgEarlyAccessActiveProjects: 3,
+  stageWeightTotalBp: 10000,
+} as const;
