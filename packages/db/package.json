@@ -1,23 +1,25 @@
 {
-  "name": "@vantaged/db",
-  "private": true,
-  "main": "src/index.ts",
-  "types": "src/index.ts",
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
-  },
-  "dependencies": {
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
-    "dotenv": "^16.4.7",
-    "pg": "^8.13.3"
-  },
-  "devDependencies": {
-    "@types/node": "^22.13.9",
-    "@types/pg": "^8.11.11",
-    "prisma": "^7.10.0"
-  }
+    "name":  "@vantaged/db",
+    "private":  true,
+    "main":  "src/index.ts",
+    "types":  "src/index.ts",
+    "scripts":  {
+                    "typecheck":  "tsc --noEmit",
+                    "db:generate":  "prisma generate",
+                    "db:migrate":  "prisma migrate dev",
+                    "db:studio":  "prisma studio",
+                    "db:test":  "tsx src/test-connection.ts"
+                },
+    "dependencies":  {
+                         "@prisma/adapter-pg":  "^7.10.0",
+                         "@prisma/client":  "^7.10.0",
+                         "dotenv":  "^16.4.7",
+                         "pg":  "^8.13.3"
+                     },
+    "devDependencies":  {
+                            "@types/node":  "^22.13.9",
+                            "@types/pg":  "^8.11.11",
+                            "prisma":  "^7.10.0",
+                            "tsx":  "^4.19.3"
+                        }
 }
