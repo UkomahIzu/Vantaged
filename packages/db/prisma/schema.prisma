@@ -1,3 +1,10 @@
+// BuildTrack — Prisma schema (SRD v1.0 draft)
+// Conventions:
+//   * ids are UUIDs; User.id equals the Supabase Auth user id
+//   * money is stored in minor units (kobo / cents) as BigInt
+//   * stage weights are basis points (10000 = 100%)
+//   * all timestamps are UTC
+
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -5,6 +12,1106 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Prisma 7: connection URLs live in prisma.config.ts (see SRD 4.1)
 }
 
-// models go here
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+enum Platform {
+  ANDROID
+  IOS
+  WEB
+}
+enum IdMethod {
+  NIN
+  PASSPORT
+}
+enum CheckStatus {
+  PENDING
+  PASSED
+  FAILED
+}
+
+enum ClientAccountType {
+  INDIVIDUAL
+  ORGANISATION
+}
+enum ClientRole {
+  CLIENT_ADMIN
+  CLIENT_REP
+}
+enum ClientRepModule {
+  VIEW_PROGRESS
+  REVIEW_STAGES
+  PAYMENTS
+  CHANGE_REQUESTS
+  MESSAGE_CONTRACTOR
+  SHARE_LINKS
+  INVITE_PEOPLE
+}
+enum ContractorRole {
+  DIRECTOR
+  SITE_MANAGER
+  OFFICE_COORDINATOR
+  CREW_MEMBER
+}
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  REMOVED
+}
+
+enum VerificationStatus {
+  NOT_STARTED
+  SUBMITTED
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+enum VerificationItemType {
+  CAC
+  TIN
+  DIRECTOR_ID
+  BANK_NAME_MATCH
+  ADDRESS_PROOF
+  PHONE
+  EMAIL
+  COREN
+  CORBON
+  BPP
+  TAX_CLEARANCE
+  INSURANCE
+  PORTFOLIO
+}
+enum BadgeType {
+  REGISTERED_ENGINEER
+  REGISTERED_BUILDER
+  GOVERNMENT_READY
+  TAX_CLEARED
+  INSURED
+  PORTFOLIO
+}
+enum BankAccountStatus {
+  ACTIVE
+  SUPERSEDED
+}
+
+enum InvitationType {
+  CLIENT_INVITES_CONTRACTOR
+  CONTRACTOR_INVITES_CLIENT
+  STAFF
+  CLIENT_REP
+}
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+enum PresetOwner {
+  PLATFORM
+  CONTRACTOR
+}
+enum ProjectType {
+  BUNGALOW
+  DUPLEX
+  STOREY_BUILDING
+  COMMERCIAL
+  RENOVATION
+  ROAD
+  BRIDGE
+  OTHER
+}
+enum Currency {
+  NGN
+  USD
+  GBP
+}
+enum ProjectStatus {
+  DRAFT
+  AWAITING_CLIENT_ACCEPTANCE
+  CLIENT_NOT_CONNECTED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+enum ContractType {
+  FIXED_PRICE
+  OPEN_BOOK
+}        // v1.1
+enum PlanStatus {
+  DRAFT
+  SENT
+  CHANGES_REQUESTED
+  ACCEPTED
+  SUPERSEDED
+}
+
+enum StageStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  READY_FOR_REVIEW
+  APPROVED
+}
+enum ReviewDecision {
+  APPROVED
+  REJECTED
+}
+enum IssueStatus {
+  OPEN
+  FIXED
+  CLOSED
+}
+enum TaskStatus {
+  OPEN
+  DONE_PENDING_CONFIRMATION
+  CONFIRMED
+  CANCELLED
+}
+enum MediaKind {
+  PHOTO
+  VIDEO
+  VOICE
+  DOCUMENT
+}
+enum UploadStatus {
+  PENDING
+  UPLOADED
+  FAILED
+}
+
+enum Side {
+  CLIENT
+  CONTRACTOR
+}
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum PaymentType {
+  DEPOSIT
+  STAGE
+  CHANGE_REQUEST
+  RETENTION_RELEASE
+}
+enum PaymentDueTrigger {
+  BEFORE_FIRST_STAGE
+  ON_STAGE_APPROVAL
+  ON_CHANGE_APPROVAL
+  ON_HANDOVER
+}
+enum PaymentStatus {
+  SCHEDULED
+  DUE
+  RECEIPT_UPLOADED
+  CONFIRMED
+  UNCONFIRMED
+  DISPUTED
+}
+enum ReceiptStatus {
+  ACTIVE
+  WITHDRAWN
+  CONFIRMED
+  DISPUTED
+}
+
+enum DisputeType {
+  PAYMENT
+  STAGE
+}
+enum DisputeStatus {
+  OPEN
+  RESOLVED
+}
+
+enum ConversationType {
+  COMPANY_DIRECT
+  COMPANY_GROUP
+  PROJECT
+}
+enum CommentTarget {
+  STAGE
+  UPDATE
+  ISSUE
+  PAYMENT
+  CHANGE_REQUEST
+}
+
+enum Channel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+}
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+}
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  CANCELLED
+}
+
+enum ShareLinkKind {
+  PROJECT_SHARE
+  CREW_VIEWER
+}
+enum PointRule {
+  TASK_ON_TIME
+  PROOF_IN_APPROVED_STAGE
+  SITE_CHECK_IN
+  STAGE_FIRST_TIME_APPROVAL
+  STAGE_ON_OR_BEFORE_TARGET
+  ISSUE_FIXED_QUICKLY
+  RECEIPT_CONFIRMED_ON_TIME
+  CLIENT_REPLY_PROMPT
+  DOCUMENTS_COMPLETE
+  RECOGNITION
+}
+enum SubscriptionStatus {
+  FREE_PROJECT
+  ACTIVE
+  PAST_DUE
+  LAPSED
+  CANCELLED
+}
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+enum TicketStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+// ─────────────────────────── Identity ───────────────────────────
+
+model User {
+  id               String     @id @db.Uuid              // = Supabase Auth user id
+  fullName         String
+  email            String     @unique
+  phone            String     @unique                   // E.164
+  avatarPath       String?
+  timezone         String     @default("Africa/Lagos")
+  quietHoursStart  Int?                                 // minutes from midnight, local
+  quietHoursEnd    Int?
+  isPlatformAdmin  Boolean    @default(false)
+  status           UserStatus @default(ACTIVE)
+  createdAt        DateTime   @default(now())
+  lastLoginAt      DateTime?
+
+  devices          Device[]
+  identity         IdentityVerification?
+  clientMemberships     ClientMember[]
+  contractorMemberships ContractorMember[]
+  notifications    Notification[]
+  notificationPrefs NotificationPreference[]
+  conversationParticipants ConversationParticipant[]
+}
+
+model Device {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  user        User      @relation(fields: [userId], references: [id])
+  platform    Platform
+  deviceKey   String                                    // stable per-install id
+  pushToken   String?
+  trustedAt   DateTime?                                 // set after SMS OTP on new device
+  lastSeenAt  DateTime  @default(now())
+  @@unique([userId, deviceKey])
+}
+
+/// Stores the RESULT of an identity check — never the raw NIN / passport number (NDPA).
+model IdentityVerification {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @unique @db.Uuid
+  user          User        @relation(fields: [userId], references: [id])
+  method        IdMethod
+  identityHash  String      @unique                     // HMAC of the ID number — enforces one account per identity
+  provider      String
+  providerRef   String
+  status        CheckStatus
+  verifiedAt    DateTime?
+  createdAt     DateTime    @default(now())
+}
+
+// ─────────────────────────── Client side ───────────────────────────
+
+model ClientAccount {
+  id          String            @id @default(uuid()) @db.Uuid
+  type        ClientAccountType
+  name        String
+  earlyAccess Boolean           @default(false)          // organisations only (v1)
+  createdAt   DateTime          @default(now())
+  members     ClientMember[]
+  projects    Project[]
+  ratingsReceived Rating[]      @relation("RatedClient")
+}
+
+model ClientMember {
+  id              String            @id @default(uuid()) @db.Uuid
+  clientAccountId String            @db.Uuid
+  clientAccount   ClientAccount     @relation(fields: [clientAccountId], references: [id])
+  userId          String            @db.Uuid
+  user            User              @relation(fields: [userId], references: [id])
+  role            ClientRole
+  modules         ClientRepModule[]                      // only meaningful for CLIENT_REP
+  status          MemberStatus      @default(ACTIVE)
+  createdAt       DateTime          @default(now())
+  projectAccess   ClientRepProject[]
+  @@unique([clientAccountId, userId])
+}
+
+model ClientRepProject {
+  clientMemberId String       @db.Uuid
+  clientMember   ClientMember @relation(fields: [clientMemberId], references: [id])
+  projectId      String       @db.Uuid
+  project        Project      @relation(fields: [projectId], references: [id])
+  @@id([clientMemberId, projectId])
+}
+
+// ─────────────────────────── Contractor side ───────────────────────────
+
+model Contractor {
+  id                     String             @id @default(uuid()) @db.Uuid
+  name                   String
+  cacName                String?
+  rcNumber               String?            @unique
+  tin                    String?
+  officeAddress          String?
+  state                  String?
+  description            String?
+  projectTypes           ProjectType[]
+  verificationStatus     VerificationStatus @default(NOT_STARTED)
+  verifiedAt             DateTime?
+  verificationExpiresAt  DateTime?
+  paymentsPausedUntil    DateTime?                     // 48h after a bank-detail change
+  rewardsEnabled         Boolean            @default(false)
+  rewardConfig           Json?                          // conversion mode, period, caps (values TBD)
+  suspendedAt            DateTime?
+  createdAt              DateTime           @default(now())
+
+  members        ContractorMember[]
+  submissions    VerificationSubmission[]
+  badges         ContractorBadge[]
+  bankAccounts   BankAccount[]
+  presets        StagePreset[]
+  projects       Project[]
+  subscription   Subscription?
+  ratingsReceived Rating[]         @relation("RatedContractor")
+  pointEvents    PointEvent[]
+  rewardPeriods  RewardPeriod[]
+  conversations  Conversation[]
+}
+
+model ContractorMember {
+  id            String         @id @default(uuid()) @db.Uuid
+  contractorId  String         @db.Uuid
+  contractor    Contractor     @relation(fields: [contractorId], references: [id])
+  userId        String         @db.Uuid
+  user          User           @relation(fields: [userId], references: [id])
+  role          ContractorRole
+  status        MemberStatus   @default(ACTIVE)
+  workDays      Int[]                                   // 0-6, scheduled days (attendance points)
+  createdAt     DateTime       @default(now())
+  assignments   ProjectAssignment[]
+  pointEvents   PointEvent[]
+  @@unique([contractorId, userId])
+}
+
+model VerificationSubmission {
+  id              String             @id @default(uuid()) @db.Uuid
+  contractorId    String             @db.Uuid
+  contractor      Contractor         @relation(fields: [contractorId], references: [id])
+  status          VerificationStatus @default(SUBMITTED)
+  submittedAt     DateTime           @default(now())
+  reviewedById    String?            @db.Uuid
+  reviewedAt      DateTime?
+  rejectionReason String?
+  items           VerificationItem[]
+}
+
+model VerificationItem {
+  id            String               @id @default(uuid()) @db.Uuid
+  submissionId  String               @db.Uuid
+  submission    VerificationSubmission @relation(fields: [submissionId], references: [id])
+  type          VerificationItemType
+  status        CheckStatus          @default(PENDING)
+  documentPath  String?
+  provider      String?
+  providerRef   String?
+  result        Json?                                  // e.g. CAC name, status, incorporation date
+  checkedAt     DateTime?
+}
+
+model ContractorBadge {
+  id           String     @id @default(uuid()) @db.Uuid
+  contractorId String     @db.Uuid
+  contractor   Contractor @relation(fields: [contractorId], references: [id])
+  type         BadgeType
+  grantedAt    DateTime   @default(now())
+  expiresAt    DateTime?
+  @@unique([contractorId, type])
+}
+
+model BankAccount {
+  id            String            @id @default(uuid()) @db.Uuid
+  contractorId  String            @db.Uuid
+  contractor    Contractor        @relation(fields: [contractorId], references: [id])
+  bankCode      String
+  bankName      String
+  accountNumber String
+  accountName   String                                 // resolved by lookup
+  nameMatchesCac Boolean
+  status        BankAccountStatus @default(ACTIVE)
+  createdById   String            @db.Uuid
+  createdAt     DateTime          @default(now())
+  receipts      PaymentReceipt[]
+}
+
+// ─────────────────────────── Invitations ───────────────────────────
+
+model Invitation {
+  id              String           @id @default(uuid()) @db.Uuid
+  type            InvitationType
+  tokenHash       String           @unique
+  invitedById     String           @db.Uuid
+  clientAccountId String?          @db.Uuid
+  contractorId    String?          @db.Uuid
+  projectId       String?          @db.Uuid
+  targetEmail     String?
+  targetPhone     String?
+  targetName      String?
+  role            String?                              // staff/rep role for STAFF / CLIENT_REP invites
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime
+  createdAt       DateTime         @default(now())
+  acceptedAt      DateTime?
+}
+
+// ─────────────────────────── Presets ───────────────────────────
+
+model StagePreset {
+  id             String        @id @default(uuid()) @db.Uuid
+  owner          PresetOwner
+  contractorId   String?       @db.Uuid
+  contractor     Contractor?   @relation(fields: [contractorId], references: [id])
+  basedOnId      String?       @db.Uuid
+  name           String
+  projectType    ProjectType
+  defaultPaymentStructure Json?                         // company default payment structure
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  stages         PresetStage[]
+}
+
+model PresetStage {
+  id                 String       @id @default(uuid()) @db.Uuid
+  presetId           String       @db.Uuid
+  preset             StagePreset  @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  position           Int
+  name               String
+  weightBp           Int
+  minPhotos          Int          @default(5)
+  minVideos          Int          @default(1)
+  requireDescription Boolean      @default(true)
+  checklist          String[]
+  @@unique([presetId, position])
+}
+
+// ─────────────────────────── Projects & plans ───────────────────────────
+
+model Project {
+  id                 String        @id @default(uuid()) @db.Uuid
+  contractorId       String        @db.Uuid
+  contractor         Contractor    @relation(fields: [contractorId], references: [id])
+  clientAccountId    String?       @db.Uuid              // null = client not connected
+  clientAccount      ClientAccount? @relation(fields: [clientAccountId], references: [id])
+  name               String
+  type               ProjectType
+  description        String?
+  address            String
+  lat                Float
+  lng                Float
+  siteRadiusM        Int           @default(200)
+  contractValueMinor BigInt
+  currency           Currency      @default(NGN)
+  contractType       ContractType?                       // v1.1
+  retentionBp        Int           @default(0)
+  startDate          DateTime      @db.Date
+  targetEndDate      DateTime      @db.Date
+  status             ProjectStatus @default(DRAFT)
+  onHold             Boolean       @default(false)       // true while a dispute is open
+  isFreeProject      Boolean       @default(false)
+  freeUntil          DateTime?
+  presetId           String?       @db.Uuid
+  acceptedPlanVersionId String?    @db.Uuid
+  createdById        String        @db.Uuid
+  createdAt          DateTime      @default(now())
+  activatedAt        DateTime?
+  completedAt        DateTime?
+
+  planVersions   PlanVersion[]
+  stages         Stage[]
+  assignments    ProjectAssignment[]
+  repAccess      ClientRepProject[]
+  updates        ProgressUpdate[]
+  issues         Issue[]
+  tasks          Task[]
+  checkIns       CheckIn[]
+  changeRequests ChangeRequest[]
+  payments       PaymentItem[]
+  disputes       Dispute[]
+  ratings        Rating[]
+  shareLinks     ShareLink[]
+  comments       Comment[]
+  conversations  Conversation[]
+  @@index([contractorId, status])
+  @@index([clientAccountId, status])
+}
+
+model ProjectAssignment {
+  projectId  String           @db.Uuid
+  project    Project          @relation(fields: [projectId], references: [id])
+  memberId   String           @db.Uuid
+  member     ContractorMember @relation(fields: [memberId], references: [id])
+  assignedAt DateTime         @default(now())
+  @@id([projectId, memberId])
+}
+
+/// Immutable snapshot of stages + payment structure for each version of the plan.
+model PlanVersion {
+  id                    String     @id @default(uuid()) @db.Uuid
+  projectId             String     @db.Uuid
+  project               Project    @relation(fields: [projectId], references: [id])
+  versionNo             Int
+  status                PlanStatus @default(DRAFT)
+  snapshot              Json                             // stages, weights, dates, checklists, proof rules, payment items
+  clientComment         String?
+  sentAt                DateTime?
+  acceptedAt            DateTime?
+  acceptedById          String?    @db.Uuid
+  fromChangeRequestId   String?    @db.Uuid
+  createdAt             DateTime   @default(now())
+  @@unique([projectId, versionNo])
+}
+
+model Stage {
+  id                  String      @id @default(uuid()) @db.Uuid
+  projectId           String      @db.Uuid
+  project             Project     @relation(fields: [projectId], references: [id])
+  position            Int
+  name                String
+  weightBp            Int
+  targetStart         DateTime    @db.Date
+  targetEnd           DateTime    @db.Date
+  minPhotos           Int
+  minVideos           Int
+  requireDescription  Boolean
+  status              StageStatus @default(NOT_STARTED)
+  reportedPercent     Int         @default(0)            // contractor's estimate 0-100
+  startedAt           DateTime?
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  rejectionCount      Int         @default(0)
+  repeatedRejection   Boolean     @default(false)        // set on 3rd rejection
+  reviewOverdue       Boolean     @default(false)        // 7 days without decision
+  delayed             Boolean     @default(false)        // past targetEnd
+  checklist           ChecklistItem[]
+  reviews             StageReview[]
+  updates             ProgressUpdate[]
+  issues              Issue[]
+  tasks               Task[]
+  payments            PaymentItem[]
+  disputes            Dispute[]
+  @@unique([projectId, position])
+}
+
+model ChecklistItem {
+  id        String    @id @default(uuid()) @db.Uuid
+  stageId   String    @db.Uuid
+  stage     Stage     @relation(fields: [stageId], references: [id])
+  position  Int
+  label     String
+  done      Boolean   @default(false)
+  doneById  String?   @db.Uuid
+  doneAt    DateTime?
+  updates   ProgressUpdate[]
+  issues    Issue[]
+}
+
+// ─────────────────────────── Proof ───────────────────────────
+
+model ProgressUpdate {
+  id              String         @id @default(uuid()) @db.Uuid
+  clientRequestId String         @unique                 // idempotency key from offline outbox
+  projectId       String         @db.Uuid
+  project         Project        @relation(fields: [projectId], references: [id])
+  stageId         String         @db.Uuid
+  stage           Stage          @relation(fields: [stageId], references: [id])
+  checklistItemId String?        @db.Uuid
+  checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
+  taskId          String?        @db.Uuid
+  task            Task?          @relation(fields: [taskId], references: [id])
+  authorId        String         @db.Uuid
+  description     String?
+  capturedAt      DateTime                               // device time at capture (offline-safe)
+  lockedAt        DateTime?                              // set when the stage is submitted (immutable after)
+  createdAt       DateTime       @default(now())
+  media           MediaAsset[]
+}
+
+model MediaAsset {
+  id              String        @id @default(uuid()) @db.Uuid
+  kind            MediaKind
+  storagePath     String        @unique
+  mimeType        String
+  sizeBytes       Int
+  durationSec     Int?                                   // video/voice (video ≤ 60 s)
+  width           Int?
+  height          Int?
+  sha256          String
+  capturedInApp   Boolean                                // false = gallery upload (labelled, not counted)
+  capturedAt      DateTime?
+  lat             Float?
+  lng             Float?
+  gpsAccuracyM    Float?
+  withinSite      Boolean?                               // null when no GPS
+  uploadStatus    UploadStatus  @default(PENDING)
+  uploadedById    String        @db.Uuid
+  createdAt       DateTime      @default(now())
+  // polymorphic owners (exactly one set)
+  updateId        String?       @db.Uuid
+  update          ProgressUpdate? @relation(fields: [updateId], references: [id])
+  messageId       String?       @db.Uuid
+  message         Message?      @relation(fields: [messageId], references: [id])
+  receiptId       String?       @db.Uuid
+  receipt         PaymentReceipt? @relation(fields: [receiptId], references: [id])
+  evidenceId      String?       @db.Uuid
+  evidence        DisputeEvidence? @relation(fields: [evidenceId], references: [id])
+  reviewId        String?       @db.Uuid
+  review          StageReview?  @relation(fields: [reviewId], references: [id])
+}
+
+// ─────────────────────────── Review, issues, tasks ───────────────────────────
+
+model StageReview {
+  id            String          @id @default(uuid()) @db.Uuid
+  stageId       String          @db.Uuid
+  stage         Stage           @relation(fields: [stageId], references: [id])
+  round         Int
+  submittedById String          @db.Uuid
+  submittedAt   DateTime        @default(now())
+  decision      ReviewDecision?
+  decidedById   String?         @db.Uuid
+  decidedAt     DateTime?
+  comment       String?
+  failedItemIds String[]
+  media         MediaAsset[]
+  issues        Issue[]
+  @@unique([stageId, round])
+}
+
+model Issue {
+  id              String         @id @default(uuid()) @db.Uuid
+  projectId       String         @db.Uuid
+  project         Project        @relation(fields: [projectId], references: [id])
+  stageId         String         @db.Uuid
+  stage           Stage          @relation(fields: [stageId], references: [id])
+  reviewId        String         @db.Uuid
+  review          StageReview    @relation(fields: [reviewId], references: [id])
+  checklistItemId String?        @db.Uuid
+  checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
+  description     String
+  status          IssueStatus    @default(OPEN)
+  assignedToId    String?        @db.Uuid
+  createdAt       DateTime       @default(now())
+  fixedAt         DateTime?
+}
+
+model Task {
+  id            String     @id @default(uuid()) @db.Uuid
+  projectId     String     @db.Uuid
+  project       Project    @relation(fields: [projectId], references: [id])
+  stageId       String?    @db.Uuid
+  stage         Stage?     @relation(fields: [stageId], references: [id])
+  title         String
+  description   String?
+  dueDate       DateTime?
+  assigneeIds   String[]   @db.Uuid                      // ContractorMember ids
+  status        TaskStatus @default(OPEN)
+  createdById   String     @db.Uuid
+  completedAt   DateTime?
+  confirmedById String?    @db.Uuid
+  confirmedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updates       ProgressUpdate[]
+}
+
+model CheckIn {
+  id              String   @id @default(uuid()) @db.Uuid
+  clientRequestId String   @unique
+  projectId       String   @db.Uuid
+  project         Project  @relation(fields: [projectId], references: [id])
+  memberId        String   @db.Uuid
+  lat             Float
+  lng             Float
+  gpsAccuracyM    Float
+  withinSite      Boolean
+  capturedAt      DateTime
+  createdAt       DateTime @default(now())
+}
+
+// ─────────────────────────── Change requests ───────────────────────────
+
+model ChangeRequest {
+  id                String              @id @default(uuid()) @db.Uuid
+  projectId         String              @db.Uuid
+  project           Project             @relation(fields: [projectId], references: [id])
+  raisedBySide      Side
+  raisedById        String              @db.Uuid
+  title             String
+  reason            String
+  changes           Json                                 // structured diff against current plan
+  dateImpactDays    Int                 @default(0)
+  amountImpactMinor BigInt              @default(0)
+  status            ChangeRequestStatus @default(PENDING)
+  decidedById       String?             @db.Uuid
+  decidedAt         DateTime?
+  createdAt         DateTime            @default(now())
+  payments          PaymentItem[]
+}
+
+// ─────────────────────────── Payments ───────────────────────────
+
+model PaymentItem {
+  id                 String            @id @default(uuid()) @db.Uuid
+  projectId          String            @db.Uuid
+  project            Project           @relation(fields: [projectId], references: [id])
+  type               PaymentType
+  label              String
+  stageId            String?           @db.Uuid
+  stage              Stage?            @relation(fields: [stageId], references: [id])
+  changeRequestId    String?           @db.Uuid
+  changeRequest      ChangeRequest?    @relation(fields: [changeRequestId], references: [id])
+  amountMinor        BigInt                               // gross
+  retentionMinor     BigInt            @default(0)        // withheld from this payment
+  currency           Currency
+  dueTrigger         PaymentDueTrigger
+  status             PaymentStatus     @default(SCHEDULED)
+  dueAt              DateTime?
+  confirmDeadline    DateTime?                            // receipt upload + 3 days
+  createdAt          DateTime          @default(now())
+  receipts           PaymentReceipt[]
+  disputes           Dispute[]
+}
+
+model PaymentReceipt {
+  id              String        @id @default(uuid()) @db.Uuid
+  paymentItemId   String        @db.Uuid
+  paymentItem     PaymentItem   @relation(fields: [paymentItemId], references: [id])
+  bankAccountId   String        @db.Uuid                 // account shown to the client when paying
+  bankAccount     BankAccount   @relation(fields: [bankAccountId], references: [id])
+  uploadedById    String        @db.Uuid
+  transactionRef  String
+  amountMinor     BigInt
+  paidOn          DateTime      @db.Date
+  status          ReceiptStatus @default(ACTIVE)
+  confirmedById   String?       @db.Uuid
+  confirmedAt     DateTime?
+  withdrawnAt     DateTime?
+  uploadedAt      DateTime      @default(now())
+  media           MediaAsset[]
+}
+
+// ─────────────────────────── Disputes ───────────────────────────
+
+model Dispute {
+  id                   String        @id @default(uuid()) @db.Uuid
+  projectId            String        @db.Uuid
+  project              Project       @relation(fields: [projectId], references: [id])
+  type                 DisputeType
+  paymentItemId        String?       @db.Uuid
+  paymentItem          PaymentItem?  @relation(fields: [paymentItemId], references: [id])
+  stageId              String?       @db.Uuid
+  stage                Stage?        @relation(fields: [stageId], references: [id])
+  openedBySide         Side
+  openedById           String        @db.Uuid
+  reason               String
+  status               DisputeStatus @default(OPEN)
+  clientResolvedAt     DateTime?                           // "Mark dispute resolved" — client side
+  contractorResolvedAt DateTime?                           // "Mark dispute resolved" — contractor side
+  unresolvedFlaggedAt  DateTime?                           // set at 14 days
+  resolvedAt           DateTime?
+  createdAt            DateTime      @default(now())
+  evidence             DisputeEvidence[]
+}
+
+model DisputeEvidence {
+  id         String       @id @default(uuid()) @db.Uuid
+  disputeId  String       @db.Uuid
+  dispute    Dispute      @relation(fields: [disputeId], references: [id])
+  side       Side
+  authorId   String       @db.Uuid
+  note       String
+  createdAt  DateTime     @default(now())
+  media      MediaAsset[]
+}
+
+// ─────────────────────────── Chat & comments ───────────────────────────
+
+model Conversation {
+  id           String           @id @default(uuid()) @db.Uuid
+  type         ConversationType
+  contractorId String           @db.Uuid                 // every conversation is contained in one company
+  contractor   Contractor       @relation(fields: [contractorId], references: [id])
+  projectId    String?          @db.Uuid
+  project      Project?         @relation(fields: [projectId], references: [id])
+  title        String?
+  createdAt    DateTime         @default(now())
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  userId         String       @db.Uuid
+  user           User         @relation(fields: [userId], references: [id])
+  lastReadAt     DateTime?
+  joinedAt       DateTime     @default(now())
+  leftAt         DateTime?
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id              String       @id @default(uuid()) @db.Uuid
+  clientRequestId String       @unique
+  conversationId  String       @db.Uuid
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+  senderId        String       @db.Uuid
+  body            String?
+  createdAt       DateTime     @default(now())
+  media           MediaAsset[]
+  @@index([conversationId, createdAt])
+}
+
+model Comment {
+  id          String        @id @default(uuid()) @db.Uuid
+  projectId   String        @db.Uuid
+  project     Project       @relation(fields: [projectId], references: [id])
+  targetType  CommentTarget
+  targetId    String        @db.Uuid
+  authorId    String        @db.Uuid
+  body        String
+  createdAt   DateTime      @default(now())
+  @@index([targetType, targetId])
+}
+
+// ─────────────────────────── Ratings & sharing ───────────────────────────
+
+model Rating {
+  id                String      @id @default(uuid()) @db.Uuid
+  projectId         String      @db.Uuid
+  project           Project     @relation(fields: [projectId], references: [id])
+  fromSide          Side
+  fromUserId        String      @db.Uuid
+  ratedContractorId String?     @db.Uuid
+  ratedContractor   Contractor? @relation("RatedContractor", fields: [ratedContractorId], references: [id])
+  ratedClientId     String?     @db.Uuid
+  ratedClient       ClientAccount? @relation("RatedClient", fields: [ratedClientId], references: [id])
+  stars             Int                                  // 1-5
+  review            String?
+  response          String?                              // one public response by the rated side
+  createdAt         DateTime    @default(now())
+  @@unique([projectId, fromSide])
+}
+
+model ShareLink {
+  id          String        @id @default(uuid()) @db.Uuid
+  projectId   String        @db.Uuid
+  project     Project       @relation(fields: [projectId], references: [id])
+  kind        ShareLinkKind
+  tokenHash   String        @unique
+  createdById String        @db.Uuid
+  label       String?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime      @default(now())
+}
+
+// ─────────────────────────── Rewards ───────────────────────────
+
+model PointEvent {
+  id           String           @id @default(uuid()) @db.Uuid
+  contractorId String           @db.Uuid
+  contractor   Contractor       @relation(fields: [contractorId], references: [id])
+  memberId     String           @db.Uuid
+  member       ContractorMember @relation(fields: [memberId], references: [id])
+  projectId    String?          @db.Uuid
+  rule         PointRule
+  points       Int                                     // always > 0 (no negative points)
+  sourceId     String                                  // task/stage/receipt/check-in/etc.
+  awardedById  String?          @db.Uuid               // RECOGNITION only
+  reason       String?
+  createdAt    DateTime         @default(now())
+  @@unique([rule, sourceId, memberId])                 // never award twice for the same thing
+}
+
+model RewardPeriod {
+  id           String         @id @default(uuid()) @db.Uuid
+  contractorId String         @db.Uuid
+  contractor   Contractor     @relation(fields: [contractorId], references: [id])
+  startsAt     DateTime
+  endsAt       DateTime
+  closedAt     DateTime?
+  payouts      RewardPayout[]
+}
+
+model RewardPayout {
+  id          String       @id @default(uuid()) @db.Uuid
+  periodId    String       @db.Uuid
+  period      RewardPeriod @relation(fields: [periodId], references: [id])
+  memberId    String       @db.Uuid
+  points      Int
+  amountMinor BigInt?
+  paidAt      DateTime?
+  markedById  String?      @db.Uuid
+  @@unique([periodId, memberId])
+}
+
+// ─────────────────────────── Billing ───────────────────────────
+
+model Plan {
+  code                   String   @id                  // e.g. STARTER, GROWTH, PRO (prices TBD)
+  name                   String
+  includedActiveProjects Int?                           // null = unlimited
+  monthlyPriceMinor      BigInt?
+  yearlyPriceMinor       BigInt?
+  extraProjectPriceMinor BigInt?
+  isActive               Boolean  @default(true)
+  subscriptions          Subscription[]
+}
+
+model Subscription {
+  id               String             @id @default(uuid()) @db.Uuid
+  contractorId     String             @unique @db.Uuid
+  contractor       Contractor         @relation(fields: [contractorId], references: [id])
+  planCode         String?
+  plan             Plan?              @relation(fields: [planCode], references: [code])
+  status           SubscriptionStatus @default(FREE_PROJECT)
+  cycle            BillingCycle?
+  currentPeriodEnd DateTime?
+  freeProjectId    String?            @db.Uuid
+  freeProjectEndsAt DateTime?                            // finish or 12 months, whichever first
+  providerRef      String?
+  createdAt        DateTime           @default(now())
+}
+
+// ─────────────────────────── Notifications & jobs ───────────────────────────
+
+model Notification {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+  eventType  String                                    // e.g. STAGE_READY_FOR_REVIEW (see catalogue)
+  title      String
+  body       String
+  deepLink   String                                    // opens the exact item
+  critical   Boolean  @default(false)
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+  deliveries NotificationDelivery[]
+  @@index([userId, readAt])
+}
+
+model NotificationDelivery {
+  id             String         @id @default(uuid()) @db.Uuid
+  notificationId String         @db.Uuid
+  notification   Notification   @relation(fields: [notificationId], references: [id])
+  channel        Channel
+  status         DeliveryStatus @default(QUEUED)
+  attempts       Int            @default(0)
+  lastError      String?
+  sentAt         DateTime?
+}
+
+model NotificationPreference {
+  userId    String  @db.Uuid
+  user      User    @relation(fields: [userId], references: [id])
+  eventType String
+  push      Boolean @default(true)
+  email     Boolean @default(true)
+  sms       Boolean @default(true)
+  digest    Boolean @default(false)                    // progress updates only
+  @@id([userId, eventType])
+}
+
+/// Transactional outbox: domain events written in the same DB transaction as the change.
+model DomainEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  type        String
+  payload     Json
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+  @@index([processedAt])
+}
+
+/// Timers: review reminders, confirm deadlines, 14-day flags, payment-pause end, free-project end.
+model ScheduledJob {
+  id        String    @id @default(uuid()) @db.Uuid
+  type      String
+  runAt     DateTime
+  payload   Json
+  dedupeKey String    @unique
+  status    JobStatus @default(PENDING)
+  attempts  Int       @default(0)
+  lastError String?
+  createdAt DateTime  @default(now())
+  @@index([status, runAt])
+}
+
+// ─────────────────────────── Admin ───────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+  @@index([entityType, entityId])
+}
+
+model SupportTicket {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @db.Uuid
+  subject     String
+  body        String
+  status      TicketStatus @default(OPEN)
+  assignedTo  String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  closedAt    DateTime?
+}
