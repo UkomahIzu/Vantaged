@@ -1,0 +1,12 @@
+{
+  "name": "@vantaged/tokens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vantaged design tokens: White 60% · Orange #EF5F18 30% · Scarlet Bikini #261A66 10%. Light and dark mode.",
+  "type": "module",
+  "main": "./dist/tokens.ts",
+  "types": "./dist/tokens.ts",
+  "exports": { ".": "./dist/tokens.ts", "./css": "./dist/tokens.css", "./json": "./dist/tokens.json" },
+  "files": ["dist", "src"],
+  "scripts": { "build": "node build.mjs && node preview.mjs" }
+}

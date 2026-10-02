@@ -5,22 +5,27 @@
 
 import '@/global.css';
 
+import { native as vt } from '@vantaged/config';
 import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: vt.semantic.color.text.default,
+    background: vt.semantic.color.background.default,
+    backgroundElement: vt.semantic.color.background.subtle,
+    backgroundSelected: vt.semantic.color.background.muted,
+    textSecondary: vt.semantic.color.text.muted,
+    primary: vt.semantic.color.primary.default,
+    brand: vt.semantic.color.background.brand,
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: vt.dark.color.text.default,
+    background: vt.dark.color.background.default,
+    backgroundElement: vt.dark.color.background.subtle,
+    backgroundSelected: vt.dark.color.background.muted,
+    textSecondary: vt.dark.color.text.muted,
+    primary: vt.dark.color.primary.default,
+    brand: vt.dark.color.background.brand,
   },
 } as const;
 

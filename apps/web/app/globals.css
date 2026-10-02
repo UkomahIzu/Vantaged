@@ -1,26 +1,25 @@
+@import "@vantaged/config/src/tokens.css";
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: var(--vt-color-background-default);
+  --foreground: var(--vt-color-text-default);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: var(--vt-color-primary-default);
+  --color-brand: var(--vt-color-background-brand);
+  --color-surface: var(--vt-color-surface-default);
+  --color-border: var(--vt-color-border-default);
+  --font-sans: var(--vt-font-sans), system-ui, sans-serif;
+  --font-mono: var(--vt-font-mono), monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum" 1;
 }
