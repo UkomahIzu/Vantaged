@@ -1,0 +1,1733 @@
+=== Page 1 ===
+A L L  T R A C K E R  ·  P R O D U C T  F A M I L Y
+BuildTrack
+Product Requirements Document
+A trust-first construction tracking platform that lets clients see, verify and pay
+for construction progress remotely — and gives contractors one system to run
+their projects, crews and client relationships.
+Document Product Requirements Document (PRD)
+Product BuildTrack (working name — final name to be decided)
+Version 1.0 — Draft for review
+Date 27 September 2026
+Product owner Izuchukwu
+Status Draft — covers releases v1.0, v1.1, v2 and later
+Next document Software Requirements Document (SRD)
+=== Page 2 ===
+Contents
+0 Document control 3
+1 Introduction 4
+1.1 Purpose of this document 4
+1.2 Product summary 4
+1.3 Scope 5
+1.4 Glossary 5
+1.5 References 6
+2 Problem & opportunity 7
+2.1 Problem statement 7
+2.2 Market context 7
+2.3 Value proposition & diﬀerentiators 8
+3 Goals, non-goals & success metrics 8
+3.1 Product goals 8
+3.2 Non-goals 8
+3.3 Success metrics 9
+4 Users & personas 10
+4.1 Account types 10
+4.2 Personas 10
+5 Roles & permissions 11
+5.1 Role overview 11
+5.2 Client Rep permission modules 11
+5.3 Permission matrix 12
+6 Product structure & dashboards 14
+6.1 Structure 14
+6.2 Dashboards by role 14
+7 Functional requirements 15
+7.1 Accounts & onboarding 16
+7.2 Contractor verification 16
+7.3 Client identity verification 17
+7.4 Contractor directory & invitations 18
+7.5 Project creation 18
+7.6 Stage presets 19
+7.7 Plan, payment structure, acceptance & lock 20
+7.8 Change requests 20
+7.9 Progress updates & proof 21
+7.10 Tasks & site check-ins 21
+7.11 Stage review: approval, rejection & overdue reviews 22
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 1 of 42
+=== Page 3 ===
+7.12 Progress calculation 22
+7.13 Payments (recorded, not processed) 23
+7.14 Payment protection & bank-detail lock 24
+7.15 Disputes (payment and stage) 24
+7.16 Projects without a connected client 25
+7.17 Chat 25
+7.18 Notifications 26
+7.19 Ratings & reputation 28
+7.20 Share links 28
+7.21 Worker reward system 29
+7.22 Subscriptions & billing 30
+7.23 Platform Admin dashboard 30
+7.24 Pause, cancel & switch contractor 31
+7.25 Expenses & materials log 31
+8 Key lifecycles & user flows 32
+8.1 End-to-end flow 32
+8.2 Contractor onboarding 32
+8.3 Project states 32
+8.4 Stage lifecycle 33
+8.5 Payment lifecycle 33
+8.6 Dispute lifecycle (v1) 33
+9 Business model 34
+9.1 Why this model 34
+10 Non-functional requirements 35
+11 Integrations & third-party services 36
+12 Release plan 37
+13 Risks & mitigations 38
+14 Assumptions, dependencies & open items 39
+14.1 Assumptions 39
+14.2 Dependencies 39
+14.3 Open items 39
+A Appendix A — Example stage preset: Duplex 40
+B Appendix B — Decision log 41
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 2 of 42
+=== Page 4 ===
+0 Document control
+Version history
+Version Date Author Changes
+1.0 (draft) 27 Sep 2026 Izuchukwu First complete PRD, consolidating all decisions
+from the ideation phase and competitor
+research.
+How to read this document
+Sections 1–4 explain the why: the problem, the opportunity, goals and the people BuildTrack serves.
+Sections 5–6 define who can do what (roles, permissions and dashboards).
+Section 7 is the core: every functional requirement, grouped by feature area. Each requirement has an ID
+(e.g. FR-PAY-03) and a target release.
+Section 8 shows the key lifecycles (project, stage, payment, dispute) as states and flows.
+Sections 9–14 cover the business model, non-functional requirements, integrations, release plan, risks and
+open items.
+Appendices hold reference material such as a worked stage preset.
+Release labels
+Every requirement is tagged with the release it belongs to:
+Label Meaning
+v1.0 First public launch. The core trust loop: verification, projects, stages, proof, approvals, recorded
+payments, disputes, chat, notifications, ratings, rewards, billing.
+v1.1 Shortly after launch: pause / cancel / switch contractor, expenses and materials log.
+v2 Next major release: pay through the app, platform-resolved disputes, paid organisation plan,
+multiple contractors per project, extra roles.
+Later Future roadmap: escrow, independent inspections, camera/drone integrations, AI proof checks.
+Requirement priority
+Within a release, requirements use MoSCoW priority: Must (release cannot ship without it), Should (important,
+can slip to a point release if needed), Could (nice to have).
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 3 of 42
+=== Page 5 ===
+1 Introduction
+1.1 Purpose of this document
+This PRD defines what BuildTrack must do and why. It is the single source of truth for scope, user roles,
+behaviour and business rules agreed during the ideation phase. It deliberately avoids implementation detail
+(architecture, database design, APIs, technology choices); those belong in the Software Requirements
+Document (SRD) that follows.
+1.2 Product summary
+BuildTrack is a two-sided construction tracking platform connecting the people who pay for a build
+(Clients) with the company that builds it (the Contractor).
+Contractors run their projects in BuildTrack: they set up each project from a stage preset, agree the plan
+and payment structure with the client, assign their crew, and post progress with photo, video and GPS-
+stamped proof.
+Clients — individuals (including Nigerians in the diaspora), governments and organisations — follow their
+build remotely, approve or reject each stage based on evidence, record payments, and rate the contractor.
+Verified progress is the core idea: a stage only counts as complete once the client has approved it against
+the proof. Everything else — payments, disputes, ratings, rewards — builds on that record.
+BuildTrack is the first standalone app under the All Tracker umbrella brand. All Tracker is a family of separate,
+vertical-specific tracking apps (similar to how Adobe has multiple distinct apps under one brand); SPANR (car
+repair tracking) is a sibling app.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 4 of 42
+=== Page 6 ===
+1.3 Scope
+In scope (this PRD)
+Client and Contractor web apps and mobile
+apps
+Contractor verification and client identity
+checks
+Contractor directory and invitations
+Projects, stage presets, plans and change
+requests
+Progress proof, stage review, verified
+progress
+Recorded (oﬀ-app) payments, disputes,
+bank-detail protection
+Built-in chat, notifications, ratings
+Crew tasks, site check-ins and the worker
+reward system
+Contractor subscriptions and the Platform
+Admin dashboard
+Roadmap items for v1.1, v2 and later
+Out of scope (for now)
+Moving money through the app (planned
+for v2)
+Escrow (later, via a licensed partner)
+Actual subscription prices (to be set in the
+business phase)
+Final product name (working name
+BuildTrack)
+Estimating, bidding, full accounting, payroll
+BIM / 3D models, drones, fixed cameras
+(later)
+Technical design — covered by the SRD
+1.4 Glossary
+Term Meaning in BuildTrack
+Client The side paying for the build. An account is either Individual (one person) or
+Organisation (government, corporate, developer).
+Client Admin The person in full control of a client account.
+Client Rep Client Representative. Oversees builds on the Client Admin's behalf, with abilities granted
+through permission modules.
+Contractor The verified construction company carrying out the build.
+Director The head of a contractor account (the company's owner / MD).
+Site Manager Runs work on site; posts progress and submits stages for review.
+Oﬀice Coordinator Oﬀice-based staﬀ: documents, client communication, payment records, progress
+uploads.
+Crew Member Site worker with their own login who sees only the projects they are assigned to.
+Platform Admin BuildTrack's own team (BuildTrack Support): verification, support, subscriptions,
+presets.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 5 of 42
+=== Page 7 ===
+Term Meaning in BuildTrack
+Project One construction job between one contractor and one client (v1).
+Stage A defined phase of a project (e.g. Foundation, Roofing) with a checklist, proof
+requirements, target dates, a weight and optionally a payment.
+Stage preset A reusable template of stages for a project type (e.g. Duplex, Road, Bridge).
+Plan The project's stages plus its payment structure, proposed by the contractor and
+accepted (locked) by the client.
+Proof Photos, videos and descriptions attached to checklist items and stages, stamped with
+GPS location and time.
+Verified progress Percentage complete calculated only from stages the client has approved.
+Reported progress The contractor's own estimate of progress, shown separately from verified progress.
+Ball in court Whose turn it is to act on an item (borrowed from Procore). Shown on every stage,
+payment, change request and dispute.
+Change request A formal request to change a locked plan (stages, dates, amounts); the other side must
+approve it.
+Issue A problem to fix, created from a rejected checklist item.
+Recorded payment A payment made outside the app (bank transfer) and recorded in BuildTrack with a
+receipt and transaction reference.
+Retention A percentage withheld from payments and released at handover.
+Share link A read-only link to view a project without an account.
+CAC / TIN / NIN Corporate Aﬀairs Commission registration / Tax Identification Number / National
+Identification Number (Nigeria).
+COREN / CORBON Council for the Regulation of Engineering in Nigeria / Council of Registered Builders of
+Nigeria.
+1.5 References
+Construction Tracking Competitor Research (Procore, OpenSpace, Track3D, TrueLook) — produced during
+ideation.
+Industry practice consulted during ideation: Procore project setup, inspections, schedule and notification
+behaviour; milestone, progress and retention payment practice; Buildertrend open-book vs fixed-price
+client visibility; Nigerian contractor compliance (CAC, TIN, COREN, CORBON, BPP).
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 6 of 42
+=== Page 8 ===
+2 Problem & opportunity
+2.1 Problem statement
+People funding construction in Nigeria — especially from abroad — cannot see or verify what is happening
+on site, and the tools they rely on today do not create trust.
+No verified view of progress. Clients depend on occasional photos and the contractor's word. Stories of
+stalled or abandoned builds ("stuck at lintel level") and misused funds are common, which makes
+diaspora clients hesitant to build at home.
+WhatsApp is the system of record. Updates, approvals and payment proof live in chats that get deleted,
+lost with phones, or leave with staﬀ. Nothing is structured, dated to a stage or usable in a dispute.
+Money is not tied to proof. Payments are made on trust; there is no shared record of what was paid,
+against which stage, and whether it was received.
+Honest contractors cannot prove they are honest. Good builders have no portable reputation or verified
+track record to win clients, especially remote ones.
+Existing software does not fit. Global tools are built and priced for large US/European contractors, treat
+the client as a guest, and are not designed for Nigeria.
+2.2 Market context
+Competitor research (see References) found two groups: systems of record that run the contractor's project
+(Procore) and "eyes on site" tools that turn imagery into progress (OpenSpace, Track3D, TrueLook).
+Competitor What it does What BuildTrack borrows Gap BuildTrack fills
+Procore All-in-one construction
+management for large
+contractors; unlimited users;
+priced on annual construction
+volume.
+Company → projects → tools
+structure; role/permission
+templates; tracked items with
+status and "ball in court";
+unlimited users.
+Expensive, complex, built for big
+firms; client historically a guest;
+progress reported, not verified;
+no Africa focus.
+OpenSpace 360° site capture mapped to
+floor plans; verified progress;
+field issues.
+Proof pinned to location and
+date; before/after comparison;
+low-eﬀort capture (voice, walk-
+and-talk).
+Enterprise pricing; needs
+someone to walk the site; no
+owner-first experience.
+Track3D AI progress measurement from
+any capture; live in a day, no
+BIM needed.
+Progress measured by
+stage/quantity; fast setup
+without complex models.
+Narrow product; no workflow,
+payments or client side.
+TrueLook Fixed jobsite cameras: live view,
+time-lapse, security.
+Easy sharing with non-users
+(share links); simple,
+transparent pricing.
+Sees only one view; no progress
+verification or workflow.
+Local players (e.g. BuildWatch, Buildove, Pencil Home, Propy Mould, Buildam) confirm demand — many are
+services or early apps — while most clients still rely on WhatsApp photos.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 7 of 42
+=== Page 9 ===
+2.3 Value proposition & diﬀerentiators
+Diﬀerentiator Why it matters
+Client-first, two-sided design The client has a real dashboard and real authority (approvals), not a guest view.
+Verified progress Only client-approved stages count toward % complete; reported progress is shown
+separately.
+Evidence you can trust GPS- and time-stamped photos/videos against a stage checklist, with minimum
+proof before review.
+Payments tied to proof Stage approval makes its payment due; receipts, confirmations and disputes are
+recorded with deadlines.
+Verified contractors only CAC, TIN, director identity and bank-name checks before a contractor can use the
+app.
+Two-way reputation Clients rate contractors and contractors rate clients; unresolved disputes appear
+on both profiles; NIN/passport checks stop clients escaping bad reviews.
+Replaces WhatsApp for project
+work
+Built-in chat keeps every conversation with the project, even when staﬀ leave.
+Built for Nigeria Android-friendly, oﬀline capture, naira by default, Nigerian verification
+(CAC/TIN/NIN), local stage presets (DPC, lintel, decking).
+Motivated crews Optional reward points turn good, verified work into higher pay.
+3 Goals, non-goals & success metrics
+3.1 Product goals
+1. Trust: give clients a verified, evidence-based view of progress and payments on every project.
+2. Adoption by contractors: make BuildTrack the easiest way for a Nigerian contractor to run projects and
+win clients (especially diaspora clients).
+3. Replace informal channels: move project communication, approvals and payment records out of
+WhatsApp and notebooks into a structured record.
+4. Fair accountability both ways: make it visible when either side behaves badly (unconfirmed payments,
+repeated rejections, unresolved disputes).
+5. Sustainable business: generate recurring revenue from contractor subscriptions while keeping individual
+clients free.
+3.2 Non-goals
+Not a payment processor or escrow provider in v1 — money moves outside the app.
+Not a platform-run dispute court in v1 — parties resolve disputes themselves (the platform steps in from
+v2).
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 8 of 42
+=== Page 10 ===
+Not an enterprise tool competing with Procore on estimating, BIM, accounting or scheduling depth.
+Not a hiring marketplace for individual artisans.
+3.3 Success metrics
+Targets are to be set once launch plans and pricing are finalised; the metrics below define what will be
+measured.
+Area Metric Why
+Contractor growth Verified contractors; active projects; free-to-
+paid conversion after first project
+Main revenue driver
+Client connection % of projects with a connected client; client
+invites sent by contractors and vice versa
+Connected clients unlock verified
+progress
+Verification loop Median time from "Ready for review" to
+decision; % of stages approved first time; % of
+reviews overdue
+Health of the core trust loop
+Payments % of receipts confirmed within 3 days; %
+disputed; % unresolved after 14 days
+Trust in payment records
+Engagement Proof uploads per stage; weekly active users
+by role; chat messages per project
+Real use vs. dormant accounts
+Reputation % of completed projects rated (both
+directions); average ratings
+Two-way trust signal
+Retention Contractor subscription retention; repeat
+projects per client
+Sustainable business
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 9 of 42
+=== Page 11 ===
+4 Users & personas
+4.1 Account types
+Account type Who Key facts
+Client — Individual A person funding their own build, including
+diaspora Nigerians.
+Always free. Identity checked by NIN or
+international passport. Client Admin can add
+Client Reps (e.g. a relative on the ground).
+Client — Organisation Governments, ministries, corporates and
+developers managing one or many builds.
+Free under Early Access in v1 (limited active
+projects); paid plan in v2. Multiple Client Reps.
+Contractor A verified construction company. Pays a subscription (first project free). Fixed
+roles: Director, Site Manager, Oﬀice
+Coordinator, Crew Member. Unlimited users.
+Platform BuildTrack's own team. Platform Admin dashboard: verification,
+support, dispute monitoring, subscriptions,
+presets.
+4.2 Personas
+Persona Needs Pain points today
+Ada — diaspora
+homeowner
+Client Admin, lives in the
+UK, building a duplex in
+Enugu
+See real progress without flying home; pay
+only for work done; a trusted person locally
+to check things.
+Relies on WhatsApp photos she can't verify;
+fears money disappearing; no record if
+things go wrong.
+Emeka — Ada's
+brother
+Client Rep
+Visit site occasionally, approve stages on
+Ada's behalf, raise issues.
+No authority or structure; decisions lost in
+family chats.
+Ministry of Works
+project desk
+Organisation client
+Track several contractors across roads and
+buildings; evidence for audits; several Client
+Reps overseeing diﬀerent sites.
+Paper reports; slow verification; weak audit
+trail.
+Tunde — contractor
+Director
+Runs a 25-person
+building firm
+See all projects and money in one place; win
+diaspora clients; motivate staﬀ.
+Juggles WhatsApp groups and notebooks;
+payment arguments; no way to prove track
+record.
+Bola — Site Manager Post progress quickly from site, get stages
+approved, keep crew on task.
+Poor network on site; repeated questions
+from clients; unclear approvals.
+Chinedu — Oﬀice
+Coordinator
+Keep documents, client messages and
+payment records in order.
+Receipts and approvals scattered across
+phones and emails.
+Musa — Crew Member
+Basic Android phone
+Know today's tasks, submit proof with a few
+taps, get rewarded for good work.
+Complex apps, weak data connection, eﬀort
+goes unrecognised.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 10 of 42
+=== Page 12 ===
+5 Roles & permissions
+BuildTrack has two sides — Client and Contractor — plus BuildTrack's own Platform Admin team. There is no
+separate "viewer" role or dashboard: read-only access is given through share links.
+5.1 Role overview
+Side Role Description Access to projects
+Client Client Admin Full control of the client account. Creates and
+manages Client Reps, accepts plans, approves stages,
+records payments, rates contractors.
+All of the client's
+projects
+Client Rep Oversees builds on the Client Admin's behalf. Abilities
+come only from the permission modules the Client
+Admin grants. A Client Rep with all modules is
+eﬀectively an admin.
+Projects the Client
+Admin assigns
+Contractor Director Head of the company. Company profile, verification,
+subscription, bank details, staﬀ, all projects and
+money.
+All company projects
+Site Manager Runs work on site: assigns crew and tasks, posts
+progress, submits stages for review, fixes issues.
+All company projects
+Oﬀice Coordinator Oﬀice duties: documents, client communication,
+payment records and confirmations, progress
+uploads.
+All company projects
+Crew Member Site worker with their own login. Sees today's tasks,
+submits proof, checks in on site. Can share a viewer
+link with a fellow crew member not on the project
+when they need help.
+Only assigned projects
+Platform Platform Admin BuildTrack Support: contractor verification, user
+support, dispute monitoring, subscriptions, stage
+presets.
+Administrative access
+(audited)
+Fixed roles
+Contractor roles are fixed: a Director cannot create custom roles or change what each role can do. Client
+Rep abilities are the only configurable permissions in the product, and they are set by the Client Admin.
+5.2 Client Rep permission modules
+The Client Admin can create as many Client Rep accounts as needed and switch each module on or oﬀ per
+Client Rep. A Client Rep with every module switched on can do everything a Client Admin can do on those
+projects, except the account-level actions reserved for the Client Admin (identity verification, deleting the
+account, creating Client Reps unless granted "Invite people").
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 11 of 42
+=== Page 13 ===
+Module What it allows
+View progress See the project dashboard, stages, proof, timeline and verified/reported progress.
+Approve / reject stages Review stages marked "Ready for review", approve them, or reject them with
+reasons (creating issues).
+Payments See payments due and the contractor's account details, upload receipts, withdraw
+receipts, take part in payment disputes.
+Change requests Raise change requests and approve or reject the contractor's change requests.
+Message the contractor Use project chat with the contractor's team.
+Manage share links Create and revoke read-only share links (e.g. for family, a lender or auditors).
+Invite people Invite a contractor to a project and add further Client Reps.
+5.3 Permission matrix
+Defaults below apply to v1.0. ✓ = allowed; M = allowed if the Client Rep has the named module; — = not
+allowed.
+Action Client Admin Client Rep Director Site Mgr Oﬀice Coord. Crew
+Account & company
+Manage client account, identity check,
+Client Reps
+✓ M (invite) — — — —
+Company profile, verification, subscription — — ✓ — — —
+Add / change company bank details — — ✓ — — —
+Invite / remove staﬀ — — ✓ Crew only — —
+Projects & plans
+Browse contractor directory, invite a
+contractor
+✓ M (invite) — — — —
+Create / edit draft project and plan — — ✓ ✓ ✓ —
+Send plan to client; invite client — — ✓ ✓ — —
+Accept plan (locks it) or request changes ✓ — — — — —
+Raise / approve change requests ✓ M ✓ ✓ — —
+Manage company stage presets & default
+payment structure
+— — ✓ ✓ — —
+Progress & review
+View project progress ✓ M ✓ ✓ ✓ Assigned
+Upload progress updates & proof — — ✓ ✓ ✓ Assigned
+Assign crew and tasks — — ✓ ✓ — —
+Mark stage "Ready for review"; resubmit — — ✓ ✓ — —
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 12 of 42
+=== Page 14 ===
+Action Client Admin Client Rep Director Site Mgr Oﬀice Coord. Crew
+Approve / reject stages ✓ M — — — —
+Money
+See payments due & contractor account;
+upload / withdraw receipt
+✓ M — — — —
+Confirm or dispute a receipt — — ✓ — ✓ —
+Raise / resolve disputes ✓ M ✓ ✓ (stage) ✓ (payment) —
+Communication, sharing & reputation
+Chat with the other side ✓ M ✓ ✓ ✓ —
+Internal staﬀ chat — — ✓ ✓ ✓ ✓
+Create / revoke project share links ✓ M ✓ ✓ ✓ —
+Share a crew viewer link — — — — — ✓
+Rate the other side ✓ — ✓ — — —
+Rewards (if enabled by the contractor)
+Configure rewards; mark bonuses paid — — ✓ — — —
+Give recognition points — — Anyone Crew only — —
+Earn points; see own points — — — ✓ ✓ ✓
+Where the ideation phase did not specify which contractor role performs an action, this matrix sets a proposed default; it is listed
+for confirmation in Section 14.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 13 of 42
+=== Page 15 ===
+6 Product structure & dashboards
+6.1 Structure
+The project is the centre of the model. A contractor has many projects; a client has many projects; each
+project in v1 links exactly one contractor to one client.
+Client account
+Individual or Organisation · Client
+Admin + Client Reps
+⇄
+Project
+Stages · proof · payments · chat ·
+disputes · ratings
+⇄
+Contractor account
+Director · Site Managers · Oﬀice
+Coordinators · Crew
+A contractor only ever sees projects it is linked to. A client sees all its projects across all contractors in one
+list.
+Both web and mobile apps are available to both sides.
+Each role lands on its own dashboard after login.
+6.2 Dashboards by role
+Dashboard Shows
+Client Admin All projects across all contractors: contractor, current stage, verified % and reported %, last
+update, money paid vs remaining, items waiting for them (ball in court), open issues, disputes.
+Client Reps and their modules. Contractor directory. Latest proof photos.
+Client Rep The same project view, limited to assigned projects and granted modules, with a "waiting for
+you" list.
+Director All company projects across all clients; stages awaiting review; payments due, unconfirmed or
+disputed; overdue items; staﬀ and crew assignments; ratings; subscription status; reward
+overview.
+Site Manager Projects with today's work, crew assignments and tasks, stages in progress / ready / rejected,
+issues to fix, recent check-ins.
+Oﬀice
+Coordinator
+Receipts awaiting confirmation (with the 3-day deadline), documents, client messages, payment
+schedule per project.
+Crew Member Deliberately simple, one screen: today's tasks, a big camera button to submit proof (photo,
+video, voice), site check-in, and their points. Works oﬀline.
+Platform Admin Verification queue, flagged accounts, unconfirmed payments and unresolved disputes
+(monitoring), support tickets, subscriptions, stage preset library.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 14 of 42
+=== Page 16 ===
+7 Functional requirements
+This section lists every functional requirement, grouped by feature area. Each requirement has a unique ID,
+a MoSCoW priority and a target release.
+Section Feature area Release(s)
+7.1 Accounts & onboarding v1.0
+7.2 Contractor verification v1.0
+7.3 Client identity verification v1.0
+7.4 Contractor directory & invitations v1.0
+7.5 Project creation v1.0  v2
+7.6 Stage presets v1.0
+7.7 Plan, payment structure, acceptance & lock v1.0  v2
+7.8 Change requests v1.0
+7.9 Progress updates & proof v1.0
+7.10 Tasks & site check-ins v1.0
+7.11 Stage review: approval, rejection & overdue reviews v1.0
+7.12 Progress calculation v1.0
+7.13 Payments (recorded, not processed) v1.0  v2  Later
+7.14 Payment protection & bank-detail lock v1.0
+7.15 Disputes (payment and stage) v1.0  v2
+7.16 Projects without a connected client v1.0
+7.17 Chat v1.0
+7.18 Notifications v1.0
+7.19 Ratings & reputation v1.0  v1.1
+7.20 Share links v1.0
+7.21 Worker reward system v1.0
+7.22 Subscriptions & billing v1.0  v2  Later
+7.23 Platform Admin dashboard v1.0  v2
+7.24 Pause, cancel & switch contractor v1.1
+7.25 Expenses & materials log v1.1
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 15 of 42
+=== Page 17 ===
+7.1 Accounts & onboarding
+Everyone signs up with a phone number and email. The sign-up path depends on the side and account type.
+ID Requirement Priority Release
+FR-ACC-01 Users can sign up as a Client (Individual or Organisation) or a Contractor. The
+account type is chosen at sign-up.
+Must v1.0
+FR-ACC-02 Phone number and email are verified by one-time code (OTP) before the account
+becomes usable.
+Must v1.0
+FR-ACC-03 A Client Admin can create an unlimited number of Client Rep accounts, assign
+them to projects, and switch permission modules on or oﬀ per Client Rep (see 5.2).
+Must v1.0
+FR-ACC-04 A Director can invite staﬀ by phone or email and assign one fixed role: Site
+Manager, Oﬀice Coordinator or Crew Member. Site Managers can invite Crew
+Members.
+Must v1.0
+FR-ACC-05 Every Crew Member has their own login. Crew Members see only projects they are
+assigned to.
+Must v1.0
+FR-ACC-06 Removing a staﬀ member or Client Rep revokes access immediately; everything
+they posted stays on the project record.
+Must v1.0
+FR-ACC-07 Login on a new device requires an SMS one-time code. Must v1.0
+FR-ACC-08 Users can manage their notification preferences (see 7.18). Must v1.0
+7.2 Contractor verification
+Only verified contractors can use BuildTrack. A contractor can sign up and complete its profile, but cannot
+create live projects, appear in the directory or receive client invitations until the Platform Admin team
+approves verification. Checks are automated where a provider API exists (CAC, TIN, identity, bank account
+name) and reviewed by the Platform Admin team.
+ID Requirement Priority Release
+FR-VER-01 Contractors submit the required verification items in the table below. Verification
+status is one of: Not started, Submitted, Under review, Verified, Rejected (with
+reason), Expired.
+Must v1.0
+FR-VER-02 CAC registration is checked automatically against the registry: registered name,
+RC number, incorporation date and status. Status must be Active.
+Must v1.0
+FR-VER-03 The company bank account's name (resolved automatically from the account
+number) must match the verified CAC name.
+Must v1.0
+FR-VER-04 Optional badges are shown on the contractor's profile once checked: Registered
+Builder / Engineer (COREN / CORBON), Government-ready (BPP / Ministry of
+Works category), Tax clearance, Insured, Portfolio.
+Should v1.0
+FR-VER-05 For road and bridge projects (engineering work), a verified COREN registration is
+required before the contractor can create such a project.
+Must v1.0
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 16 of 42
+=== Page 18 ===
+ID Requirement Priority Release
+FR-VER-06 Verification is renewed every 12 months, and immediately whenever the bank
+details or directors change. Contractors are reminded before expiry.
+Must v1.0
+FR-VER-07 Contractors invited by a client but not yet on BuildTrack sign up through the
+invite link; the invitation waits until they are verified.
+Must v1.0
+Verification checklist
+Type Check How it is verified
+Required
+(to become
+Verified)
+CAC certificate + RC number, status Active Registry lookup via verification provider +
+document upload
+TIN (Tax Identification Number) Registry lookup via verification provider
+Director identity: NIN or international passport +
+selfie
+Identity provider (e.g. Smile ID, Prembly, Dojah)
+with liveness check
+Company bank account name matches the CAC
+name
+Account-name lookup (e.g. Paystack /
+Flutterwave)
+Oﬀice address + proof (e.g. utility bill) Upload, reviewed by Platform Admin
+Phone number and email One-time code
+Optional badges COREN / CORBON registration Upload + COREN public verification portal →
+"Registered Builder / Engineer" badge.
+Required for roads and bridges.
+BPP registration / Ministry of Works contractor
+category
+Upload → "Government-ready" badge
+Tax clearance certificate Upload
+Insurance Upload
+Portfolio of past projects Photos + descriptions
+Why professional registration is optional
+Many genuine small builders are not registered with COREN or CORBON. Making it mandatory would
+exclude much of the market; showing it as a badge lets clients prefer registered contractors. The
+exception is road and bridge work, which is engineering work by law.
+7.3 Client identity verification
+Clients verify their identity so they cannot open a new account to escape bad ratings or unresolved disputes
+on an existing one.
+ID Requirement Priority Release
+FR-IDV-01 Client Admins verify identity with NIN, or an international passport for clients
+without a NIN (e.g. diaspora).
+Must v1.0
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 17 of 42
+=== Page 19 ===
+ID Requirement Priority Release
+FR-IDV-02 One verified identity can hold only one Client Admin account. Must v1.0
+FR-IDV-03 BuildTrack stores only the verification result (verified yes/no, provider reference,
+date) — not the raw NIN or passport number — in line with Nigeria's data
+protection law.
+Must v1.0
+FR-IDV-04 Individual client accounts are always free. Must v1.0
+7.4 Contractor directory & invitations
+Clients can find and invite a verified contractor, or bring in their own contractor who is not yet on BuildTrack.
+Because the directory is public-facing, only verified contractors are listed.
+ID Requirement Priority Release
+FR-DIR-01 Clients can browse and search a directory of verified contractors by location,
+project types built, badges and rating.
+Must v1.0
+FR-DIR-02 Each contractor profile shows: company name, location, project types,
+verification badges, number of projects completed on BuildTrack, average rating
+and reviews, and any Unresolved dispute flags.
+Must v1.0
+FR-DIR-03 A client can invite a listed contractor to build their project. The contractor
+accepts or declines, then creates the project and sends the plan.
+Must v1.0
+FR-DIR-04 A client can invite a contractor that is not on BuildTrack by name, email or
+phone. The contractor receives a sign-up link that automatically connects them
+to that client once verified.
+Must v1.0
+FR-DIR-05 A contractor can invite a client by email or phone to connect to a project it has
+created.
+Must v1.0
+7.5 Project creation
+The contractor creates every project (the client does not). Setup is kept short: a handful of fields, then a
+stage preset does the heavy lifting.
+ID Requirement Priority Release
+FR-PRJ-01 Project fields: name, project type (from the preset list), location pin on a map +
+address, contract value, currency, start date, target completion date, description.
+Contract type (Fixed price / Open book) is added in v1.1.
+Must v1.0
+FR-PRJ-02 Currency is chosen per project: Naira (default), USD or GBP. It is a display label
+only; there is no currency conversion because money does not move through the
+app.
+Must v1.0
+FR-PRJ-03 The contractor selects a stage preset for the project type (see 7.6) and edits it into
+the project's plan.
+Must v1.0
+FR-PRJ-04 In v1 each project has exactly one contractor and one client. An organisation
+with several contractors has one project per contractor.
+Must v1.0
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 18 of 42
+=== Page 20 ===
+ID Requirement Priority Release
+FR-PRJ-05 Project status: Draft → Awaiting client acceptance → Active → Completed. Plus
+Client not connected (see 7.16), and Paused / Cancelled in v1.1.
+Must v1.0
+FR-PRJ-06 Completed projects become read-only and remain viewable by both sides
+indefinitely; nothing is deleted.
+Must v1.0
+FR-PRJ-07 Multiple contractors per project, each with an assigned scope (e.g. structure,
+electrical).
+Could v2
+7.6 Stage presets
+Instead of asking contractors for a professional schedule file (as Procore does), BuildTrack ships ready-made
+stage presets for every project type, including roads and bridges. Presets work in three layers:
+ID Requirement Priority Release
+FR-PRE-01 BuildTrack provides platform presets for all common project types, including at
+least: Bungalow, Duplex, Storey building, Commercial building, Renovation, Road,
+Bridge. Platform Admins maintain the library.
+Must v1.0
+FR-PRE-02 Each preset defines, per stage: name, order, default weight (% of the whole
+project), a short checklist, and minimum proof required before review (e.g. at
+least 5 photos and 1 video).
+Must v1.0
+FR-PRE-03 Contractors can copy a platform preset, edit it (add, remove, rename, reorder
+stages, change weights, checklists and proof rules) and save it as a company
+preset (e.g. "Our standard duplex").
+Must v1.0
+FR-PRE-04 A company preset can also store the contractor's default payment structure
+(see 7.7).
+Should v1.0
+FR-PRE-05 When a project is created, the preset is copied into the project. Editing a preset
+later never changes projects already running.
+Must v1.0
+FR-PRE-06 Stage weights in a project must add up to 100%. Must v1.0
+Layer Owned by Example
+Platform presets Platform Admin "Duplex", "Bungalow", "Storey building", "Commercial", "Road",
+"Bridge", "Renovation"
+Company presets Each contractor A platform preset edited to match how the company builds, saved
+as "Our standard duplex", optionally with a default payment
+structure
+Project stages The project A copy of the chosen preset, adjusted before the client accepts
+and the plan locks
+A worked example (Duplex) is in Appendix A.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 19 of 42
+=== Page 21 ===
+7.7 Plan, payment structure, acceptance & lock
+The contractor proposes the plan — the stages and the payment structure together — and the client must
+accept it. Once accepted, the plan locks. Payment structures are combinable pieces, because real contracts
+mix them (e.g. deposit + milestone payments + retention).
+ID Requirement Priority Release
+FR-PLN-01 For each stage the contractor sets target start and end dates, the weight, the
+checklist, the proof requirements and, optionally, the payment attached to it.
+Must v1.0
+FR-PLN-02 The payment structure is built from these pieces: Deposit / mobilisation (due
+before Stage 1 starts); Stage payments (become due when that stage is
+approved); Change-request payments (for agreed extra work); optional
+Retention (a % withheld from stage payments and released at final handover).
+Must v1.0
+FR-PLN-03 A stage payment can be set to fall due either on approval (default) or before the
+stage starts (e.g. to buy roofing materials).
+Should v1.0
+FR-PLN-04 The contractor's default payment structure (company setting or company preset)
+is pre-filled on each new project and can be adjusted per project.
+Must v1.0
+FR-PLN-05 The contractor sends the plan to the client. The client can Accept or Request
+changes with comments. The plan goes back and forth until the client accepts.
+Must v1.0
+FR-PLN-06 When the client accepts, stages and payment structure lock together and the
+project becomes Active. Every version of the plan is kept in the project history.
+Must v1.0
+FR-PLN-07 After locking, the stages, dates and amounts can only change through a change
+request (7.8). There are no silent edits.
+Must v1.0
+FR-PLN-08 Monthly progress payments and recovery of advance payments (for government
+and large commercial jobs).
+Could v2
+7.8 Change requests
+Construction plans change. Change requests make every change to a locked plan visible and agreed by both
+sides.
+ID Requirement Priority Release
+FR-CHG-01 Either side can raise a change request against a locked plan: add / remove /
+reorder stages, change dates, change amounts or weights, add extra work.
+Must v1.0
+FR-CHG-02 A change request states what changes, why, and the eﬀect on dates and money. It
+can carry attachments.
+Must v1.0
+FR-CHG-03 The other side approves or rejects it. Approved changes update the plan and
+create a new plan version; rejected requests are kept on record.
+Must v1.0
+FR-CHG-04 Approved extra work can carry a change-request payment that joins the
+payment schedule.
+Must v1.0
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 20 of 42
+=== Page 22 ===
+7.9 Progress updates & proof
+Proof follows the pattern of Procore's inspections (checklist items with responses, photos, comments and an
+activity history) adapted to BuildTrack's stages.
+ID Requirement Priority Release
+FR-PRF-01 Directors, Site Managers, Oﬀice Coordinators and assigned Crew Members can
+post progress updates to a stage and its checklist items.
+Must v1.0
+FR-PRF-02 Proof consists of photos, videos and a written description; voice notes are also
+supported.
+Must v1.0
+FR-PRF-03 Every photo and video captured in the app is automatically stamped with GPS
+location, date and time and the uploader's name. Media captured outside the
+project site's area is flagged.
+Must v1.0
+FR-PRF-04 A stage cannot be marked "Ready for review" until its minimum proof and
+checklist are complete.
+Must v1.0
+FR-PRF-05 Updates can be captured oﬀline and sync automatically when a connection
+returns. The capture time and location are those of the original capture, not the
+sync.
+Must v1.0
+FR-PRF-06 Uploaded media is compressed; video length per clip is limited (limit set in the
+SRD).
+Must v1.0
+FR-PRF-07 Every item keeps an activity history: who added what, when, and all comments.
+Proof cannot be edited or deleted once a stage is submitted.
+Must v1.0
+FR-PRF-08 Clients can compare a location or checklist item across dates (before / after). Should v1.0
+7.10 Tasks & site check-ins
+Tasks and check-ins organise crew work and feed the reward system (7.21).
+ID Requirement Priority Release
+FR-TSK-01 Directors and Site Managers can create tasks on a stage, assign them to one or
+more Crew Members, and set a due date.
+Must v1.0
+FR-TSK-02 Crew Members see today's tasks, mark them done and attach proof. The Site
+Manager confirms completion.
+Must v1.0
+FR-TSK-03 Staﬀ can check in on site with GPS. A check-in only counts when the device is
+within the project site's area.
+Must v1.0
+FR-TSK-04 Site Managers can set scheduled work days per crew member (used for
+attendance points).
+Should v1.0
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 21 of 42
+=== Page 23 ===
+7.11 Stage review: approval, rejection & overdue reviews
+Stage review is the heart of verified progress. It shows whose turn it is at every step (ball in court).
+ID Requirement Priority Release
+FR-REV-01 When the Site Manager (or Director) marks a stage Ready for review, the ball
+moves to the client and the Client Admin and Client Reps with the "Approve /
+reject stages" module are notified.
+Must v1.0
+FR-REV-02 Approve: the stage becomes Approved, counts toward verified progress, and any
+stage payment falls due (7.13).
+Must v1.0
+FR-REV-03 Reject: the reviewer must give a reason by ticking failed checklist items and
+adding comments, photos or voice notes. Each failed item becomes an issue
+assigned to the contractor; the stage returns to In progress.
+Must v1.0
+FR-REV-04 The contractor fixes the issues, uploads new proof and resubmits. The full history
+of every round is kept.
+Must v1.0
+FR-REV-05 There is no limit on rejections, but on the 3rd rejection of the same stage it is
+flagged "Repeated rejection" to both sides.
+Must v1.0
+FR-REV-06 Either side can raise a stage dispute if they cannot agree (same process as
+payment disputes, 7.15).
+Must v1.0
+FR-REV-07 If the client does not respond, reminders go out on day 1, 3 and 5 after
+submission (see 7.18 for channels).
+Must v1.0
+FR-REV-08 There is no auto-approval. After 7 days the stage shows as "Awaiting client
+review (overdue)". The contractor may continue to the next stage so work is not
+blocked.
+Must v1.0
+FR-REV-09 An overdue stage does not count toward verified progress until approved, and
+the waiting time is shown on the project timeline as a client-caused delay.
+Must v1.0
+FR-REV-10 Stages past their target end date are automatically flagged as delayed. Must v1.0
+7.12 Progress calculation
+BuildTrack shows two numbers side by side, and never mixes them.
+ID Requirement Priority Release
+FR-PCT-01 Verified progress = the sum of the weights of approved stages. This is the
+headline figure.
+Must v1.0
+FR-PCT-02 Reported progress = the contractor's own estimate (a rough % per stage),
+shown separately and clearly labelled.
+Must v1.0
+FR-PCT-03 Dashboards also show: stages delayed, stages overdue for review, money paid vs
+remaining, open issues, and whose turn it is.
+Must v1.0
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 22 of 42
+=== Page 24 ===
+7.13 Payments (recorded, not processed)
+In v1 money does not move through BuildTrack. The client pays the contractor by normal bank transfer
+outside the app; BuildTrack shows what is due, where to pay, and keeps a confirmed, time-stamped record.
+Paying through the app arrives in v2.
+ID Requirement Priority Release
+FR-PAY-01 The Director adds the company's bank account (bank, account number). The
+account name is resolved automatically and must match the verified CAC name
+(7.2).
+Must v1.0
+FR-PAY-02 Each payment in the payment structure has a state: Scheduled → Due → Receipt
+uploaded → Confirmed, or Disputed / Paid – not confirmed (see Section 8).
+Must v1.0
+FR-PAY-03 When a payment falls due (deposit before Stage 1, stage payment on approval, or
+per its setting), the client sees the amount, currency and the contractor's account
+details.
+Must v1.0
+FR-PAY-04 After paying, the client uploads the receipt and must enter the transaction
+reference (bank session ID), amount and date.
+Must v1.0
+FR-PAY-05 The contractor (Director or Oﬀice Coordinator) has 3 days to Confirm or
+Dispute the receipt. A dispute requires a reason (e.g. money not received, wrong
+amount).
+Must v1.0
+FR-PAY-06 If the contractor does not respond within 3 days, the payment is marked "Paid –
+not confirmed by contractor", shown in orange to the client, and flagged to the
+Platform Admin team for monitoring.
+Must v1.0
+FR-PAY-07 The client can withdraw a receipt uploaded by mistake (e.g. paid into the wrong
+account) before it is confirmed.
+Must v1.0
+FR-PAY-08 Retention (if set) is tracked per stage payment and becomes due at final
+handover.
+Should v1.0
+FR-PAY-09 Every payment record — receipts, references, confirmations, disputes — is
+permanent and cannot be edited or deleted.
+Must v1.0
+FR-PAY-10 Pay through the app via a payment provider (e.g. Paystack / Flutterwave),
+including foreign cards for diaspora clients, with automatic confirmation.
+Must v2
+FR-PAY-11 Escrow: client funds held and released on stage approval, through a licensed
+escrow / trustee partner (legal review required first).
+Could Later
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 23 of 42
+=== Page 25 ===
+7.14 Payment protection & bank-detail lock
+A common fraud is swapping the account number so the client pays the wrong account. These rules protect
+both sides.
+ID Requirement Priority Release
+FR-BNK-01 Only the Director can add or change the company bank account. Must v1.0
+FR-BNK-02 A new account must pass the name-match check against the CAC name. Must v1.0
+FR-BNK-03 Any change notifies every connected client (push, email and SMS) and pauses
+payments on the contractor's projects for 24–48 hours (exact period set in the
+SRD).
+Must v1.0
+FR-BNK-04 A bank-detail change triggers re-verification (7.2). Must v1.0
+FR-BNK-05 Fake receipts from clients are handled by the same process: the contractor
+disputes, both sides provide evidence.
+Must v1.0
+7.15 Disputes (payment and stage)
+In v1, the two parties resolve disputes themselves; BuildTrack provides the structure, the evidence trail and
+the consequences. Platform-resolved disputes arrive in v2.
+ID Requirement Priority Release
+FR-DSP-01 A payment dispute is opened when the contractor disputes a receipt, or by either
+side about a payment. A stage dispute can be opened by either side about a
+stage review.
+Must v1.0
+FR-DSP-02 Opening a dispute requires a reason. Both sides can add evidence (e.g. the client's
+debit alert or statement, the contractor's statement for that date, photos).
+Everything is time-stamped and cannot be edited or deleted.
+Must v1.0
+FR-DSP-03 While a dispute is open, the project is paused: no new stages can be submitted
+and deadlines stop.
+Must v1.0
+FR-DSP-04 A payment dispute can end when the contractor confirms the payment or the
+client withdraws the receipt.
+Must v1.0
+FR-DSP-05 Both sides must press "Mark dispute resolved" for the dispute to close and
+the project to un-pause. Neither side can close it alone.
+Must v1.0
+FR-DSP-06 A dispute still open after 14 days is flagged "Unresolved dispute" on the
+project, on the contractor's profile and on the client's profile.
+Must v1.0
+FR-DSP-07 Repeated unresolved disputes or "Paid – not confirmed" records are reviewed by
+the Platform Admin team and can lead to suspension or loss of verified status.
+Must v1.0
+FR-DSP-08 Platform-resolved disputes: the Platform Admin team reviews evidence and
+makes a ruling.
+Must v2
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 24 of 42
+=== Page 26 ===
+7.16 Projects without a connected client
+Following Procore's model (the project belongs to the contractor's account and the owner is optional), a
+contractor can run a project with no client on BuildTrack — e.g. its own development, or a client who is not
+tech-savvy.
+ID Requirement Priority Release
+FR-NOC-01 A contractor can create and run a project without a connected client. It is labelled
+"Client not connected".
+Must v1.0
+FR-NOC-02 Without a client, progress is shown as reported only; nothing can become
+verified.
+Must v1.0
+FR-NOC-03 The contractor can send share links to the client and invite them at any time.
+When the client joins and accepts the plan, it locks and verified progress begins.
+Must v1.0
+7.17 Chat
+BuildTrack has its own WhatsApp-style chat, contained within each contractor company and its clients. The
+goal is to keep project conversations on the record, attached to the project, even when staﬀ leave.
+ID Requirement Priority Release
+FR-CHT-01 Contractor staﬀ can chat with each other (direct and group chats inside the
+company).
+Must v1.0
+FR-CHT-02 Each project has a chat between the client side (Client Admin and Client Reps with
+the messaging module) and the contractor's staﬀ.
+Must v1.0
+FR-CHT-03 Messages support text, photos, videos, documents and voice notes. Must v1.0
+FR-CHT-04 Comments can also be attached to a specific stage, update, issue, payment or
+change request, so discussion stays in context.
+Must v1.0
+FR-CHT-05 Chat history stays with the project and company. When a user is removed, their
+messages remain.
+Must v1.0
+FR-CHT-06 Read receipts and delivery status; chats work oﬀline and send when a connection
+returns.
+Should v1.0
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 25 of 42
+=== Page 27 ===
+7.18 Notifications
+Everything appears in-app. Push notifications are the main channel (free and instant). Email is used when
+someone must act, or when a record is worth keeping. SMS is used only for security and final, critical
+reminders. WhatsApp is not used for notifications.
+ID Requirement Priority Release
+FR-NTF-01 Notifications are delivered through in-app, push (mobile and browser), email and
+SMS, following the tables below.
+Must v1.0
+FR-NTF-02 Recipients are routed by role and, for Client Reps, by permission module. Must v1.0
+FR-NTF-03 Users can switch channels on or oﬀ per event type, choose a daily digest for
+progress updates, and set quiet hours at night.
+Should v1.0
+FR-NTF-04 Critical notifications cannot be switched oﬀ: login codes, new-device logins, bank-
+detail changes, disputes.
+Must v1.0
+FR-NTF-05 Tapping a notification opens the exact item (stage, payment, chat) it refers to. Must v1.0
+Client side (Client Admin, and Client Reps with the matching module)
+Event In-app Push Email SMS Goes to
+Plan / payment structure sent for review ✓ ✓ ✓ — Client Admin
+Stage ready for review ✓ ✓ ✓ — Admin + Reps
+(review)
+Review reminder — day 1 ✓ ✓ — — Admin + Reps
+(review)
+Review reminder — day 3 ✓ ✓ ✓ — Admin + Reps
+(review)
+Final review reminder — day 5 ✓ ✓ ✓ ✓ Admin + Reps
+(review)
+Stage marked overdue (day 7) ✓ ✓ ✓ — Admin + Reps
+(review)
+New progress update posted ✓ ✓ — — Admin + Reps
+(view) · digest
+option
+Payment due (with contractor account details) ✓ ✓ ✓ — Admin + Reps
+(payments)
+Contractor confirmed / disputed a payment ✓ ✓ ✓ — Admin + Reps
+(payments)
+Payment marked "Paid – not confirmed by contractor" ✓ ✓ ✓ — Admin + Reps
+(payments)
+Change request received / decided ✓ ✓ ✓ — Admin + Reps
+(changes)
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 26 of 42
+=== Page 28 ===
+Event In-app Push Email SMS Goes to
+Issues fixed and stage resubmitted ✓ ✓ — — Admin + Reps
+(review)
+Dispute opened · 14-day "Unresolved dispute" flag ✓ ✓ ✓ ✓ Admin + involved
+Reps
+Pause / cancel requested v1.1 ✓ ✓ ✓ — Client Admin
+Contractor bank details changed ✓ ✓ ✓ ✓ Admin + Reps
+(payments)
+New chat message ✓ ✓ — — Chat participants
+Contractor rated you / rating reminder at completion ✓ ✓ ✓ — Client Admin
+Contractor side (routed by role)
+Event In-app Push Email SMS Goes to
+Client invited you to a project / accepted your invite ✓ ✓ ✓ — Director
+Client accepted the plan / requested changes ✓ ✓ ✓ — Director, Site Mgr
+Stage approved / rejected (with reasons) ✓ ✓ ✓ — Director, Site Mgr
+Stage review overdue (day 7) — you may continue ✓ ✓ — — Director, Site Mgr
+Receipt uploaded (3-day confirm deadline starts) ✓ ✓ ✓ — Director, Oﬀice
+Coord.
+Confirm-deadline reminder — day 2 ✓ ✓ ✓ ✓ Director, Oﬀice
+Coord.
+Dispute opened · 14-day "Unresolved dispute" flag ✓ ✓ ✓ ✓ Director +
+involved staﬀ
+Change request received / decided ✓ ✓ ✓ — Director, Site Mgr
+Assigned to a project or task ✓ ✓ — — Staﬀ / Crew
+Points earned / bonus marked paid ✓ ✓ — — Staﬀ / Crew
+New rating received ✓ ✓ — — Director
+Verification approved / rejected / expiring ✓ ✓ ✓ — Director
+Subscription due / payment failed / free project ending ✓ ✓ ✓ — Director
+New chat message ✓ ✓ — — Chat participants
+Everyone
+Login codes (OTP) and new-device logins by SMS.
+Critical items (bank changes, disputes, OTPs) cannot be turned oﬀ.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 27 of 42
+=== Page 29 ===
+7.19 Ratings & reputation
+Ratings are the public side of trust and ship in v1.0. They work both ways.
+ID Requirement Priority Release
+FR-RAT-01 When a project is completed, the Client Admin rates the contractor and the
+Director rates the client (stars + written review).
+Must v1.0
+FR-RAT-02 Contractor ratings and reviews appear on the public directory profile. Client
+ratings are visible to contractors a client invites or connects with.
+Must v1.0
+FR-RAT-03 Profiles also show objective records: projects completed, first-time approval rate,
+and any Unresolved dispute flags.
+Should v1.0
+FR-RAT-04 Each side can post one public response to a review. Could v1.0
+FR-RAT-05 Ratings after a cancellation or contractor switch. Must v1.1
+7.20 Share links
+Share links replace a "viewer" role: read-only access for people who should see progress but not act (family, a
+lender, auditors, the public).
+ID Requirement Priority Release
+FR-SHR-01 Authorised users can create a read-only share link for a project, showing
+progress, stages and approved proof. No account is needed to view it.
+Must v1.0
+FR-SHR-02 Share links never show payment details, bank details or chat. Must v1.0
+FR-SHR-03 Links can be revoked at any time and can optionally expire. Must v1.0
+FR-SHR-04 A Crew Member can share a viewer link to a project with a fellow crew member
+who is not assigned to it, so they can help.
+Must v1.0
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 28 of 42
+=== Page 30 ===
+7.21 Worker reward system
+An optional feature each contractor can switch on. Employees earn points for verified good work; the
+contractor turns points into extra pay. It motivates crews to deliver approved work — which feeds the whole
+trust system.
+ID Requirement Priority Release
+FR-RWD-01 The Director can switch the reward system on or oﬀ for the company. Must v1.0
+FR-RWD-02 Site Managers, Oﬀice Coordinators and Crew Members earn points automatically
+for the verifiable actions in the table below.
+Must v1.0
+FR-RWD-03 The Director sets how points convert to pay: rate (e.g. ₦ per point), bonus levels
+(e.g. 500 points = a set bonus), or custom (ranking only; the company rewards as
+it chooses).
+Must v1.0
+FR-RWD-04 Points are totalled per period (monthly or per project, chosen by the Director). At
+period end the Director sees each person's points and bonus owed, and marks
+bonuses as paid (recorded, not processed).
+Must v1.0
+FR-RWD-05 Each employee sees their own points, how they earned them, and what they are
+worth. Site Managers and the Director see everyone's.
+Must v1.0
+FR-RWD-06 An optional company leaderboard can be switched on or oﬀ by the Director. Could v1.0
+FR-RWD-07 Recognition points are capped per giver per period and require a reason. Must v1.0
+How each role earns points
+Role Earns points for
+Crew Member Tasks completed on time (confirmed by the Site Manager); proof they uploaded that forms
+part of an approved stage; GPS site check-ins on scheduled days.
+Site Manager Stages approved first time (no rejection); stages finished on or before their target date; fixing
+rejected issues quickly.
+Oﬀice Coordinator Confirming receipts within the 3-day deadline; replying to client messages promptly; keeping
+project documents complete.
+All three Recognition points (capped per period, reason required): the Site Manager can award Crew
+Members; the Director can award anyone.
+Design principles
+Points come only from actions the app can verify. Uploading many photos earns nothing; approved
+work does.
+There are no negative points. Poor work already shows through rejections.
+The Director does not earn points — they fund the rewards.
+Points are internal to the contractor. Clients never see them.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 29 of 42
+=== Page 31 ===
+7.22 Subscriptions & billing
+Contractors pay; individual clients are always free. Actual prices are set in the business phase; this section
+defines the model.
+ID Requirement Priority Release
+FR-BIL-01 Contractor pricing uses a hybrid model: tiers that each include a set number of
+active projects, plus a flat fee for each extra active project above the tier's
+allowance.
+Must v1.0
+FR-BIL-02 Unlimited users on every tier. Must v1.0
+FR-BIL-03 Only active (in-progress) projects count. Completed and archived projects never
+count toward the allowance and stay viewable.
+Must v1.0
+FR-BIL-04 Free tier: a contractor's first project is free until it is finished, up to 12
+months. Any further project requires a paid plan.
+Must v1.0
+FR-BIL-05 Monthly and yearly billing, with a discount for yearly. Should v1.0
+FR-BIL-06 Billing is in naira. When a contractor regularly exceeds its allowance, the app
+suggests the tier that would be cheaper.
+Should v1.0
+FR-BIL-07 If a subscription lapses, active projects become read-only for the contractor
+(clients keep full view of their records) until payment is made.
+Should v1.0
+FR-BIL-08 Organisation clients are free under Early Access in v1, limited to a small
+number of active projects (e.g. 3; final number set in the business phase). The
+Early Access label is shown from day one.
+Must v1.0
+FR-BIL-09 Paid organisation plan with portfolio dashboard and audit reports. Early Access
+organisations receive founding-member perks (e.g. existing projects stay free, or
+a founding discount) and at least 1–2 months' notice before charging starts.
+Must v2
+FR-BIL-10 Paid client add-ons such as independent site inspections. Could Later
+7.23 Platform Admin dashboard
+The internal dashboard for BuildTrack's own team (BuildTrack Support).
+ID Requirement Priority Release
+FR-ADM-01 Verification queue: review contractor submissions, see automated check results,
+approve / reject with reasons, manage badges and re-verification.
+Must v1.0
+FR-ADM-02 User support: find accounts and projects, view history, handle support tickets,
+suspend or reinstate accounts.
+Must v1.0
+FR-ADM-03 Dispute & risk monitoring: see open and unresolved disputes, "Paid – not
+confirmed" records, repeated-rejection flags and bank-detail changes; act on
+repeat oﬀenders.
+Must v1.0
+FR-ADM-04 Subscriptions: plans, free-project tracking, billing status, Early Access
+organisations.
+Must v1.0
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 30 of 42
+=== Page 32 ===
+ID Requirement Priority Release
+FR-ADM-05 Stage preset library: create and maintain platform presets for all project types. Must v1.0
+FR-ADM-06 All admin actions are logged in an audit trail. Must v1.0
+FR-ADM-07 Dispute rulings (platform-resolved disputes). Must v2
+7.24 Pause, cancel & switch contractor
+Handles projects that stop, end early, or change contractor mid-build.
+ID Requirement Priority Release
+FR-LIF-01 Pause: either side requests a pause with a reason (funds, weather, permits); the
+other side accepts. While paused, no deadlines or overdue flags run.
+Must v1.1
+FR-LIF-02 Cancel: requires both sides to agree, or goes through a dispute. The project
+becomes read-only and archived; stages, proof, payments and chat are all kept.
+Must v1.1
+FR-LIF-03 Switch contractor: the old project is closed and archived (both sides keep access
+to their records). The client creates a handover: a new contractor is invited to a
+new project that starts from the last approved stage.
+Must v1.1
+FR-LIF-04 The new contractor sees the approved history (stages and proof ) but not the
+previous contractor's chats or payment details.
+Must v1.1
+FR-LIF-05 Both sides can rate each other after a cancellation or switch. Must v1.1
+7.25 Expenses & materials log
+Follows industry practice (e.g. Buildertrend): what the client sees depends on the contract type.
+ID Requirement Priority Release
+FR-EXP-01 When creating a project the contractor chooses the contract type: Fixed price or
+Open book.
+Must v1.1
+FR-EXP-02 Fixed price: the contractor can record expenses (materials, labour, equipment,
+receipts) for its own use; they are internal and the client sees only payments.
+Must v1.1
+FR-EXP-03 Open book: expenses and receipts are shared with the client. Must v1.1
+FR-EXP-04 Materials log (both contract types): when the client supplies materials directly
+(e.g. cement, blocks), deliveries and usage are logged against what the client
+bought, visible to both sides.
+Must v1.1
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 31 of 42
+=== Page 33 ===
+8 Key lifecycles & user flows
+8.1 End-to-end flow
+1. Verify
+Contractor signs up and
+is verified →
+2. Connect
+Client invites contractor,
+or contractor invites
+client
+→
+3. Plan
+Contractor builds stages
++ payments from a
+preset
+→
+4. Lock
+Client accepts; plan
+locks
+5. Build
+Crew posts proof; tasks
+and check-ins →
+6. Review
+Stage submitted; client
+approves or rejects →
+7. Pay
+Payment due; receipt
+uploaded; contractor
+confirms
+→
+8. Complete
+Handover, retention
+released, two-way
+ratings
+8.2 Contractor onboarding
+1. Director signs up (phone + email OTP) and creates the company profile.
+2. Submits CAC, TIN, director ID + selfie, bank account, oﬀice address proof; optional badges.
+3. Automated checks run (CAC status, TIN, identity, bank-name match); Platform Admin reviews the rest.
+4. Verified → company appears in the directory and can create live projects. Rejected → reasons shown,
+resubmit.
+5. Director invites staﬀ and sets up company presets and default payment structure.
+8.3 Project states
+State Meaning Release
+Draft Contractor is setting up the project and plan. v1.0
+Awaiting client acceptance Plan sent; client can accept or request changes. v1.0
+Client not connected Running without a client on BuildTrack; reported progress only. v1.0
+Active Plan locked; work, reviews and payments in progress. v1.0
+On hold — dispute Automatically paused while a payment or stage dispute is open. v1.0
+Completed All stages approved and final payments settled; read-only; ratings open. v1.0
+Paused (by agreement) Paused on request, accepted by the other side; no deadlines run. v1.1
+Cancelled / archived Ended early; read-only record kept; optional handover to a new
+contractor.
+v1.1
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 32 of 42
+=== Page 34 ===
+8.4 Stage lifecycle
+Not started
+→
+In progress
+Proof & checklist →
+Ready for review
+Ball with client →
+Approved
+Counts to verified %;
+payment due
+State / flag Rule
+Rejected → In progress Failed checklist items become issues; contractor fixes and resubmits; history kept.
+Repeated rejection (flag) Raised on the 3rd rejection of the same stage, visible to both sides.
+Awaiting client review
+(overdue)
+After 7 days without a decision; reminders on days 1, 3 and 5; contractor may
+continue; not counted as verified.
+Delayed (flag) Stage is past its target end date.
+Disputed A stage dispute is open; the project is on hold until both sides mark it resolved.
+8.5 Payment lifecycle
+Scheduled
+In locked plan →
+Due
+Account shown to client →
+Receipt uploaded
+Ref, amount, date · 3-
+day clock
+→
+Confirmed
+by contractor
+Alternative outcome Rule
+Paid – not confirmed by
+contractor
+No response within 3 days (day-2 reminder by push, email, SMS). Shown in
+orange to the client; flagged to Platform Admin.
+Disputed Contractor disputes with a reason; project goes on hold; dispute process applies.
+Withdrawn Client withdraws a receipt uploaded by mistake before confirmation; payment
+returns to Due.
+Payments paused For 24–48 hours after a contractor bank-detail change; clients are alerted.
+8.6 Dispute lifecycle (v1)
+Opened
+Reason required ·
+project on hold
+→
+Evidence
+Both sides upload;
+immutable
+→
+One side marks
+resolved
+Waiting for the other
+→
+Resolved
+Both pressed; project
+resumes
+If still open after 14 days: flagged "Unresolved dispute" on the project and on both the contractor's and the
+client's profiles. Repeat cases are reviewed by the Platform Admin team. From v2, the Platform Admin team
+can rule on disputes.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 33 of 42
+=== Page 35 ===
+9 Business model
+Contractors pay a subscription; individual clients are always free; organisation clients are free under Early
+Access in v1 and paid from v2.
+Who Pays? Details
+Contractors Yes — main
+revenue
+Hybrid tiers (included active projects + fee per extra project),
+unlimited users, monthly or yearly. First project free until finished,
+up to 12 months.
+Individual clients Free, always Free clients bring contractors onto the platform: every client who
+invites a contractor brings in a paying company.
+Organisation clients Free in v1 (Early
+Access); paid
+from v2
+Labelled Early Access from day one, limited active projects. v2 paid
+plan adds portfolio dashboard and audit reports; founding-member
+perks and advance notice for early users.
+Client add-ons Later E.g. independent site inspection by a BuildTrack-vetted inspector.
+9.1 Why this model
+Industry standard: Procore and Buildertrend charge the contractor and let clients join free; unlimited
+users drives adoption.
+Value to contractors: the app runs their projects and wins them clients (verified badge, ratings, "track your
+build live").
+Fairness: charging by active projects matches usage; the per-project overage removes the "tier jump"
+problem.
+Avoided: per-seat pricing (discourages adding crew, who supply the proof) and percentage-of-contract-
+value pricing (strongly disliked by Procore users).
+Prices are not set
+Actual naira prices, tier allowances, the extra-project fee, the yearly discount and the Early Access project
+cap will be decided in the business phase, informed by interviews with Nigerian contractors and the
+running-cost estimate from the SRD (hosting, media storage, SMS, verification checks).
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 34 of 42
+=== Page 36 ===
+10 Non-functional requirements
+Area ID Requirement
+Platforms NFR-PLT-01 Web app and mobile apps (Android and iOS) for both the client and contractor sides.
+NFR-PLT-02 The mobile app must run well on low-cost Android phones common among site staﬀ.
+NFR-PLT-03 Web app is responsive and supports browser push notifications.
+Oﬀline & network NFR-OFF-01 Crew and site staﬀ can capture proof, complete tasks, check in and write chat
+messages oﬀline; everything syncs automatically, preserving original capture time
+and GPS.
+NFR-OFF-02 The app remains usable on slow 3G connections; uploads resume after interruption.
+NFR-OFF-03 Images and videos are compressed before upload to save data and storage.
+Security NFR-SEC-01 All data encrypted in transit and at rest.
+NFR-SEC-02 Role-based access enforced on every request, matching Section 5.
+NFR-SEC-03 OTP verification at sign-up and on new devices.
+NFR-SEC-04 Proof, plan versions, payment records, disputes and ratings are immutable once
+submitted, with a full audit trail.
+NFR-SEC-05 Bank-detail changes follow the lock rules in 7.14.
+Privacy NFR-PRV-01 Comply with Nigeria's data protection law (NDPA 2023), including consent, data
+minimisation and user rights.
+NFR-PRV-02 Store identity verification results, not raw NIN / passport numbers.
+NFR-PRV-03 Share links never expose payment, bank or chat data.
+Data retention NFR-RET-01 Project records are never deleted; completed and cancelled projects stay viewable by
+both sides.
+NFR-RET-02 When a user leaves or deletes their account, their personal data is removed or
+anonymised as the law requires, while the project record they contributed to remains.
+Reliability NFR-REL-01 High availability for the core service; targets defined in the SRD.
+NFR-REL-02 Notification delivery with retry and fallback (push → email → SMS for critical items).
+Usability NFR-USE-01 Crew screens use large buttons, minimal typing, photo and voice first.
+NFR-USE-02 Plain language throughout; construction terms familiar in Nigeria (DPC, lintel,
+decking).
+NFR-USE-03 Times shown in each user's local time zone (diaspora clients).
+Localisation NFR-LOC-01 English in v1; naira by default with USD / GBP labels; Nigerian formats for phone
+numbers and addresses.
+Scalability NFR-SCL-01 Media storage and delivery designed to grow with projects; video limits and
+compression keep costs predictable.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 35 of 42
+=== Page 37 ===
+11 Integrations & third-party services
+Final provider choices are made in the SRD. Candidates identified during ideation:
+Need Candidate providers Used for
+Business verification Dojah, Prembly, VerifyMe, Seamfix CAC lookup (name, RC number, status),
+TIN check
+Identity verification Smile ID, Prembly, Dojah NIN / passport + selfie liveness for
+directors and Client Admins
+Bank account name lookup Paystack, Flutterwave Match account name to CAC name
+Subscription billing Paystack, Flutterwave Charging contractors in naira
+Push notifications Firebase Cloud Messaging, Apple Push,
+Web Push
+Main notification channel
+Email A transactional email service Action and record notifications
+SMS A Nigerian SMS provider (e.g. Termii) OTPs and critical alerts
+Maps & location A maps / geocoding provider Project site pin, site area, GPS checks
+Media storage Cloud object storage + CDN Photos, videos, voice notes, documents
+In-app payments v2 Paystack, Flutterwave Pay through the app, foreign cards
+Escrow Later Licensed escrow / trustee partner Holding funds until stage approval (legal
+review first)
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 36 of 42
+=== Page 38 ===
+12 Release plan
+Release Scope
+v1.0
+First launch
+Accounts, OTP, contractor verification + badges, client NIN / passport verification
+All roles: Client Admin, Client Reps with modules; Director, Site Manager, Oﬀice Coordinator, Crew
+Member; Platform Admin
+Contractor directory, invitations (including contractors not yet on BuildTrack)
+Projects, stage presets for all project types (incl. roads and bridges), company presets
+Plan + payment structure proposal, client acceptance, lock, change requests
+Projects without a connected client
+Proof (photo, video, description, GPS/time), minimum proof, oﬀline capture
+Tasks and GPS site check-ins
+Stage review: approve, reject → issues, repeated rejection flag, reminders, overdue at 7 days
+Verified vs reported progress
+Recorded payments, 3-day confirmation, payment protection, bank-detail lock
+Payment and stage disputes (resolved by the parties), 14-day unresolved flag on both profiles
+Built-in chat; notifications (in-app, push, email, SMS)
+Two-way ratings at project completion
+Share links and crew viewer links
+Optional worker reward system
+Contractor billing (hybrid tiers, first project free ≤ 12 months); organisation Early Access
+Web + mobile apps for both sides; Platform Admin dashboard
+v1.1
+Soon after
+Pause, cancel, switch contractor with handover; ratings after cancellation
+Contract type (fixed price / open book), expenses, materials log
+v2 Pay through the app (Paystack / Flutterwave)
+Platform-resolved disputes
+Paid organisation plan, portfolio dashboard, audit reports
+Multiple contractors per project with scopes
+Monthly progress payments, advance recovery
+Extra roles: subcontractor, finance / accountant, consultant (architect, QS, engineer)
+Later Escrow via a licensed partner
+Paid client add-ons (independent site inspections)
+Camera and drone integrations; AI checks on proof photos
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 37 of 42
+=== Page 39 ===
+13 Risks & mitigations
+Risk Impact Mitigation
+Contractors don't adopt (cost,
+habit, fear of transparency)
+High First project free; clear value (wins diaspora clients, verified badge);
+simple crew app; unlimited users.
+Clients don't join or don't review
+stages
+High Individual clients free; reminders on days 1/3/5; overdue after 7 days
+so work isn't blocked; delays attributed on the timeline.
+Fake or recycled proof (old
+photos)
+High In-app capture stamped with GPS and time; oﬀ-site media flagged;
+client review; ratings. Gallery-upload policy to be confirmed (Section
+14).
+Contractor denies receiving
+payment
+High 3-day confirm deadline; transaction reference; "Paid – not confirmed"
+status; disputes; profile flags; admin monitoring. Solved fully by in-app
+payments (v2).
+Account-swap fraud High Bank name must match CAC; Director-only changes; client alerts by
+push/email/SMS; 24–48h payment pause; re-verification.
+Disputes stall projects (parties
+resolve alone in v1)
+Medium Both-sides resolve rule; 14-day public flag on both profiles; admin
+review of repeat cases; platform rulings in v2.
+Clients escape bad reputations
+with new accounts
+Medium One verified NIN / passport per Client Admin account.
+Verification is slow or costly Medium Automated checks where APIs exist; admin review only for the rest;
+verification cost built into pricing.
+Media storage and SMS costs
+grow
+Medium Compression and video limits; push as main channel; SMS only for
+critical items.
+Reward system gamed Medium Points only from verified actions; capped recognition with reasons; no
+points for raw upload volume.
+v1.0 scope is large for a solo
+builder
+Medium Clear v1.0 / v1.1 split; SRD to sequence build order; reuse proven
+services for verification, messaging and billing.
+Data protection non-compliance Medium NDPA-aligned design; store verification results only; privacy review
+before launch.
+Name / trademark conflict Low Final name chosen with domain, CAC and trademark checks before
+launch.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 38 of 42
+=== Page 40 ===
+14 Assumptions, dependencies & open items
+14.1 Assumptions
+Contractors and clients have smartphones; crew phones may be low-end Android with intermittent data.
+Payments continue to be made by bank transfer outside the app in v1.
+Nigerian verification providers (CAC, TIN, NIN, bank-name lookup) remain available via API.
+Launch market is Nigeria, with diaspora clients abroad.
+14.2 Dependencies
+Contracts with verification, SMS, email, push, maps, storage and billing providers (Section 11).
+App store accounts (Google Play, Apple App Store).
+A platform stage preset library written for every supported project type before launch.
+Legal review of terms of service, privacy policy (NDPA) and, later, escrow.
+14.3 Open items
+# Item Status / next step
+1 Final product name Parked; BuildTrack is the working name. Check domain, CAC and
+trademarks before launch.
+2 Subscription prices, tier allowances, extra-
+project fee, yearly discount
+Business phase, after contractor interviews and SRD cost estimate.
+3 Organisation Early Access active-project
+cap
+Business phase (3 suggested).
+4 Contractor role defaults where ideation was
+silent (Section 5.3)
+Confirm before SRD.
+5 Exact payment pause after bank-detail
+change (24–48 h)
+Decide in SRD.
+6 Video length / media limits per upload Decide in SRD with storage cost estimate.
+7 Whether gallery (non-camera) uploads can
+count as proof, or are labelled "not
+captured in app"
+Confirm before SRD.
+8 Reward system caps (recognition points per
+period) and default period
+Confirm before SRD.
+9 Final list of platform stage presets and their
+checklists
+Build during development, reviewed by a construction
+professional.
+10 Escrow legal and licensing requirements Nigerian fintech lawyer review before any escrow work.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 39 of 42
+=== Page 41 ===
+A Appendix A — Example stage preset: Duplex
+Illustrative platform preset. Contractors can edit it into a company preset; weights must total 100%.
+# Stage Weight Example checklist items
+1 Site clearing & setting out 3% Site cleared; building lines set out; setting-out checked against
+drawings
+2 Foundation / substructure 12% Trenches dug to depth; reinforcement placed; concrete poured;
+foundation blockwork
+3 DPC (damp-proof course) 5% Filling and compaction; DPC membrane laid; oversite concrete
+4 Blockwork to lintel level 10% Ground-floor walls raised to lintel; openings to drawing sizes
+5 Lintel, beams & first-floor decking 12% Lintels and beams cast; decking formwork and reinforcement;
+slab cast and cured
+6 Upper-floor blockwork 8% First-floor walls raised; lintels; parapets if any
+7 Roofing 10% Roof trusses fixed; covering installed; fascia and gutters
+8 Electrical & plumbing (first fix) 8% Conduits and boxes; pipework routed; pressure test
+9 Plastering / rendering 8% Internal plaster; external render; surfaces level
+10 Windows & doors 6% Frames fixed; windows and doors installed and working
+11 Screeding & tiling 7% Floors screeded; tiles laid; wall tiling in wet areas
+12 Painting & finishing 7% Surfaces prepared; paint coats applied; fittings installed
+13 Final fixes & handover 4% Snag list cleared; systems tested; keys and documents handed
+over
+Total 100%
+Example proof rule per stage: at least 5 photos and 1 video captured in the app on site, GPS- and time-
+stamped, plus a short description, with every checklist item marked done before "Ready for review".
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 40 of 42
+=== Page 42 ===
+B Appendix B — Decision log
+Key decisions taken during the ideation phase, for traceability.
+Topic Decision
+Product family Standalone app under the All Tracker umbrella (not a shared generic engine).
+Two sides Client (individuals, governments, organisations) and Contractor.
+Role names Client Admin, Client Rep; Director, Site Manager, Oﬀice Coordinator, Crew Member; Platform
+Admin.
+Client Reps Unlimited, created by the Client Admin; abilities via permission modules; all modules ≈ admin.
+Viewer role None — read-only share links instead.
+Contractor roles Fixed; Director cannot customise. Crew see only assigned projects, own login, can share viewer
+links.
+Who creates projects The contractor. Clients browse verified contractors and invite them, including contractors not
+yet on BuildTrack.
+Verification Only verified contractors can use the app; required checks + optional badges; COREN required
+for roads and bridges; yearly re-verification.
+Client identity NIN, or international passport; prevents reputation-escaping accounts.
+Contractors per project One in v1; several in v2.
+Presets Stage presets for all project types including roads and bridges; three layers.
+Plan Contractor proposes stages + combinable payment structure; client accepts; plan locks; change
+requests afterwards; company default payment structure.
+Proof Checklist items + photos, videos, description; GPS/time stamps; minimum proof before review.
+Progress % complete from approved stages only.
+Rejection Reason required; issues; resubmit; 3rd rejection flagged; stage disputes allowed.
+No response Reminders days 1/3/5; no auto-approval; overdue at 7 days; contractor can continue.
+Payments Recorded, not processed, in v1; client sees account, pays outside, uploads receipt + reference;
+contractor confirms within 3 days. Pay in app in v2.
+Disputes Parties resolve in v1; project on hold; both must mark resolved; 14-day flag on both profiles;
+platform rulings in v2.
+Bank details Name must match CAC; Director only; clients alerted; payments paused 24–48 h.
+Projects without client Allowed; reported progress only until the client joins.
+Chat Built in, WhatsApp-style, contained within each company and its clients; v1.0.
+Notifications Push first; email for action/record; SMS for critical only; no WhatsApp.
+Ratings Two-way, v1.0.
+Rewards Optional, v1.0; Site Manager, Oﬀice Coordinator and Crew earn points from verified actions;
+company sets conversion.
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 41 of 42
+=== Page 43 ===
+Topic Decision
+Expenses Fixed price (internal) vs open book (shared) + materials log; v1.1.
+Currency Per-project label: naira default, USD, GBP; no conversion.
+Who pays Contractors; individual clients always free; organisations Early Access in v1, paid in v2.
+Pricing model Hybrid tiers by active projects + extra-project fee; unlimited users; first project free up to 12
+months; prices deferred.
+Platforms Web and mobile for both sides; oﬀline capture for site staﬀ.
+Releases v1.0 / v1.1 / v2 / Later as in Section 12.
+— End of document —
+BUILDTRACK PRD All Tracker product family
+BuildTrack — Product Requirements Document · v1.0 draft · 27 Sep 2026 Page 42 of 42

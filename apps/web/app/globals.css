@@ -13,8 +13,8 @@
   --color-brand: var(--vt-color-background-brand);
   --color-surface: var(--vt-color-surface-default);
   --color-border: var(--vt-color-border-default);
-  --font-sans: var(--vt-font-sans), system-ui, sans-serif;
-  --font-mono: var(--vt-font-mono), monospace;
+  --font-sans: var(--vt-font-sans), 'Outfit', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--vt-font-sans), 'Outfit', ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 body {
@@ -22,4 +22,29 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum" 1;
+}
+
+*,
+input,
+button,
+select,
+textarea,
+optgroup,
+option {
+  font-family: inherit;
+}
+
+.font-mono {
+  font-family: var(--font-sans) !important;
+}
+
+/* Vibrant Blue-to-Orange Brand Gradient (Eliminating the Gray Dead Zone) */
+.vt-gradient-brand {
+  background: linear-gradient(135deg, #261A66 0%, #4D1E7B 28%, #932463 52%, #D53F21 76%, #EF5F18 100%);
+}
+
+@supports (background: linear-gradient(in oklch, red, blue)) {
+  .vt-gradient-brand {
+    background: linear-gradient(135deg in oklch, #261A66 0%, #EF5F18 100%);
+  }
 }

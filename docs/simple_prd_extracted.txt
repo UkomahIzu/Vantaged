@@ -1,0 +1,170 @@
+=== Page 1 ===
+A L L  T R A C K E R  ·  P R O D U C T  F A M I L Y
+BuildTrack
+The plan, in plain English
+A short, easy-to-read summary of what BuildTrack is, who it's for and how it
+works. For the full detail, see the complete Product Requirements Document
+(PRD v1.0).
+Document Simple PRD (summary)
+Product BuildTrack (working name)
+Version 1.0 — 27 September 2026
+By Izuchukwu
+=== Page 2 ===
+1 What is BuildTrack?
+BuildTrack is an app that lets people who are paying for a building project see, check and approve the
+work remotely — and gives the construction company one place to run the project.
+In one sentence
+You only count work as "done" when you've seen the proof and approved it — and every payment,
+message and decision is kept on record.
+2 The problem
+People can't see what's really happening on site. A Nigerian living abroad who is building a house back
+home usually relies on a few WhatsApp photos and trust.
+Money goes missing or gets argued about. There's no clear record of what was paid, for which part of the
+work, or whether it was received.
+WhatsApp isn't a record. Chats get deleted, phones get lost, staﬀ leave — and the history goes with them.
+Good builders can't prove they're good. Honest companies have no easy way to show a track record to
+new clients.
+Existing software doesn't fit. Big tools like Procore are expensive, complicated and built for large
+American companies, not for Nigerian builders and their clients.
+3 Who uses it
+There are two sides: the Client (who pays for the build) and the Contractor (the company building it).
+Side Role What they do
+Client
+individuals,
+governments,
+companies
+Client Admin The person in charge. Approves the plan, approves work, records
+payments, rates the builder.
+Client Rep Someone the Client Admin trusts to keep an eye on things for them (e.g. a
+relative near the site). The Client Admin chooses exactly what they're
+allowed to do.
+Contractor Director Head of the construction company. Sees everything, manages staﬀ,
+money and the company account.
+Site Manager Runs the work on site, assigns tasks to the crew, posts progress and sends
+stages for approval.
+Oﬀice Coordinator Handles the oﬀice side: documents, talking to clients, confirming
+payments.
+Crew Member Workers on site. They see today's tasks and take photos and videos as
+proof.
+BUILDTRACK · SIMPLE PRD
+BuildTrack — The plan, in plain English · 27 Sep 2026 Page 1 of 4
+=== Page 3 ===
+Side Role What they do
+BuildTrack BuildTrack team Checks that construction companies are genuine, helps users, manages
+the app.
+Anyone else (family, a bank, the public) can be sent a read-only link to watch progress — they don't need an account.
+4 How it works, step by step
+1. Get verified
+The construction company signs up
+and BuildTrack checks it's a real,
+registered company.
+→
+2. Connect
+The client picks a company from
+the list (or invites their own), or the
+company invites the client.
+→
+3. Make the plan
+The company sets out the stages
+(foundation, roofing…) and when
+payments are due, using ready-
+made templates.
+4. Agree the plan
+The client reviews it and accepts.
+The plan is then locked; any change
+must be agreed by both sides.
+→
+5. Build & prove
+The crew takes photos and videos
+in the app. Each one is stamped
+with the time and location.
+→
+6. Approve
+When a stage is finished, the client
+checks the proof and approves it —
+or sends it back with reasons.
+7. Pay
+Approving a stage makes its payment due. The client pays
+by bank transfer and uploads the receipt; the company
+confirms it.
+→
+8. Finish & rate
+When the build is done, the client rates the company and
+the company rates the client.
+5 Main features
+Feature In simple terms
+Verified companies only Companies must pass checks (CAC registration, tax number, director's ID, bank
+account in the company's name) before they can use the app.
+Stage templates Ready-made lists of stages for every type of project — bungalows, duplexes,
+commercial buildings, roads, bridges and more.
+Proof you can trust Photos and videos taken in the app carry the time and location. Each stage needs a
+minimum amount of proof before it can be sent for approval.
+Real progress The progress percentage only counts stages the client has approved — not just what
+the builder says.
+Payment records What's due, what's paid, receipts and confirmations — all in one place.
+Built-in chat WhatsApp-style chat inside the app for the company's staﬀ and its clients, so
+conversations stay with the project.
+Notifications Phone alerts for important things (mostly app notifications, email when action is
+needed, SMS only for urgent things).
+BUILDTRACK · SIMPLE PRD
+BuildTrack — The plan, in plain English · 27 Sep 2026 Page 2 of 4
+=== Page 4 ===
+Feature In simple terms
+Ratings Clients rate companies and companies rate clients. Unresolved disputes show on both
+profiles.
+Worker rewards (optional) Staﬀ earn points for good, approved work, which the company can turn into
+bonuses.
+Works oﬀline Crew can take proof with no signal; it uploads automatically later.
+Web and mobile Both clients and companies can use a website and a phone app.
+6 How money and disagreements are handled
+In the first version, money does not go through the app. People pay by normal bank transfer, and the app
+keeps the record.
+Paying: when a payment is due, the client sees the company's bank details, pays, then uploads the receipt
+with the transaction reference.
+Confirming: the company has 3 days to confirm it received the money, or dispute it. If it says nothing, the
+payment is marked "Paid – not confirmed by contractor".
+Protection against fraud: only the company's Director can change its bank account, the account name
+must match the registered company name, clients are alerted immediately, and payments pause for 48
+hours after any change.
+Disagreements: either side can open a dispute about a payment or a piece of work. The project pauses,
+both sides add evidence, and both must agree it's resolved. If it isn't sorted within 14 days, it shows as
+"Unresolved dispute" on both profiles.
+Slow clients: if a client doesn't review a stage, they get reminders. After 7 days it's marked overdue and the
+company can carry on — the delay is shown as the client's.
+7 What makes BuildTrack diﬀerent
+Built for the client, not just the builder — clients have real power to approve work.
+Progress is proven, not just reported.
+Payments are tied to approved work and every step is on record.
+Only genuine, checked companies — and clients verify their identity too, so nobody can escape a bad
+reputation.
+Made for Nigeria — naira by default, works on low-cost Android phones and poor network, uses local
+terms (DPC, lintel, decking).
+BUILDTRACK · SIMPLE PRD
+BuildTrack — The plan, in plain English · 27 Sep 2026 Page 3 of 4
+=== Page 5 ===
+8 How BuildTrack makes money
+Who Pays?
+Construction companies Yes — a monthly or yearly subscription based on how many projects they're
+running at once. Their first project is free until it's finished (up to 12 months).
+Unlimited staﬀ.
+Individual clients Free, always.
+Governments & organisations Free during "Early Access" at launch; a paid plan comes later.
+Actual prices will be decided later.
+9 What comes when
+Release What's included
+First launch Everything described above: verification, projects, stage templates, proof, approvals, payment
+records, disputes, chat, notifications, ratings, share links, worker rewards, web + mobile apps.
+Soon after Pausing or cancelling a project, switching to a new company mid-build, tracking expenses and
+materials.
+Version 2 Paying directly through the app, BuildTrack helping settle disputes, paid plans for organisations,
+more than one company per project.
+Later Money held safely until work is approved (escrow), independent site inspections, camera and
+drone support.
+10 Still to decide
+The final name (BuildTrack is a working name).
+Subscription prices.
+Reward system details (how often points are totalled, limits on bonus points).
+Which outside services to use (for ID checks, SMS, email and billing).
+— End —
+BUILDTRACK · SIMPLE PRD
+BuildTrack — The plan, in plain English · 27 Sep 2026 Page 4 of 4

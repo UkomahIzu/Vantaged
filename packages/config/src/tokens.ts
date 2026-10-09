@@ -80,8 +80,8 @@ export const tokens = {
   },
   "font": {
     "family": {
-      "sans": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-      "mono": "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+      "sans": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "mono": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     },
     "weight": {
       "light": 300,
@@ -122,119 +122,119 @@ export const tokens = {
   },
   "typography": {
     "display-lg": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "72px",
       "fontWeight": 800,
       "lineHeight": 1,
       "letterSpacing": "-0.03em"
     },
     "display": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "60px",
       "fontWeight": 800,
       "lineHeight": 1.1,
       "letterSpacing": "-0.03em"
     },
     "display-sm": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "48px",
       "fontWeight": 700,
       "lineHeight": 1.1,
       "letterSpacing": "-0.03em"
     },
     "h1": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "36px",
       "fontWeight": 700,
       "lineHeight": 1.1,
       "letterSpacing": "-0.02em"
     },
     "h2": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "30px",
       "fontWeight": 700,
       "lineHeight": 1.25,
       "letterSpacing": "-0.02em"
     },
     "h3": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "24px",
       "fontWeight": 600,
       "lineHeight": 1.25,
       "letterSpacing": "-0.02em"
     },
     "h4": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "20px",
       "fontWeight": 600,
       "lineHeight": 1.25,
       "letterSpacing": "0em"
     },
     "h5": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "18px",
       "fontWeight": 600,
       "lineHeight": 1.25,
       "letterSpacing": "0em"
     },
     "h6": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "16px",
       "fontWeight": 600,
       "lineHeight": 1.25,
       "letterSpacing": "0em"
     },
     "body-lg": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "18px",
       "fontWeight": 400,
       "lineHeight": 1.65,
       "letterSpacing": "0em"
     },
     "body": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "16px",
       "fontWeight": 400,
       "lineHeight": 1.5,
       "letterSpacing": "0em"
     },
     "body-sm": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "14px",
       "fontWeight": 400,
       "lineHeight": 1.5,
       "letterSpacing": "0em"
     },
     "label": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "14px",
       "fontWeight": 600,
       "lineHeight": 1.25,
       "letterSpacing": "0em"
     },
     "button": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "16px",
       "fontWeight": 600,
       "lineHeight": 1,
       "letterSpacing": "0em"
     },
     "caption": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "12px",
       "fontWeight": 500,
       "lineHeight": 1.5,
       "letterSpacing": "0em"
     },
     "overline": {
-      "fontFamily": "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "12px",
       "fontWeight": 600,
       "lineHeight": 1.5,
       "letterSpacing": "0.1em"
     },
     "code": {
-      "fontFamily": "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+      "fontFamily": "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       "fontSize": "14px",
       "fontWeight": 400,
       "lineHeight": 1.5,
@@ -607,8 +607,8 @@ export const native = {
   },
   "font": {
     "family": {
-      "sans": "Plus Jakarta Sans",
-      "mono": "JetBrains Mono"
+      "sans": "Outfit",
+      "mono": "Outfit"
     },
     "weight": {
       "light": "300",
@@ -649,112 +649,112 @@ export const native = {
   },
   "typography": {
     "display-lg": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 72,
       "fontWeight": "800",
       "lineHeight": 72,
       "letterSpacing": -2.16
     },
     "display": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 60,
       "fontWeight": "800",
       "lineHeight": 66,
       "letterSpacing": -1.8
     },
     "display-sm": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 48,
       "fontWeight": "700",
       "lineHeight": 53,
       "letterSpacing": -1.44
     },
     "h1": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 36,
       "fontWeight": "700",
       "lineHeight": 40,
       "letterSpacing": -0.72
     },
     "h2": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 30,
       "fontWeight": "700",
       "lineHeight": 38,
       "letterSpacing": -0.6
     },
     "h3": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 24,
       "fontWeight": "600",
       "lineHeight": 30,
       "letterSpacing": -0.48
     },
     "h4": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 20,
       "fontWeight": "600",
       "lineHeight": 25,
       "letterSpacing": 0
     },
     "h5": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 18,
       "fontWeight": "600",
       "lineHeight": 23,
       "letterSpacing": 0
     },
     "h6": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 16,
       "fontWeight": "600",
       "lineHeight": 20,
       "letterSpacing": 0
     },
     "body-lg": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 18,
       "fontWeight": "400",
       "lineHeight": 30,
       "letterSpacing": 0
     },
     "body": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 16,
       "fontWeight": "400",
       "lineHeight": 24,
       "letterSpacing": 0
     },
     "body-sm": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 14,
       "fontWeight": "400",
       "lineHeight": 21,
       "letterSpacing": 0
     },
     "label": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 14,
       "fontWeight": "600",
       "lineHeight": 18,
       "letterSpacing": 0
     },
     "button": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 16,
       "fontWeight": "600",
       "lineHeight": 16,
       "letterSpacing": 0
     },
     "caption": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 12,
       "fontWeight": "500",
       "lineHeight": 18,
       "letterSpacing": 0
     },
     "overline": {
-      "fontFamily": "Plus Jakarta Sans",
+      "fontFamily": "Outfit",
       "fontSize": 12,
       "fontWeight": "600",
       "lineHeight": 18,
@@ -762,7 +762,7 @@ export const native = {
       "textTransform": "uppercase"
     },
     "code": {
-      "fontFamily": "JetBrains Mono",
+      "fontFamily": "Outfit",
       "fontSize": 14,
       "fontWeight": "400",
       "lineHeight": 21,
