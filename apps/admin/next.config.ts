@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
     "@vantaged/integrations",
     "@vantaged/db",
   ],
+  allowedDevOrigins: [
+    "localhost",
+    "127.0.0.1",
+    "192.168.178.1",
+    "192.168.164.82",
+    "192.168.178.*",
+    "192.168.164.*",
+  ],
 };
 
 export default nextConfig;

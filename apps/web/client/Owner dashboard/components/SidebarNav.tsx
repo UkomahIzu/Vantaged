@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 
 interface NavItem {
   id: string;
@@ -11,6 +12,7 @@ interface NavItem {
 
 export function SidebarNav() {
   const [activeItem, setActiveItem] = useState<string>("home");
+  const { fullName, email, role } = useCurrentUser();
 
   const navItems: NavItem[] = [
     {
@@ -158,6 +160,27 @@ export function SidebarNav() {
       ),
     },
     {
+      id: "notifications",
+      label: "Notifications",
+      badge: 3,
+      icon: (isActive) => (
+        <svg
+          className={`w-4 h-4 shrink-0 transition-colors ${
+            isActive ? "text-[var(--vt-color-orange-500,#EF5F18)]" : "text-[var(--vt-color-neutral-400,#A3A0B8)]"
+          }`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+        </svg>
+      ),
+    },
+    {
       id: "settings",
       label: "Settings",
       icon: (isActive) => (
@@ -241,7 +264,7 @@ export function SidebarNav() {
             <div className="relative shrink-0">
               <img
                 src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
-                alt="James Robinson"
+                alt={fullName}
                 className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-xs group-hover:scale-105 transition-transform"
               />
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[var(--vt-color-green-500,#2E9E57)] ring-2 ring-white" />
@@ -250,13 +273,13 @@ export function SidebarNav() {
             {/* Profile Info */}
             <div className="min-w-0">
               <h4 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-tight truncate">
-                James Robinson
+                {fullName}
               </h4>
               <p className="text-[10px] font-bold text-[var(--vt-color-orange-600,#D84C0B)] uppercase tracking-wider truncate">
-                Owner Admin
+                {role}
               </p>
               <p className="text-[10px] text-[var(--vt-color-neutral-500,#7C7894)] truncate font-sans">
-                james@vantaged.io
+                {email}
               </p>
             </div>
           </div>

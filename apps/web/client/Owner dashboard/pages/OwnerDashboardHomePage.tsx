@@ -5,9 +5,11 @@ import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { HeroGreeting } from "../components/HeroGreeting";
 import { QuickActionCards } from "../components/QuickActionCards";
+import { OwnerStatsSummaryCards } from "../components/OwnerStatsSummaryCards";
 import { ActiveProjectProgressCard } from "../components/ActiveProjectProgressCard";
 import { ContractHistoryCard } from "../components/ContractHistoryCard";
 import { NotificationsCard } from "../components/NotificationsCard";
+import { SiteFieldOperationsCards } from "../components/SiteFieldOperationsCards";
 
 export function OwnerDashboardHomePage() {
   return (
@@ -56,19 +58,29 @@ export function OwnerDashboardHomePage() {
           </div>
         </section>
 
+        {/* Top of Active Projects: 3 Summary Stat Cards */}
+        <section className="w-full">
+          <OwnerStatsSummaryCards />
+        </section>
+
         {/* Middle Section: Live Construction Milestone Progress Card */}
         <section className="w-full">
           <ActiveProjectProgressCard />
         </section>
 
         {/* Bottom Section: Contract History (Left) and Notifications (Right) */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 w-full pb-8">
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 w-full">
           <div className="lg:col-span-7 xl:col-span-8">
             <ContractHistoryCard />
           </div>
           <div className="lg:col-span-5 xl:col-span-4">
             <NotificationsCard />
           </div>
+        </section>
+
+        {/* ── Very Bottom: Site Governance & Field Operations (Weather, Delays, Attendance, Compliance, Financials) ── */}
+        <section className="w-full">
+          <SiteFieldOperationsCards />
         </section>
       </main>
     </div>

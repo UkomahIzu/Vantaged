@@ -217,6 +217,11 @@ export function OwnerSignupPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vantaged_user_name", fullName);
+      localStorage.setItem("vantaged_user_email", email);
+      localStorage.setItem("vantaged_user_role", currentRoleInfo.title);
+    }
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSubmitted(true);
