@@ -2,13 +2,19 @@
 
 import React, { useState } from "react";
 
-export function HeaderBar() {
+interface HeaderBarProps {
+  leftSlot?: React.ReactNode;
+}
+
+export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   return (
     <header className="w-full flex flex-col md:flex-row items-center justify-between gap-3 pt-1 pb-2 font-sans select-none">
-      {/* Left: Spacer to ensure center search bar stays mathematically centered */}
-      <div className="hidden md:flex md:w-36 lg:w-48 shrink-0" />
+      {/* Left: Custom left action (e.g. Back arrow on Projects page) or spacer */}
+      <div className="w-full md:w-36 lg:w-48 shrink-0 flex items-center justify-start">
+        {leftSlot}
+      </div>
 
       {/* Center: Centralized Search Bar */}
       <div className="relative flex-1 max-w-lg w-full mx-auto">

@@ -1,4 +1,7 @@
 export * from "./pages/OwnerDashboardHomePage";
+export * from "./pages/OwnerProjectsPage";
+export * from "./pages/OwnerFindCompaniesPage";
+export * from "./components/ProjectFolderCard";
 export * from "./components/SidebarNav";
 export * from "./components/HeaderBar";
 export * from "./components/HeroGreeting";
@@ -13,5 +16,6 @@ export * from "./components/ActiveProjectProgressCard";
 export * from "./components/OwnerStatsSummaryCards";
 export * from "./components/ContractHistoryCard";
 export * from "./components/SiteFieldOperationsCards";
+export * from "./components/OwnerFloatingDeskWidget";
 export * from "./types";
 export * from "./data/mockData";

@@ -69,12 +69,14 @@ export function OwnerDashboardHomePage() {
         </section>
 
         {/* Bottom Section: Contract History (Left) and Notifications (Right) */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 w-full">
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 w-full items-stretch">
           <div className="lg:col-span-7 xl:col-span-8">
             <ContractHistoryCard />
           </div>
-          <div className="lg:col-span-5 xl:col-span-4">
-            <NotificationsCard />
+          <div className="lg:col-span-5 xl:col-span-4 relative">
+            <div className="lg:absolute lg:inset-0 w-full h-full">
+              <NotificationsCard />
+            </div>
           </div>
         </section>
 

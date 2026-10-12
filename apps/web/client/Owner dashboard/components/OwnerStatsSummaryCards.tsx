@@ -17,7 +17,7 @@ export function OwnerStatsSummaryCards() {
 
         <div>
           <div className="text-3xl sm:text-4xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight mb-1">
-            01
+            03
           </div>
           <h3 className="text-sm font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
             Active projects

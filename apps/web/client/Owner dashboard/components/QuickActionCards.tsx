@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { SiteWeatherModal } from "./SiteWeatherModal";
+import { DraggableChatWindow } from "./DraggableChatWindow";
 
 export interface ActionCardItem {
   id: string;
@@ -37,7 +39,7 @@ export const ALL_QUICK_ACTIONS: ActionCardItem[] = [
         <line x1="18" y1="26" x2="28" y2="26" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <rect x="28" y="22" width="28" height="20" rx="5" stroke="var(--vt-color-orange-500,#EF5F18)" strokeWidth="2" fill="var(--vt-color-orange-50,#FFF4EE)" />
         <path d="M48 42L52 46L46 42" stroke="var(--vt-color-orange-500,#EF5F18)" strokeWidth="2" fill="var(--vt-color-orange-50,#FFF4EE)" />
-        <circle cx="36" cy="32" r="1.5" fill="var(--vt-color-orange-500,#EF5F18)" />
+        <circle cx="32" cy="32" r="1.5" fill="var(--vt-color-orange-500,#EF5F18)" />
         <circle cx="42" cy="32" r="1.5" fill="var(--vt-color-orange-500,#EF5F18)" />
         <circle cx="48" cy="32" r="1.5" fill="var(--vt-color-orange-500,#EF5F18)" />
       </svg>
@@ -56,6 +58,18 @@ export const ALL_QUICK_ACTIONS: ActionCardItem[] = [
         <path d="M22 42C22 37 26 35 32 35C38 35 42 37 42 42" stroke="currentColor" strokeWidth="1.8" />
         <circle cx="42" cy="38" r="6" fill="var(--vt-color-orange-500,#EF5F18)" />
         <path d="M39.5 38L41.5 40L44.5 36" stroke="#FFFFFF" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "site-weather",
+    title: "Check site weather",
+    subtitle: "Live radar, heat index & rain delay status",
+    illustration: (
+      <svg className="h-12 w-16 text-[var(--vt-color-indigo-900,#261A66)]" viewBox="0 0 64 56" fill="none">
+        <circle cx="25" cy="23" r="10" stroke="var(--vt-color-orange-500,#EF5F18)" strokeWidth="2.2" fill="var(--vt-color-orange-50,#FFF4EE)" />
+        <path d="M25 8V11M25 35V38M10 23H13M37 23H40M14.5 12.5L16.5 14.5M33.5 31.5L35.5 33.5M14.5 33.5L16.5 31.5M33.5 14.5L35.5 12.5" stroke="var(--vt-color-orange-600,#D84C0B)" strokeWidth="2" strokeLinecap="round" />
+        <path d="M26 37C26 32.58 29.58 29 34 29C34.7 29 35.37 29.09 36.01 29.26C37.38 26.16 40.51 24 44.17 24C49.14 24 53.17 28.03 53.17 33C53.17 33.33 53.15 33.66 53.12 33.98C54.84 34.8 56 36.56 56 38.6C56 41.58 53.58 44 50.6 44H32C28.69 44 26 41.31 26 38" fill="#FFFFFF" stroke="var(--vt-color-indigo-900,#261A66)" strokeWidth="2" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -79,16 +93,18 @@ export const ALL_QUICK_ACTIONS: ActionCardItem[] = [
 ];
 
 export function QuickActionCards() {
-  // Slots: exactly 4 spots on the dashboard. Starts with 3 chosen actions + 1 'Add new' empty slot.
+  // Slots: exactly 4 spots on the dashboard. Starts with 4 curated actions including Site Weather.
   const [slots, setSlots] = useState<(string | null)[]>([
     "share-link",
     "message-contractor",
     "assign-rep",
-    null,
+    "site-weather",
   ]);
 
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Load persisted slots from localStorage if available
   useEffect(() => {
@@ -175,6 +191,13 @@ export function QuickActionCards() {
           return (
             <div
               key={`action-slot-${action.id}-${index}`}
+              onClick={() => {
+                if (action.id === "site-weather") {
+                  setIsWeatherModalOpen(true);
+                } else if (action.id === "message-contractor") {
+                  setIsChatOpen(true);
+                }
+              }}
               className="w-full min-h-[150px] sm:min-h-[162px] h-[162px] bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)]/30 border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] rounded-xl p-4 sm:p-4.5 flex flex-col justify-between shadow-[0_4px_12px_rgba(38,26,102,0.04)] hover:shadow-[0_8px_24px_rgba(239,95,24,0.08)] transition-all cursor-pointer group relative"
             >
               {/* '-' Button at Top Right to Remove Quick Action */}
@@ -291,6 +314,18 @@ export function QuickActionCards() {
           </div>
         </div>
       )}
+
+      {/* ── Site Weather & Radar Modal ── */}
+      <SiteWeatherModal
+        isOpen={isWeatherModalOpen}
+        onClose={() => setIsWeatherModalOpen(false)}
+      />
+
+      {/* ── Floating Draggable PureRef-Style WhatsApp Contractor Chat Window ── */}
+      <DraggableChatWindow
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+      />
     </>
   );
 }

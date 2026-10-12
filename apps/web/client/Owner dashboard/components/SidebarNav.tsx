@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 
 interface NavItem {
@@ -10,9 +11,35 @@ interface NavItem {
   icon: (isActive: boolean) => React.ReactNode;
 }
 
-export function SidebarNav() {
-  const [activeItem, setActiveItem] = useState<string>("home");
+export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string } = {}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [activeItem, setActiveItem] = useState<string>(currentActiveItem || "home");
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const { fullName, email, role } = useCurrentUser();
+
+  useEffect(() => {
+    if (currentActiveItem) {
+      setActiveItem(currentActiveItem);
+    } else if (pathname?.includes("/find-companies")) {
+      setActiveItem("find-companies");
+    } else if (pathname?.includes("/projects")) {
+      setActiveItem("projects");
+    } else if (pathname?.includes("/dashboard")) {
+      setActiveItem("home");
+    }
+  }, [currentActiveItem, pathname]);
+
+  const handleNavClick = (id: string) => {
+    setActiveItem(id);
+    if (id === "home") {
+      router.push("/owner/dashboard");
+    } else if (id === "projects") {
+      router.push("/owner/projects");
+    } else if (id === "find-companies") {
+      router.push("/owner/find-companies");
+    }
+  };
 
   const navItems: NavItem[] = [
     {
@@ -73,26 +100,6 @@ export function SidebarNav() {
         >
           <rect width="20" height="14" x="2" y="5" rx="2" />
           <line x1="2" x2="22" y1="10" y2="10" />
-        </svg>
-      ),
-    },
-    {
-      id: "messages",
-      label: "Messages",
-      badge: "2",
-      icon: (isActive) => (
-        <svg
-          className={`w-4 h-4 shrink-0 transition-colors ${
-            isActive ? "text-[var(--vt-color-orange-500,#EF5F18)]" : "text-[var(--vt-color-neutral-400,#A3A0B8)]"
-          }`}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
         </svg>
       ),
     },
@@ -227,7 +234,7 @@ export function SidebarNav() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActiveItem(item.id)}
+                onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   isActive
                     ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] font-bold border border-[var(--vt-color-orange-200,#FDCAA9)]/70 shadow-2xs"
@@ -256,9 +263,78 @@ export function SidebarNav() {
         </nav>
       </div>
 
-      {/* Base: Owner Profile Card */}
-      <div className="pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] px-1">
-        <div className="p-2.5 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] hover:bg-white flex items-center justify-between transition-all cursor-pointer group shadow-2xs">
+      {/* Base: Owner Profile Card with Dropdown */}
+      <div className="pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] px-1 relative">
+        {/* Profile Dropdown Popover */}
+        {isProfileMenuOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-30"
+              onClick={() => setIsProfileMenuOpen(false)}
+            />
+            <div
+              style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+              className="absolute bottom-16 left-1 right-1 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl shadow-[0_12px_36px_rgba(38,26,102,0.18)] p-1.5 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150"
+            >
+              {/* Option 1: Profile */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProfileMenuOpen(false);
+                  alert(`Viewing profile for ${fullName} (${email})`);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] hover:text-[var(--vt-color-orange-700,#B33C08)] transition-colors cursor-pointer text-left"
+              >
+                <div className="w-7 h-7 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="leading-tight font-bold">Profile</p>
+                  <p className="text-[10px] text-[var(--vt-color-neutral-400,#A3A0B8)] font-normal">Account & credentials</p>
+                </div>
+              </button>
+
+              <div className="my-1 border-t border-[var(--vt-color-neutral-100,#EFEEF5)]" />
+
+              {/* Option 2: Logout */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProfileMenuOpen(false);
+                  if (confirm("Are you sure you want to log out of Vantaged?")) {
+                    router.push("/signup");
+                  }
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer text-left"
+              >
+                <div className="w-7 h-7 rounded-md bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="leading-tight font-bold">Logout</p>
+                  <p className="text-[10px] text-rose-400 font-normal">Sign out of session</p>
+                </div>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Profile Card Trigger */}
+        <div
+          onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+          className={`p-2.5 rounded-lg border transition-all cursor-pointer group shadow-2xs ${
+            isProfileMenuOpen
+              ? "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-400,#F78241)] ring-2 ring-[var(--vt-color-orange-500,#EF5F18)]/20"
+              : "bg-[var(--vt-color-neutral-50,#F7F7FA)] border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] hover:bg-white"
+          } flex items-center justify-between`}
+        >
           <div className="flex items-center gap-2.5 min-w-0">
             {/* Circular Profile Picture with Live Status */}
             <div className="relative shrink-0">
@@ -285,15 +361,15 @@ export function SidebarNav() {
           </div>
 
           {/* Options / Action Chevron Button */}
-          <button
-            type="button"
-            title="Account Options"
-            className="text-[var(--vt-color-neutral-400,#A3A0B8)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] p-1 rounded-sm shrink-0"
+          <div
+            className={`text-[var(--vt-color-neutral-400,#A3A0B8)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] p-1 rounded-sm shrink-0 transition-transform duration-200 ${
+              isProfileMenuOpen ? "rotate-90 text-[var(--vt-color-orange-600,#D84C0B)]" : ""
+            }`}
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="9 18 15 12 9 6" />
             </svg>
-          </button>
+          </div>
         </div>
       </div>
     </aside>
