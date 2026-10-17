@@ -437,7 +437,7 @@ export function OwnerFindCompaniesPage() {
   return (
     <div
       style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
-      className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-indigo-900,#261A66)] select-none relative"
+      className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative"
     >
       {/* Decorative vector background lines */}
       <div className="absolute inset-0 pointer-events-none opacity-40 z-0 overflow-hidden">

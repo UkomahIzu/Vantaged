@@ -62,8 +62,8 @@ export function ProjectFolderCard({
                   ? "bg-[var(--vt-color-orange-500,#EF5F18)] border-white/60"
                   : "bg-[var(--vt-color-orange-500,#EF5F18)] border-[var(--vt-color-orange-600,#D84C0B)]"
                 : isSelected
-                  ? "bg-[#E4E2EE] border-[var(--vt-color-orange-300,#FBA674)]"
-                  : "bg-[#EAE8F2] group-hover:bg-[#E2E0EE] border-[#DBD7E7]"
+                  ? "bg-[var(--vt-color-neutral-100,#E4E2EE)] border-[var(--vt-color-orange-300,#FBA674)]"
+                  : "bg-[var(--vt-color-neutral-100,#EAE8F2)] group-hover:bg-[var(--vt-color-neutral-200,#E2E0EE)] border-[var(--vt-color-border-subtle,#DBD7E7)]"
             }`}
           />
           {/* Subtle bridge transition to back plate */}
@@ -75,7 +75,7 @@ export function ProjectFolderCard({
                   : "border-[var(--vt-color-orange-600,#D84C0B)]"
                 : isSelected
                   ? "border-[var(--vt-color-orange-300,#FBA674)]"
-                  : "border-[#DBD7E7]"
+                  : "border-[var(--vt-color-border-subtle,#DBD7E7)]"
             }`}
           />
         </div>
@@ -88,8 +88,8 @@ export function ProjectFolderCard({
                 ? "bg-[var(--vt-color-orange-500,#EF5F18)] border-white/40"
                 : "bg-[var(--vt-color-orange-500,#EF5F18)] border-[var(--vt-color-orange-600,#D84C0B)]"
               : isSelected
-                ? "bg-[#F0EEF7] border-[var(--vt-color-orange-200,#FDCAA9)]"
-                : "bg-[#F5F4FA] group-hover:bg-[#F0EEF7] border-[#DFDCEB]"
+                ? "bg-[var(--vt-color-background-subtle,#F0EEF7)] border-[var(--vt-color-orange-200,#FDCAA9)]"
+                : "bg-[var(--vt-color-neutral-50,#F5F4FA)] group-hover:bg-[var(--vt-color-background-subtle,#F0EEF7)] border-[var(--vt-color-border-default,#DFDCEB)]"
           }`}
         />
       </div>
@@ -100,7 +100,7 @@ export function ProjectFolderCard({
         className={`absolute left-3.5 right-3.5 top-2 h-38 bg-white rounded-2xl border p-3.5 sm:p-4 z-10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] flex flex-col justify-between overflow-hidden pointer-events-none ${
           isSelected
             ? "-translate-y-8 sm:-translate-y-9 shadow-[0_16px_36px_rgba(38,26,102,0.14)] border-[var(--vt-color-orange-400,#F78241)] ring-1 ring-[var(--vt-color-orange-300,#FBA674)]"
-            : "shadow-[0_4px_16px_rgba(38,26,102,0.06)] border-[#E4E2EE] group-hover:-translate-y-3.5"
+            : "shadow-[0_4px_16px_rgba(38,26,102,0.06)] border-[var(--vt-color-border-default,#E4E2EE)] group-hover:-translate-y-3.5"
         }`}
       >
         {/* Top: Snippet line 1 + Selected/Active pill badge */}
@@ -188,8 +188,8 @@ export function ProjectFolderCard({
             ) : (
               <path
                 d="M 0,36 C 40,36, 60,30, 95,16 C 125,4, 145,0, 180,0 L 304,0 Q 320,0, 320,16 L 320,164 Q 320,180, 304,180 L 16,180 Q 0,180, 0,164 Z"
-                fill="#FFFFFF"
-                stroke={isSelected ? "var(--vt-color-orange-500,#EF5F18)" : "#E2E0EC"}
+                fill="var(--vt-color-surface-raised, #FFFFFF)"
+                stroke={isSelected ? "var(--vt-color-orange-500,#EF5F18)" : "var(--vt-color-border-default,#E2E0EC)"}
                 strokeWidth={isSelected ? "1.8" : "1.2"}
                 className="group-hover:stroke-[var(--vt-color-orange-300,#FBA674)] transition-colors"
               />

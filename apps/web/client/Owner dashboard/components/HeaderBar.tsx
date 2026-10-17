@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import { useRouter } from "next/navigation";
+import { useTheme } from "../../context/ThemeContext";
 
 interface HeaderBarProps {
   leftSlot?: React.ReactNode;
 }
 
 export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="w-full flex flex-col md:flex-row items-center justify-between gap-3 pt-1 pb-2 font-sans select-none">
@@ -42,9 +45,9 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
         {/* Single Light/Dark Mode Toggle Button */}
         <button
           type="button"
-          onClick={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
+          onClick={toggleTheme}
           title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
-          className="h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-indigo-900,#261A66)] flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer shadow-2xs font-sans"
+          className="h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer shadow-2xs font-sans"
         >
           {theme === "light" ? (
             <>
@@ -56,7 +59,7 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
             </>
           ) : (
             <>
-              <svg className="w-3.5 h-3.5 text-[var(--vt-color-indigo-600,#5547B0)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="w-3.5 h-3.5 text-[var(--vt-color-orange-400,#F6803F)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
               </svg>
               <span>Dark</span>
@@ -67,6 +70,7 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
         {/* Notifications Bell */}
         <button
           type="button"
+          onClick={() => router.push("/owner/notifications")}
           title="Notifications"
           className="w-9 h-9 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] flex items-center justify-center text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors cursor-pointer shadow-2xs relative"
         >

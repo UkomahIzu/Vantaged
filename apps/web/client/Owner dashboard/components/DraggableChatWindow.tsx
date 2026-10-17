@@ -772,7 +772,7 @@ export function DraggableChatWindow({
           </div>
 
           {/* ── Full WhatsApp-Style Chat UI Body ── */}
-          <div className="flex-1 flex flex-col min-h-0 bg-[#F4F2FA]/70 relative">
+          <div className="flex-1 flex flex-col min-h-0 bg-[var(--vt-color-surface-sunken,#F4F2FA)] relative">
             {/* WhatsApp Doodle Wallpaper Texture Background */}
             <div
               className="absolute inset-0 pointer-events-none opacity-[0.035] bg-repeat z-0"
@@ -804,8 +804,8 @@ export function DraggableChatWindow({
                     <div
                       className={`max-w-[85%] rounded-2xl p-2.5 shadow-2xs text-[11.5px] leading-relaxed transition-all relative ${
                         isContractor
-                          ? "bg-white text-[var(--vt-color-indigo-900,#261A66)] border border-[var(--vt-color-border-default,#E2E0EC)]/80 rounded-tl-xs"
-                          : "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-indigo-950,#191147)] border border-[var(--vt-color-orange-200,#FDCAA9)] rounded-tr-xs"
+                          ? "bg-white text-[var(--vt-color-text-default,#261A66)] border border-[var(--vt-color-border-default,#E2E0EC)]/80 rounded-tl-xs"
+                          : "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-text-default,#191147)] border border-[var(--vt-color-orange-200,#FDCAA9)] rounded-tr-xs"
                       }`}
                     >
                       {/* Contractor sender name highlight */}

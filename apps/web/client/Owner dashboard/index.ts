@@ -1,6 +1,9 @@
 export * from "./pages/OwnerDashboardHomePage";
 export * from "./pages/OwnerProjectsPage";
 export * from "./pages/OwnerFindCompaniesPage";
+export * from "./pages/OwnerClientRepsPage";
+export * from "./pages/OwnerNotificationsPage";
+export * from "./pages/OwnerSettingsPage";
 export * from "./components/ProjectFolderCard";
 export * from "./components/SidebarNav";
 export * from "./components/HeaderBar";
@@ -19,3 +22,4 @@ export * from "./components/SiteFieldOperationsCards";
 export * from "./components/OwnerFloatingDeskWidget";
 export * from "./types";
 export * from "./data/mockData";
+export * from "../context/ThemeContext";

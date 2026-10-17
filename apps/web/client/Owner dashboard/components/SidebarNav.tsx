@@ -21,6 +21,12 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
   useEffect(() => {
     if (currentActiveItem) {
       setActiveItem(currentActiveItem);
+    } else if (pathname?.includes("/settings")) {
+      setActiveItem("settings");
+    } else if (pathname?.includes("/notifications")) {
+      setActiveItem("notifications");
+    } else if (pathname?.includes("/client-reps")) {
+      setActiveItem("client-reps");
     } else if (pathname?.includes("/find-companies")) {
       setActiveItem("find-companies");
     } else if (pathname?.includes("/projects")) {
@@ -38,6 +44,12 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
       router.push("/owner/projects");
     } else if (id === "find-companies") {
       router.push("/owner/find-companies");
+    } else if (id === "client-reps") {
+      router.push("/owner/client-reps");
+    } else if (id === "notifications") {
+      router.push("/owner/notifications");
+    } else if (id === "settings") {
+      router.push("/owner/settings");
     }
   };
 
@@ -142,27 +154,6 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
           <circle cx="9" cy="7" r="4" />
           <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      ),
-    },
-    {
-      id: "disputes",
-      label: "Disputes",
-      icon: (isActive) => (
-        <svg
-          className={`w-4 h-4 shrink-0 transition-colors ${
-            isActive ? "text-[var(--vt-color-orange-500,#EF5F18)]" : "text-[var(--vt-color-neutral-400,#A3A0B8)]"
-          }`}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       ),
     },
@@ -281,7 +272,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
                 type="button"
                 onClick={() => {
                   setIsProfileMenuOpen(false);
-                  alert(`Viewing profile for ${fullName} (${email})`);
+                  router.push("/owner/settings");
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] hover:text-[var(--vt-color-orange-700,#B33C08)] transition-colors cursor-pointer text-left"
               >
