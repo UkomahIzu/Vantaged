@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 
 export interface ActiveProject {
   id: string;
@@ -41,7 +42,7 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
     scope: {
       title: "First Floor Slab Casting + Structural Column Reinforcement",
       description:
-        "Includes: High-tensile 16mm rebar tying · C30 ready-mix concrete pour · Core test cylinder collection · On-site Rep inspection",
+        "Includes: High-tensile 16mm rebar tying · C30 ready-mix concrete pour · Core test cylinder collection · On-site Representative inspection",
     },
     contractor: {
       name: "Julius B. Consortium",
@@ -108,10 +109,10 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
         "Includes: Hot-rolled galvanized C-channel rafters · High-grade waterproof roof membrane · Rainwater drainage conduit layout · Rep load deflection test",
     },
     contractor: {
-      name: "Apex Build Nigeria Ltd",
-      rating: "4.7 ★",
-      milestonesCompleted: 11,
-      assignedRep: "Engr. Bello Usman",
+      name: "SolidGround Engineering",
+      rating: "4.8 ★",
+      milestonesCompleted: 18,
+      assignedRep: "Arc. Bello K.",
     },
     steps: [
       { title: "First floor slab curing", timeOrDate: "Sep 28, 09:00", status: "completed" },
@@ -125,6 +126,102 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
       { title: "Parapet screed sign-off", timeOrDate: "Expected Fri 16:00", status: "pending" },
     ],
     milestoneFunded: "₦26,200,000",
+  },
+  {
+    id: "proj-eko",
+    jobId: "JOB-6205",
+    shortName: "Eko Sky Tower",
+    title: "Eko Atlantic Sky Tower",
+    location: "Marina District, Eko Atlantic City",
+    specs: "14-Storey Mixed-Use Commercial",
+    status: "In progress",
+    scope: {
+      title: "Level 4 Core Slip-Forming & High-Tensile Post-Tensioning",
+      description:
+        "Includes: Hydraulic climbing slip-form active · Post-tensioned cable anchoring · Concrete slump pressure monitoring · Laser verticality check",
+    },
+    contractor: {
+      name: "Cappa & D'Alberto",
+      rating: "4.9 ★",
+      milestonesCompleted: 7,
+      assignedRep: "Engr. Tunde Coker",
+    },
+    steps: [
+      { title: "Level 3 slab curing", timeOrDate: "Sep 22, 10:00", status: "completed" },
+      { title: "Hydraulic rig assembly", timeOrDate: "Sep 28, 08:30", status: "completed" },
+      { title: "Cable tension test", timeOrDate: "Oct 02, 14:15", status: "completed" },
+      {
+        title: "Core concrete pouring",
+        timeOrDate: "Started 07:30 · ~4h 15m left",
+        status: "active",
+      },
+      { title: "Level 4 core sign-off", timeOrDate: "Expected Sat 17:00", status: "pending" },
+    ],
+    milestoneFunded: "₦65,000,000",
+  },
+  {
+    id: "proj-banana",
+    jobId: "JOB-7311",
+    shortName: "Banana Horizon",
+    title: "Banana Island Horizon Penthouse",
+    location: "Zone C, Banana Island, Ikoyi",
+    specs: "Ultra-Luxury Triplex Penthouse",
+    status: "In progress",
+    scope: {
+      title: "Italian Marble Tiling & Smart Building Automation (BMS)",
+      description:
+        "Includes: Calacatta marble slab laying · KNX automation bus wiring · Central AC duct acoustic insulation · Master bathroom jacuzzi waterproofing",
+    },
+    contractor: {
+      name: "Hitech Construction",
+      rating: "4.9 ★",
+      milestonesCompleted: 22,
+      assignedRep: "Engr. Amina Lawal",
+    },
+    steps: [
+      { title: "Ceiling frame inspection", timeOrDate: "Sep 18, 11:00", status: "completed" },
+      { title: "Smart automation rough-in", timeOrDate: "Sep 25, 14:00", status: "completed" },
+      { title: "Marble delivery logged", timeOrDate: "Sep 30, 09:30", status: "completed" },
+      {
+        title: "Marble floor installation",
+        timeOrDate: "Started 09:00 · ~1h 45m left",
+        status: "active",
+      },
+      { title: "Snag list inspection", timeOrDate: "Expected Mon 14:00", status: "pending" },
+    ],
+    milestoneFunded: "₦28,500,000",
+  },
+  {
+    id: "proj-vi",
+    jobId: "JOB-8140",
+    shortName: "VI Plaza",
+    title: "Victoria Island Commercial Plaza",
+    location: "Adeola Odeku St, Victoria Island",
+    specs: "Premium Office & Retail Complex",
+    status: "In progress",
+    scope: {
+      title: "Subgrade Earthworks Compaction & Dewatering Operations",
+      description:
+        "Includes: Deep wellpoint dewatering pumps · Vibratory roller subgrade compaction · 98% Modified AASHTO density verification · Boundary survey",
+    },
+    contractor: {
+      name: "Costain West Africa",
+      rating: "4.7 ★",
+      milestonesCompleted: 3,
+      assignedRep: "Engr. Emeka Obi",
+    },
+    steps: [
+      { title: "Site perimeter clearing", timeOrDate: "Sep 12, 08:00", status: "completed" },
+      { title: "Sheet piling installation", timeOrDate: "Sep 20, 11:30", status: "completed" },
+      { title: "Dewatering pumps active", timeOrDate: "Sep 28, 10:15", status: "completed" },
+      {
+        title: "Subgrade soil compaction",
+        timeOrDate: "Started 08:30 · ~2h 00m left",
+        status: "active",
+      },
+      { title: "Density certification sign-off", timeOrDate: "Expected Wed 16:30", status: "pending" },
+    ],
+    milestoneFunded: "₦15,000,000",
   },
 ];
 
@@ -289,14 +386,11 @@ export function ActiveProjectProgressCard({
             key={project.id}
             className="w-full shrink-0 snap-start snap-always flex flex-col justify-between"
           >
-            {/* Top Row: Job ID for Single Project */}
+            {/* Top Row: Active Project badge */}
             {!hasMultipleProjects && (
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-[11px] font-bold tracking-wider text-[var(--vt-color-orange-600,#D84C0B)] uppercase font-sans">
                   ACTIVE PROJECT
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-[var(--vt-color-indigo-50,#F4F3FC)] border border-[var(--vt-color-indigo-200,#D7D3F3)] text-[var(--vt-color-indigo-800,#342982)] text-[10px] font-bold font-mono">
-                  {project.jobId}
                 </span>
               </div>
             )}
@@ -305,13 +399,13 @@ export function ActiveProjectProgressCard({
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-0.5">
                 <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight leading-snug">
-                  {project.title}
+                  <Link
+                    href={`/owner/projects/${project.id}`}
+                    className="hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors"
+                  >
+                    {project.title}
+                  </Link>
                 </h2>
-                {hasMultipleProjects && (
-                  <span className="px-2 py-0.5 rounded-md bg-[var(--vt-color-indigo-50,#F4F3FC)] border border-[var(--vt-color-indigo-200,#D7D3F3)] text-[var(--vt-color-indigo-800,#342982)] text-[10px] font-bold font-mono">
-                    {project.jobId}
-                  </span>
-                )}
               </div>
               <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] font-sans">
                 {project.location} • {project.specs}
@@ -350,7 +444,7 @@ export function ActiveProjectProgressCard({
               </span>
               <span className="hidden md:inline text-[var(--vt-color-neutral-300,#CBC8DA)]">•</span>
               <span className="hidden md:inline text-[var(--vt-color-neutral-500,#7C7894)]">
-                Assigned Rep: <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{project.contractor.assignedRep}</strong> (On-site)
+                Representative: <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{project.contractor.assignedRep}</strong> (On-site)
               </span>
             </div>
 
@@ -408,8 +502,8 @@ export function ActiveProjectProgressCard({
               </div>
 
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
+                <Link
+                  href={`/owner/projects/${project.id}`}
                   className="h-10 px-6 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] active:bg-[var(--vt-color-orange-700,#B33C08)] text-white text-xs font-bold transition-all cursor-pointer shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] font-sans flex items-center gap-2"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -417,7 +511,7 @@ export function ActiveProjectProgressCard({
                     <circle cx="12" cy="10" r="3" />
                   </svg>
                   <span>Track project</span>
-                </button>
+                </Link>
               </div>
             </div>
           </div>

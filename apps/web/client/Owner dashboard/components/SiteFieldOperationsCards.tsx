@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 
 export function SiteFieldOperationsCards() {
   const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
@@ -53,13 +54,12 @@ export function SiteFieldOperationsCards() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setSelectedVariation("CR-04")}
-                  className="h-7 px-3 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0"
+                <Link
+                  href="/owner/projects/proj-lekki/change-requests"
+                  className="h-7 px-3 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0 flex items-center justify-center"
                 >
                   Review
-                </button>
+                </Link>
               </div>
 
               {/* Item 2: Approved */}
@@ -111,12 +111,12 @@ export function SiteFieldOperationsCards() {
             <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
               3 total changes recorded
             </span>
-            <button
-              type="button"
+            <Link
+              href="/owner/projects/proj-lekki/change-requests"
               className="text-xs font-bold text-[var(--vt-color-orange-600,#D84C0B)] hover:text-[var(--vt-color-orange-700,#B33C08)] transition-colors cursor-pointer"
             >
               + Ask for a change
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -213,9 +213,12 @@ export function SiteFieldOperationsCards() {
           {/* Card Footer */}
           <div className="mt-3 pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center justify-between text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
             <span>Verified state construction files</span>
-            <span className="font-semibold text-[var(--vt-color-orange-600,#D84C0B)] cursor-pointer hover:underline">
+            <Link
+              href="/owner/projects/proj-lekki/plan"
+              className="font-semibold text-[var(--vt-color-orange-600,#D84C0B)] cursor-pointer hover:underline"
+            >
               View documents &rarr;
-            </span>
+            </Link>
           </div>
         </div>
       </div>

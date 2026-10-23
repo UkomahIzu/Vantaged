@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 
 interface NotificationItem {
   id: string;
@@ -9,6 +10,7 @@ interface NotificationItem {
   subtitle: string;
   timestamp: string;
   urgent?: boolean;
+  linkUrl: string;
 }
 
 const initialOwnerNotifications: NotificationItem[] = [
@@ -19,6 +21,7 @@ const initialOwnerNotifications: NotificationItem[] = [
     subtitle: "Engr. Chidi · Ready for joint inspection",
     timestamp: "Today, 11:00 AM",
     urgent: true,
+    linkUrl: "/owner/projects/proj-lekki/stages",
   },
   {
     id: "notif-2",
@@ -26,13 +29,15 @@ const initialOwnerNotifications: NotificationItem[] = [
     title: "Milestone Tranche Escrow Secured",
     subtitle: "Lekki Villa · ₦18,450,000 locked in escrow",
     timestamp: "Today, 09:12 AM",
+    linkUrl: "/owner/transactions",
   },
   {
     id: "notif-3",
     type: "message",
-    title: "Lead Rep Field Report Uploaded",
+    title: "Lead Representative Field Report Uploaded",
     subtitle: "Engr. Chidi · Rebar tensile test verified",
     timestamp: "Yesterday, 5:40 PM",
+    linkUrl: "/owner/projects/proj-lekki",
   },
   {
     id: "notif-4",
@@ -40,6 +45,7 @@ const initialOwnerNotifications: NotificationItem[] = [
     title: "Material Delivery Confirmed",
     subtitle: "Gate Log · 600 bags cement received",
     timestamp: "2 days ago",
+    linkUrl: "/owner/projects/proj-lekki",
   },
   {
     id: "notif-5",
@@ -47,6 +53,7 @@ const initialOwnerNotifications: NotificationItem[] = [
     title: "Weekly Drone Aerial Scan Uploaded",
     subtitle: "Survey Team · 4K video ready for review",
     timestamp: "3 days ago",
+    linkUrl: "/owner/projects/proj-banana",
   },
   {
     id: "notif-6",
@@ -54,6 +61,7 @@ const initialOwnerNotifications: NotificationItem[] = [
     title: "Plumbing First-Fix Pressure Test",
     subtitle: "Engr. Tunde · Pipe pressure test passed",
     timestamp: "4 days ago",
+    linkUrl: "/owner/projects/proj-guzape",
   },
   {
     id: "notif-7",
@@ -61,11 +69,12 @@ const initialOwnerNotifications: NotificationItem[] = [
     title: "Foundation Milestone Disbursed",
     subtitle: "SolidGround Ltd · ₦24,500,000 released",
     timestamp: "1 week ago",
+    linkUrl: "/owner/transactions",
   },
 ];
 
 export function NotificationsCard() {
-  const [notifications, setNotifications] = useState(initialOwnerNotifications);
+  const [notifications] = useState(initialOwnerNotifications);
 
   return (
     <div className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none h-full min-h-[360px] lg:min-h-0">
@@ -104,9 +113,10 @@ export function NotificationsCard() {
           </div>
         ) : (
           notifications.map((item) => (
-            <div
+            <Link
               key={item.id}
-              className="py-3 sm:py-3.5 flex items-center justify-between gap-4 group hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/60 px-2 rounded-lg transition-colors cursor-pointer"
+              href={item.linkUrl}
+              className="py-3 sm:py-3.5 flex items-center justify-between gap-4 group hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/60 px-2 rounded-lg transition-colors cursor-pointer block"
             >
               {/* Left: Notification Title & Subtitle */}
               <div className="min-w-0 flex-1">
@@ -135,7 +145,7 @@ export function NotificationsCard() {
                   {item.timestamp}
                 </span>
               </div>
-            </div>
+            </Link>
           ))
         )}
       </div>
@@ -146,15 +156,15 @@ export function NotificationsCard() {
           Pending alerts: <strong className="font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">{notifications.length} unread</strong>
         </span>
 
-        <button
-          type="button"
+        <Link
+          href="/owner/notifications"
           className="h-8 px-3 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] active:bg-[var(--vt-color-orange-700,#B33C08)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs flex items-center gap-1.5 font-sans"
         >
           <span>See all</span>
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="9 18 15 12 9 6" />
           </svg>
-        </button>
+        </Link>
       </div>
     </div>
   );

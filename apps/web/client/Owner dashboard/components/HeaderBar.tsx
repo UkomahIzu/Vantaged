@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -11,11 +12,18 @@ interface HeaderBarProps {
 export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && searchQuery.trim()) {
+      router.push(`/owner/projects?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   return (
     <header className="w-full flex flex-col md:flex-row items-center justify-between gap-3 pt-1 pb-2 font-sans select-none">
-      {/* Left: Custom left action (e.g. Back arrow on Projects page) or spacer */}
-      <div className="w-full md:w-36 lg:w-48 shrink-0 flex items-center justify-start">
+      {/* Left: Custom left action (e.g. Back arrow on Projects page, breadcrumbs) or spacer */}
+      <div className="w-full md:w-auto md:max-w-md lg:max-w-lg shrink-0 flex items-center justify-start min-w-0">
         {leftSlot}
       </div>
 
@@ -35,7 +43,10 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
         </svg>
         <input
           type="text"
-          placeholder="Search properties, milestones, telemetry..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
+          placeholder="Search properties, milestones, telemetry (Press Enter)..."
           className="w-full h-9 pl-9 pr-4 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] focus:border-[var(--vt-color-orange-500,#EF5F18)] focus:ring-2 focus:ring-[var(--vt-color-orange-500,#EF5F18)]/15 rounded-md text-xs sm:text-sm text-[var(--vt-color-text-default,#261A66)] placeholder:text-[var(--vt-color-neutral-400,#A3A0B8)] outline-none transition-all shadow-2xs font-sans"
         />
       </div>
@@ -81,9 +92,9 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] ring-1.5 ring-white" />
         </button>
 
-        {/* Start Project Primary Button in Vibrant Brand Orange 30% */}
-        <button
-          type="button"
+        {/* Start Project Primary Button - Links to /owner/find-companies */}
+        <Link
+          href="/owner/find-companies"
           className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] active:bg-[var(--vt-color-orange-700,#B33C08)] text-white text-xs font-bold transition-all cursor-pointer shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] flex items-center gap-1.5 font-sans"
         >
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -91,7 +102,7 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           <span>Start project</span>
-        </button>
+        </Link>
       </div>
     </header>
   );

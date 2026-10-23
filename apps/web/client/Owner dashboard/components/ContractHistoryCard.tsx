@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 
 interface CompletedContract {
   id: string;
@@ -74,12 +75,13 @@ export function ContractHistoryCard() {
         </div>
       </div>
 
-      {/* 2. Construction Contracts List: Shows most recent 4, does NOT scroll */}
+      {/* 2. Construction Contracts List: Shows most recent 4, links to /owner/projects?tab=history */}
       <div className="divide-y divide-[var(--vt-color-neutral-100,#EFEEF5)]">
         {displayedContracts.map((contract) => (
-          <div
+          <Link
             key={contract.id}
-            className="py-3 sm:py-3.5 flex items-center justify-between gap-4 group hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/60 px-2 rounded-lg transition-colors"
+            href="/owner/projects?tab=history"
+            className="py-3 sm:py-3.5 flex items-center justify-between gap-4 group hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/60 px-2 rounded-lg transition-colors cursor-pointer"
           >
             {/* Left: Project Title & Contractor */}
             <div className="min-w-0 flex-1">
@@ -102,25 +104,25 @@ export function ContractHistoryCard() {
                 {contract.completedDate}
               </span>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
       {/* 3. Bottom Summary Strip: Disbursed amount on left, Orange Previous Projects button on right */}
       <div className="shrink-0 mt-3 pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center justify-between gap-3 text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
-        <span>
+        <Link href="/owner/transactions" className="hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
           Total Historical Escrow Disbursed: <strong className="font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">₦501,500,000</strong>
-        </span>
+        </Link>
 
-        <button
-          type="button"
+        <Link
+          href="/owner/projects?tab=history"
           className="h-8 px-3 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] active:bg-[var(--vt-color-orange-700,#B33C08)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs flex items-center gap-1.5 font-sans"
         >
           <span>See all</span>
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="9 18 15 12 9 6" />
           </svg>
-        </button>
+        </Link>
       </div>
     </div>
   );

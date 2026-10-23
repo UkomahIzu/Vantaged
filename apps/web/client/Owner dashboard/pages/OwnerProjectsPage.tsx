@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { ProjectFolderCard, ProjectItem } from "../components/ProjectFolderCard";
@@ -325,9 +326,101 @@ export const CONTRACT_HISTORY: ProjectItem[] = [
   },
 ];
 
+export const PROPOSED_PLANS: ProjectItem[] = [
+  {
+    id: "proj-lekki",
+    jobId: "PROP-4821",
+    title: "Lekki Phase 1 Luxury Villa",
+    category: "Residential",
+    location: "Plot 14, Admiralty Way, Lekki",
+    specs: "4-Bedroom Detached House + Penthouse & Pool",
+    status: "Inspection pending",
+    milestonesCount: 0,
+    milestonesTotal: 6,
+    progressPercent: 0,
+    escrowAmount: "₦245.0M Proposed",
+    contractor: {
+      name: "Julius B. Consortium",
+      rating: "4.8 ★",
+      assignedRep: "Engr. Babatunde Adeleke",
+    },
+    currentScope: "Proposed 6-Stage Construction Agreement",
+    stageSubtitle: "Awaiting your review & agreement",
+    snippetLines: [
+      "10% Mobilisation deposit: ₦24.5M",
+      "6 milestone stages (100% budget)",
+      "5% Defect liability retention hold",
+    ],
+    lastUpdated: "Sent Jan 15, 2026",
+  },
+  {
+    id: "proj-guzape",
+    jobId: "PROP-5102",
+    title: "Guzape Hills Residence",
+    category: "Residential",
+    location: "Guzape District, Asokoro Ext., Abuja",
+    specs: "6-Bedroom Contemporary Mansion",
+    status: "Inspection pending",
+    milestonesCount: 0,
+    milestonesTotal: 8,
+    progressPercent: 0,
+    escrowAmount: "₦210.0M Proposed",
+    contractor: {
+      name: "SolidGround Engineering",
+      rating: "4.8 ★",
+      assignedRep: "Arc. Bello K.",
+    },
+    currentScope: "8-Stage Structural & Finishing Plan",
+    stageSubtitle: "Awaiting your review & agreement",
+    snippetLines: [
+      "10% Mobilisation deposit: ₦21.0M",
+      "Checklist inspection criteria set",
+      "5% Retention locked until handover",
+    ],
+    lastUpdated: "Sent Oct 12, 2026",
+  },
+  {
+    id: "proj-enclave",
+    jobId: "PROP-3914",
+    title: "The Enclave Waterfront Resort",
+    category: "Waterfront",
+    location: "Epe Waterfront Corridor, Lagos",
+    specs: "Boutique Eco-Resort & Spa Villa",
+    status: "Substructure",
+    milestonesCount: 0,
+    milestonesTotal: 7,
+    progressPercent: 0,
+    escrowAmount: "₦188.5M Proposed",
+    contractor: {
+      name: "Crane & Stone Structural",
+      rating: "4.9 ★",
+      assignedRep: "Engr. Folake Ade",
+    },
+    currentScope: "Piling & Eco-Resort Phased Plan",
+    stageSubtitle: "Changes requested by owner",
+    snippetLines: [
+      "Stage 2 timeline revised",
+      "Piling spec adjustments sent",
+      "Builder revising draft proposal",
+    ],
+    lastUpdated: "Revised Yesterday",
+  },
+];
+
 export function OwnerProjectsPage() {
-  // 2-Way View Switch State: 'active' | 'history'
-  const [viewMode, setViewMode] = useState<"active" | "history">("active");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get("tab");
+  const searchParam = searchParams?.get("search");
+
+  // 3-Way View Switch State: 'active' | 'plans' | 'history'
+  const [viewMode, setViewMode] = useState<"active" | "plans" | "history">("active");
+
+  useEffect(() => {
+    if (tabParam === "history" || tabParam === "plans" || tabParam === "active") {
+      setViewMode(tabParam);
+    }
+  }, [tabParam]);
 
   // Selected project ID for interactive click-on folder transition
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -340,8 +433,13 @@ export function OwnerProjectsPage() {
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // Active list based on 2-way switch
-  const currentList = viewMode === "active" ? ACTIVE_PROJECTS : CONTRACT_HISTORY;
+  // Active list based on 3-way switch
+  const currentList =
+    viewMode === "active"
+      ? ACTIVE_PROJECTS
+      : viewMode === "plans"
+      ? PROPOSED_PLANS
+      : CONTRACT_HISTORY;
 
   // Dynamically derived unique contractor names for the current list
   const availableContractors = useMemo(() => {
@@ -356,8 +454,8 @@ export function OwnerProjectsPage() {
     setSortBy("recent");
   };
 
-  // Switch between Active and History
-  const handleViewModeChange = (mode: "active" | "history") => {
+  // Switch between Active, Plans, and History
+  const handleViewModeChange = (mode: "active" | "plans" | "history") => {
     setViewMode(mode);
     setSelectedProjectId(null); // reset selected card
     setFilterContractor("all"); // reset contractor filter since lists differ
@@ -367,6 +465,18 @@ export function OwnerProjectsPage() {
   // Filtered & Sorted Projects
   const filteredAndSortedProjects = useMemo(() => {
     let list = [...currentList];
+
+    // 0. Filter Search Query if present in URL
+    if (searchParam) {
+      const q = searchParam.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.location.toLowerCase().includes(q) ||
+          p.contractor.name.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q)
+      );
+    }
 
     // 1. Filter Category
     if (filterCategory !== "all") {
@@ -464,43 +574,93 @@ export function OwnerProjectsPage() {
 
         {/* ── Title & Right Controls (Title on left; 2-Way Switch & Filter on right) ── */}
         <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
-          {/* Large Title: Dynamic based on 2-way switch */}
+          {/* Large Title: Dynamic based on 3-way switch */}
           <div>
             <h1
               style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
               className="text-2xl sm:text-3xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight"
             >
-              {viewMode === "active" ? "Active Projects" : "Contract History"}
+              {viewMode === "active"
+                ? "Active Projects"
+                : viewMode === "plans"
+                ? "Plan & Contract Proposals"
+                : "Contract History"}
             </h1>
+            <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+              {viewMode === "active"
+                ? "Live building sites and ongoing milestone construction."
+                : viewMode === "plans"
+                ? "Building plans and milestone payment terms sent by builders awaiting your agreement."
+                : "Finished projects and handed-over buildings."}
+            </p>
           </div>
 
-          {/* Right Group: 2-Way Switch (left of filter) + Filter Button */}
+          {/* Right Group: 3-Way Switch (left of filter) + Filter Button */}
           <div className="flex items-center gap-2.5 self-end sm:self-auto">
-            {/* 2-Way Segmented Switch: 'Active projects' | 'Contract history' */}
+            {/* 3-Way Segmented Switch: 'Active projects' | 'Plan & contract' | 'Contract history' */}
             <div className="flex items-center p-1 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-lg shadow-2xs">
               <button
                 type="button"
                 onClick={() => handleViewModeChange("active")}
                 style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   viewMode === "active"
                     ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-xs"
                     : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
                 }`}
               >
-                Active projects
+                <span>Active projects</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    viewMode === "active"
+                      ? "bg-white/20 text-white"
+                      : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
+                  }`}
+                >
+                  {ACTIVE_PROJECTS.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewModeChange("plans")}
+                style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  viewMode === "plans"
+                    ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-xs"
+                    : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
+                }`}
+              >
+                <span>Plan & contract</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    viewMode === "plans"
+                      ? "bg-white/20 text-white"
+                      : "bg-[var(--vt-color-orange-100,#FFE6D5)] text-[var(--vt-color-orange-800,#8F320D)]"
+                  }`}
+                >
+                  {PROPOSED_PLANS.length}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => handleViewModeChange("history")}
                 style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   viewMode === "history"
                     ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-xs"
                     : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
                 }`}
               >
-                Contract history
+                <span>Contract history</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    viewMode === "history"
+                      ? "bg-white/20 text-white"
+                      : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
+                  }`}
+                >
+                  {CONTRACT_HISTORY.length}
+                </span>
               </button>
             </div>
 
@@ -818,9 +978,14 @@ export function OwnerProjectsPage() {
                   project={project}
                   variant={viewMode === "active" ? "orange" : "white"}
                   isSelected={selectedProjectId === project.id}
-                  onSelect={(p) =>
-                    setSelectedProjectId((prev) => (prev === p.id ? null : p.id))
-                  }
+                  onSelect={(p) => {
+                    setSelectedProjectId(p.id);
+                    if (viewMode === "plans") {
+                      router.push(`/owner/projects/${p.id}/plan`);
+                    } else {
+                      router.push(`/owner/projects/${p.id}`);
+                    }
+                  }}
                 />
               ))}
             </div>

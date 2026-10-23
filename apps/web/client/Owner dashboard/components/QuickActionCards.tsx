@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { SiteWeatherModal } from "./SiteWeatherModal";
 import { DraggableChatWindow } from "./DraggableChatWindow";
+import { ShareLinkModal } from "./ShareLinkModal";
+import { InviteRepresentativeModal } from "./InviteRepresentativeModal";
 
 export interface ActionCardItem {
   id: string;
@@ -16,7 +19,7 @@ export const ALL_QUICK_ACTIONS: ActionCardItem[] = [
   {
     id: "share-link",
     title: "Generate share link",
-    subtitle: "Read-only live progress link for family & reps",
+    subtitle: "Read-only live progress link for family & representatives",
     illustration: (
       <svg className="h-12 w-16 text-[var(--vt-color-indigo-900,#261A66)]" viewBox="0 0 64 56" fill="none">
         <rect x="8" y="16" width="36" height="26" rx="4" stroke="currentColor" strokeWidth="2" fill="#FFFFFF" />
@@ -29,7 +32,7 @@ export const ALL_QUICK_ACTIONS: ActionCardItem[] = [
   },
   {
     id: "message-contractor",
-    title: "Message contractor / rep",
+    title: "Message contractor / representative",
     subtitle: "Direct contextual chat with site engineer & director",
     illustration: (
       <svg className="h-12 w-16 text-[var(--vt-color-indigo-900,#261A66)]" viewBox="0 0 64 56" fill="none">
@@ -47,8 +50,8 @@ export const ALL_QUICK_ACTIONS: ActionCardItem[] = [
   },
   {
     id: "assign-rep",
-    title: "Assign client rep",
-    subtitle: "Invite a trusted proxy or independent clerk of works",
+    title: "Assign representative",
+    subtitle: "Invite a trusted representative or proxy on site",
     illustration: (
       <svg className="h-12 w-16 text-[var(--vt-color-indigo-900,#261A66)]" viewBox="0 0 64 56" fill="none">
         <path d="M22 6L32 16L42 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -101,10 +104,13 @@ export function QuickActionCards() {
     "site-weather",
   ]);
 
+  const router = useRouter();
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isInviteRepModalOpen, setIsInviteRepModalOpen] = useState(false);
 
   // Load persisted slots from localStorage if available
   useEffect(() => {
@@ -196,6 +202,12 @@ export function QuickActionCards() {
                   setIsWeatherModalOpen(true);
                 } else if (action.id === "message-contractor") {
                   setIsChatOpen(true);
+                } else if (action.id === "share-link") {
+                  setIsShareModalOpen(true);
+                } else if (action.id === "assign-rep") {
+                  setIsInviteRepModalOpen(true);
+                } else if (action.id === "stop-work") {
+                  router.push("/owner/projects/proj-lekki/disputes");
                 }
               }}
               className="w-full min-h-[150px] sm:min-h-[162px] h-[162px] bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)]/30 border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] rounded-xl p-4 sm:p-4.5 flex flex-col justify-between shadow-[0_4px_12px_rgba(38,26,102,0.04)] hover:shadow-[0_8px_24px_rgba(239,95,24,0.08)] transition-all cursor-pointer group relative"
@@ -325,6 +337,18 @@ export function QuickActionCards() {
       <DraggableChatWindow
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
+      />
+
+      {/* ── Share Live Building Progress Modal ── */}
+      <ShareLinkModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+      />
+
+      {/* ── Invite Representative Modal ── */}
+      <InviteRepresentativeModal
+        isOpen={isInviteRepModalOpen}
+        onClose={() => setIsInviteRepModalOpen(false)}
       />
     </>
   );

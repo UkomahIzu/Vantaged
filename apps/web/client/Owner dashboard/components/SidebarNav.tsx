@@ -21,6 +21,8 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
   useEffect(() => {
     if (currentActiveItem) {
       setActiveItem(currentActiveItem);
+    } else if (pathname?.includes("/transactions")) {
+      setActiveItem("transactions");
     } else if (pathname?.includes("/settings")) {
       setActiveItem("settings");
     } else if (pathname?.includes("/notifications")) {
@@ -42,6 +44,8 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
       router.push("/owner/dashboard");
     } else if (id === "projects") {
       router.push("/owner/projects");
+    } else if (id === "transactions") {
+      router.push("/owner/transactions");
     } else if (id === "find-companies") {
       router.push("/owner/find-companies");
     } else if (id === "client-reps") {
@@ -77,7 +81,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
     {
       id: "projects",
       label: "Projects",
-      badge: "4",
+      badge: 6,
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${
@@ -137,7 +141,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
     },
     {
       id: "client-reps",
-      label: "Client Reps",
+      label: "Representatives",
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${

@@ -713,14 +713,14 @@ export function OwnerClientRepsPage() {
               <button
                 type="button"
                 onClick={() => setManagingPermissionsRep(null)}
-                title="Back to Client Representatives"
+                title="Back to Representatives"
                 className="h-8 px-2.5 rounded-lg bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] flex items-center gap-1.5 text-xs font-bold transition-all shadow-2xs cursor-pointer"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="19" y1="12" x2="5" y2="12" />
                   <polyline points="12 19 5 12 12 5" />
                 </svg>
-                <span>Back to Reps</span>
+                <span>Back to Representatives</span>
               </button>
             ) : (
               <Link
@@ -927,7 +927,7 @@ export function OwnerClientRepsPage() {
                         </span>
                       </div>
                       <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] mt-0.5 leading-relaxed">
-                        Browse the contractor directory to invite contractors to projects, and onboard additional Client Reps under the account.
+                        Browse the contractor directory to invite contractors to projects, and onboard additional representatives under the account.
                       </p>
                     </div>
                     <ToggleSwitch
@@ -1008,7 +1008,7 @@ export function OwnerClientRepsPage() {
             <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
               <div>
                 <h1 className="text-xl sm:text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight">
-                  Client Representatives
+                  Representatives
                 </h1>
                 <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] font-medium mt-0.5">
                   Authorized independent engineers, project architects & proxies overseeing milestone sign-offs
@@ -1150,11 +1150,11 @@ export function OwnerClientRepsPage() {
               )}
             </div>
 
-            {/* Invite a Client Rep Button (Matching Compact Icon Button from Find Companies) */}
+            {/* Invite a Representative Button (Matching Compact Icon Button from Find Companies) */}
             <button
               type="button"
               onClick={() => setIsInviteModalOpen(true)}
-              title="Invite Client Representative"
+              title="Invite Representative"
               className="w-9 h-9 rounded-md bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 font-sans shrink-0"
             >
               <svg className="w-4 h-4 text-[var(--vt-color-orange-500,#EF5F18)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1432,13 +1432,21 @@ export function OwnerClientRepsPage() {
                 </span>
                 <div className="flex flex-col gap-1.5">
                   {selectedRep.assignedProjects.map((p) => (
-                    <div
+                    <Link
                       key={p.id}
-                      className="p-2.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between text-xs"
+                      href={`/owner/projects/${p.id}`}
+                      className="p-2.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] flex items-center justify-between text-xs transition-colors cursor-pointer group"
                     >
-                      <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">{p.title}</span>
-                      <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">{p.roleOnProject}</span>
-                    </div>
+                      <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors">
+                        {p.title}
+                      </span>
+                      <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)] flex items-center gap-1">
+                        <span>{p.roleOnProject}</span>
+                        <span className="text-[var(--vt-color-orange-500,#EF5F18)] opacity-0 group-hover:opacity-100 transition-opacity">
+                          →
+                        </span>
+                      </span>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -1521,7 +1529,7 @@ export function OwnerClientRepsPage() {
           >
             <div className="p-5 bg-[var(--vt-color-indigo-900,#261A66)] text-white flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold text-white">Invite Client Representative</h3>
+                <h3 className="text-base font-extrabold text-white">Invite Representative</h3>
                 <p className="text-xs text-[var(--vt-color-indigo-200,#D5D2EF)] font-medium">
                   Dispatch onboarding invite code with delegated inspection rights
                 </p>
