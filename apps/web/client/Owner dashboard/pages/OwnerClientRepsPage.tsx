@@ -4,6 +4,8 @@ import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { VantagedSelect } from "../components/VantagedSelect";
 
 export interface ClientRepItem {
   id: string;
@@ -466,8 +468,88 @@ function StepperInput({
   );
 }
 
+function normalizeRep(raw: any, index: number = 0): ClientRepItem {
+  const loc = raw.location || raw.state || "Lekki, Lagos";
+  const st = raw.state || (loc.includes(",") ? loc.split(",").pop()?.trim() : loc) || "Lagos";
+  return {
+    id: raw.id || `rep-${Date.now()}-${index}`,
+    name: raw.name || "Representative",
+    title: raw.title || raw.roleTitle || "Independent Client Representative",
+    discipline: raw.discipline || "Structural & Civil",
+    location: loc,
+    state: st,
+    stagesVerifiedCount: typeof raw.stagesVerifiedCount === "number" ? raw.stagesVerifiedCount : 0,
+    licenseNumber: raw.licenseNumber || "Accreditation Verification Pending",
+    isVerified: Boolean(raw.isVerified),
+    isFavorite: Boolean(raw.isFavorite),
+    isFeatured: Boolean(raw.isFeatured),
+    avatar: raw.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&h=160&fit=crop&crop=face",
+    email: raw.email || "rep@vantaged.app",
+    phone: raw.phone || "+234 800 000 0000",
+    status: raw.status || "Pending Invitation",
+    mandateSummary:
+      raw.mandateSummary ||
+      "Authorized client representative appointed to oversee site milestones and quality assurance.",
+    assignedProjects: Array.isArray(raw.assignedProjects) && raw.assignedProjects.length > 0
+      ? raw.assignedProjects.map((p: any, pIdx: number) => ({
+          id: p.id || p.projectId || `proj-${pIdx}`,
+          title: p.title || p.projectName || "Assigned Project",
+          roleOnProject: p.roleOnProject || raw.title || raw.roleTitle || "Client Representative",
+          progressPercent: typeof p.progressPercent === "number" ? p.progressPercent : 50,
+          status: p.status || "Active Construction",
+        }))
+      : [
+          {
+            id: "proj-lekki",
+            title: "Lekki Phase 1 Luxury Villa",
+            roleOnProject: raw.title || raw.roleTitle || "Client Representative",
+            progressPercent: 50,
+            status: "Active Construction",
+          },
+        ],
+    permissions: {
+      viewProgress: raw.permissions?.viewProgress ?? true,
+      approveStages: raw.permissions?.approveStages ?? raw.permissions?.approveRejectStages ?? true,
+      managePayments: raw.permissions?.managePayments ?? false,
+      changeRequests: raw.permissions?.changeRequests ?? raw.permissions?.suggestChanges ?? true,
+      messageContractor: raw.permissions?.messageContractor ?? true,
+      manageShareLinks: raw.permissions?.manageShareLinks ?? false,
+      invitePeople: raw.permissions?.invitePeople ?? false,
+      maxEscrowLimit: raw.permissions?.maxEscrowLimit ?? 25,
+      maxChangeLimit: raw.permissions?.maxChangeLimit ?? 10,
+    },
+    recentAudits: Array.isArray(raw.recentAudits) ? raw.recentAudits : [],
+  };
+}
+
 export function OwnerClientRepsPage() {
+  const scrollRef = useScrollRestoration<HTMLElement>("owner_reps");
+  const storageKey = "vantaged_client_reps_list";
+
   const [reps, setReps] = useState<ClientRepItem[]>(INITIAL_CLIENT_REPS);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const normalized = parsed.map((item: any, idx: number) => normalizeRep(item, idx));
+          setReps(normalized);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const persistReps = (updated: ClientRepItem[]) => {
+    setReps(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      } catch {}
+    }
+  };
+
   const [selectedRep, setSelectedRep] = useState<ClientRepItem | null>(null);
   const [managingPermissionsRep, setManagingPermissionsRep] = useState<ClientRepItem | null>(null);
 
@@ -486,40 +568,39 @@ export function OwnerClientRepsPage() {
   const openPermissionsPage = (rep: ClientRepItem) => {
     setManagingPermissionsRep(rep);
     setSelectedRep(null);
-    setPermViewProgress(rep.permissions.viewProgress ?? true);
-    setPermApproveStages(rep.permissions.approveStages ?? true);
-    setPermManagePayments(rep.permissions.managePayments ?? false);
-    setPermChangeRequests(rep.permissions.changeRequests ?? true);
-    setPermMessageContractor(rep.permissions.messageContractor ?? true);
-    setPermManageShareLinks(rep.permissions.manageShareLinks ?? false);
-    setPermInvitePeople(rep.permissions.invitePeople ?? false);
-    setEscrowLimit(rep.permissions.maxEscrowLimit ?? 25);
-    setChangeLimit(rep.permissions.maxChangeLimit ?? 10);
+    setPermViewProgress(rep.permissions?.viewProgress ?? true);
+    setPermApproveStages(rep.permissions?.approveStages ?? (rep.permissions as any)?.approveRejectStages ?? true);
+    setPermManagePayments(rep.permissions?.managePayments ?? false);
+    setPermChangeRequests(rep.permissions?.changeRequests ?? (rep.permissions as any)?.suggestChanges ?? true);
+    setPermMessageContractor(rep.permissions?.messageContractor ?? true);
+    setPermManageShareLinks(rep.permissions?.manageShareLinks ?? false);
+    setPermInvitePeople(rep.permissions?.invitePeople ?? false);
+    setEscrowLimit(rep.permissions?.maxEscrowLimit ?? 25);
+    setChangeLimit(rep.permissions?.maxChangeLimit ?? 10);
     setSaveSuccessNotice(false);
   };
 
   const handleSavePermissions = () => {
     if (!managingPermissionsRep) return;
-    setReps((prev) =>
-      prev.map((r) =>
-        r.id === managingPermissionsRep.id
-          ? {
-              ...r,
-              permissions: {
-                viewProgress: permViewProgress,
-                approveStages: permApproveStages,
-                managePayments: permManagePayments,
-                changeRequests: permChangeRequests,
-                messageContractor: permMessageContractor,
-                manageShareLinks: permManageShareLinks,
-                invitePeople: permInvitePeople,
-                maxEscrowLimit: escrowLimit,
-                maxChangeLimit: changeLimit,
-              },
-            }
-          : r
-      )
+    const next = reps.map((r) =>
+      r.id === managingPermissionsRep.id
+        ? {
+            ...r,
+            permissions: {
+              viewProgress: permViewProgress,
+              approveStages: permApproveStages,
+              managePayments: permManagePayments,
+              changeRequests: permChangeRequests,
+              messageContractor: permMessageContractor,
+              manageShareLinks: permManageShareLinks,
+              invitePeople: permInvitePeople,
+              maxEscrowLimit: escrowLimit,
+              maxChangeLimit: changeLimit,
+            },
+          }
+        : r
     );
+    persistReps(next);
     setSaveSuccessNotice(true);
     setTimeout(() => {
       setSaveSuccessNotice(false);
@@ -579,12 +660,10 @@ export function OwnerClientRepsPage() {
   const [inviteProject, setInviteProject] = useState("Lekki Phase 1 Luxury Villa");
   const [inviteSuccessNotice, setInviteSuccessNotice] = useState(false);
 
-  // Toggle favorite
   const handleToggleFavorite = (repId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setReps((prev) =>
-      prev.map((r) => (r.id === repId ? { ...r, isFavorite: !r.isFavorite } : r))
-    );
+    const next = reps.map((r) => (r.id === repId ? { ...r, isFavorite: !r.isFavorite } : r));
+    persistReps(next);
   };
 
   const isFilterActive =
@@ -602,10 +681,12 @@ export function OwnerClientRepsPage() {
       if (onlyFavorites && !r.isFavorite) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesName = r.name.toLowerCase().includes(q);
-        const matchesTitle = r.title.toLowerCase().includes(q);
-        const matchesLicense = r.licenseNumber.toLowerCase().includes(q);
-        const matchesProject = r.assignedProjects.some((p) => p.title.toLowerCase().includes(q));
+        const matchesName = (r.name || "").toLowerCase().includes(q);
+        const matchesTitle = (r.title || "").toLowerCase().includes(q);
+        const matchesLicense = (r.licenseNumber || "").toLowerCase().includes(q);
+        const matchesProject = (r.assignedProjects || []).some((p) =>
+          (p.title || (p as any).projectName || "").toLowerCase().includes(q)
+        );
         if (!matchesName && !matchesTitle && !matchesLicense && !matchesProject) return false;
       }
       return true;
@@ -663,7 +744,8 @@ export function OwnerClientRepsPage() {
       ],
     };
 
-    setReps((prev) => [newRep, ...prev]);
+    const next = [newRep, ...reps];
+    persistReps(next);
     setInviteSuccessNotice(true);
     setTimeout(() => {
       setInviteSuccessNotice(false);
@@ -676,7 +758,7 @@ export function OwnerClientRepsPage() {
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative"
     >
       {/* Decorative vector background lines (Identical to Find Companies) */}
@@ -703,7 +785,8 @@ export function OwnerClientRepsPage() {
 
       {/* ── Main Workspace ── */}
       <main
-        style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+        ref={scrollRef}
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-4 sm:gap-5"
       >
         {/* Top Header Navigation Bar */}
@@ -959,7 +1042,7 @@ export function OwnerClientRepsPage() {
                     {activePercentage}%
                   </span>
                   <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-600,#5E5A7D)] leading-relaxed mt-2.5">
-                    {activePermissionsCount} of 7 PRD governance modules authorized. {managingPermissionsRep.stagesVerifiedCount} milestone sign-offs verified this month, backed by cryptographic audit logs.
+                    {activePermissionsCount} of 7 PRD governance modules authorized. {managingPermissionsRep.stagesVerifiedCount ?? 0} milestone sign-offs verified this month, backed by cryptographic audit logs.
                   </p>
                 </div>
 
@@ -967,8 +1050,8 @@ export function OwnerClientRepsPage() {
                 <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 shadow-2xs flex flex-col gap-3">
                   <div className="flex items-center gap-3">
                     <img
-                      src={managingPermissionsRep.avatar}
-                      alt={managingPermissionsRep.name}
+                      src={managingPermissionsRep.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&h=160&fit=crop&crop=face"}
+                      alt={managingPermissionsRep.name || "Representative"}
                       className="w-12 h-12 rounded-xl object-cover ring-2 ring-[var(--vt-color-orange-500,#EF5F18)]/40 shadow-xs"
                     />
                     <div>
@@ -979,7 +1062,7 @@ export function OwnerClientRepsPage() {
                         {managingPermissionsRep.title}
                       </p>
                       <p className="text-[10px] text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                        {managingPermissionsRep.licenseNumber}
+                        {managingPermissionsRep.licenseNumber || "Accreditation Verification Pending"}
                       </p>
                     </div>
                   </div>
@@ -988,13 +1071,13 @@ export function OwnerClientRepsPage() {
                     <div className="flex items-center justify-between text-[var(--vt-color-neutral-600,#5E5A7D)]">
                       <span>Assigned Sites:</span>
                       <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-                        {managingPermissionsRep.assignedProjects.length} projects
+                        {(managingPermissionsRep.assignedProjects || []).length} projects
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[var(--vt-color-neutral-600,#5E5A7D)]">
                       <span>Discipline:</span>
                       <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-                        {managingPermissionsRep.discipline}
+                        {managingPermissionsRep.discipline || "Structural & Civil"}
                       </span>
                     </div>
                   </div>
@@ -1011,7 +1094,7 @@ export function OwnerClientRepsPage() {
                   Representatives
                 </h1>
                 <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] font-medium mt-0.5">
-                  Authorized independent engineers, project architects & proxies overseeing milestone sign-offs
+                  Your trusted team members, engineers, or family who visit the site and confirm work before payments are made
                 </p>
               </div>
 
@@ -1061,19 +1144,20 @@ export function OwnerClientRepsPage() {
                       <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] mb-1.5">
                         Professional Discipline
                       </label>
-                      <select
+                      <VantagedSelect
                         value={selectedDiscipline}
-                        onChange={(e) => setSelectedDiscipline(e.target.value)}
-                        className="w-full h-8 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer"
-                      >
-                        <option value="All">All Disciplines</option>
-                        <option value="Structural & Civil">Structural & Civil</option>
-                        <option value="Architecture">Architecture</option>
-                        <option value="Quantity Surveying">Quantity Surveying</option>
-                        <option value="MEP Engineering">MEP Engineering</option>
-                        <option value="Marine & Geotech">Marine & Geotech</option>
-                        <option value="Owner Proxy">Owner Proxy</option>
-                      </select>
+                        onChange={(val) => setSelectedDiscipline(val)}
+                        className="w-full h-8 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]"
+                        options={[
+                          { value: "All", label: "All Disciplines" },
+                          { value: "Structural & Civil", label: "Structural & Civil" },
+                          { value: "Architecture", label: "Architecture" },
+                          { value: "Quantity Surveying", label: "Quantity Surveying" },
+                          { value: "MEP Engineering", label: "MEP Engineering" },
+                          { value: "Marine & Geotech", label: "Marine & Geotech" },
+                          { value: "Owner Proxy", label: "Owner Proxy" },
+                        ]}
+                      />
                     </div>
 
                     {/* Region Filter */}
@@ -1081,15 +1165,16 @@ export function OwnerClientRepsPage() {
                       <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] mb-1.5">
                         Location / State
                       </label>
-                      <select
+                      <VantagedSelect
                         value={selectedState}
-                        onChange={(e) => setSelectedState(e.target.value)}
-                        className="w-full h-8 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer"
-                      >
-                        <option value="All States">All Regions</option>
-                        <option value="Lagos">Lagos State</option>
-                        <option value="Abuja FCT">Abuja FCT</option>
-                      </select>
+                        onChange={(val) => setSelectedState(val)}
+                        className="w-full h-8 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]"
+                        options={[
+                          { value: "All States", label: "All Regions" },
+                          { value: "Lagos", label: "Lagos State" },
+                          { value: "Abuja FCT", label: "Abuja FCT" },
+                        ]}
+                      />
                     </div>
 
                     {/* Regulatory Verification Checkbox */}
@@ -1289,8 +1374,8 @@ export function OwnerClientRepsPage() {
                       {/* Squircle Photo Badge */}
                       <div className="relative mb-3">
                         <img
-                          src={rep.avatar}
-                          alt={rep.name}
+                          src={rep.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&h=160&fit=crop&crop=face"}
+                          alt={rep.name || "Representative"}
                           className={`w-16 h-16 rounded-2xl object-cover shadow-sm ${
                             isFeatured
                               ? "ring-2 ring-white/60"
@@ -1322,7 +1407,7 @@ export function OwnerClientRepsPage() {
                           isFeatured ? "text-white/85" : "text-[var(--vt-color-neutral-500,#7C7894)]"
                         }`}
                       >
-                        {rep.discipline} • {rep.location.split(",")[0]}
+                        {rep.discipline} • {rep.location ? rep.location.split(",")[0] : rep.state || "Nigeria"}
                       </p>
                     </div>
 
@@ -1335,7 +1420,7 @@ export function OwnerClientRepsPage() {
                       }`}
                     >
                       <span className={isFeatured ? "text-white/80 text-[11px]" : "text-[var(--vt-color-neutral-500,#7C7894)] text-[11px]"}>
-                        {rep.stagesVerifiedCount} {rep.stagesVerifiedCount === 1 ? "Stage" : "Stages"} Verified
+                        {rep.stagesVerifiedCount ?? 0} {(rep.stagesVerifiedCount ?? 0) === 1 ? "Stage" : "Stages"} Verified
                       </span>
 
                       <span
@@ -1345,7 +1430,7 @@ export function OwnerClientRepsPage() {
                             : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
                         }`}
                       >
-                        {rep.assignedProjects.length} {rep.assignedProjects.length === 1 ? "Site" : "Sites"}
+                        {(rep.assignedProjects || []).length} {(rep.assignedProjects || []).length === 1 ? "Site" : "Sites"}
                       </span>
                     </div>
                   </div>
@@ -1370,7 +1455,7 @@ export function OwnerClientRepsPage() {
               <div className="flex items-center gap-3.5">
                 <div className="relative">
                   <img
-                    src={selectedRep.avatar}
+                    src={selectedRep.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&h=160&fit=crop&crop=face"}
                     alt={selectedRep.name}
                     className="w-13 h-13 rounded-2xl object-cover ring-2 ring-white/30 shadow-md"
                   />
@@ -1389,7 +1474,7 @@ export function OwnerClientRepsPage() {
                     {selectedRep.title}
                   </p>
                   <p className="text-[11px] text-white/70 mt-0.5">
-                    {selectedRep.licenseNumber}
+                    {selectedRep.licenseNumber || "Accreditation Verification Pending"}
                   </p>
                 </div>
               </div>
@@ -1409,7 +1494,7 @@ export function OwnerClientRepsPage() {
               <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[11.5px] font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)]">
                 <span>{selectedRep.email}</span>
                 <span>•</span>
-                <span>{selectedRep.phone}</span>
+                <span>{selectedRep.phone || "+234 800 000 0000"}</span>
                 <span className="px-2 py-0.5 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[10.5px] font-bold text-[var(--vt-color-indigo-900,#261A66)]">
                   {selectedRep.status}
                 </span>
@@ -1421,27 +1506,27 @@ export function OwnerClientRepsPage() {
                   Oversight Scope
                 </span>
                 <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] leading-relaxed">
-                  {selectedRep.mandateSummary}
+                  {selectedRep.mandateSummary || "Authorized client representative appointed to oversee site milestones and quality assurance."}
                 </p>
               </div>
 
               {/* Assigned Construction Sites */}
               <div>
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] block mb-1.5">
-                  Assigned Sites ({selectedRep.assignedProjects.length})
+                  Assigned Sites ({(selectedRep.assignedProjects || []).length})
                 </span>
                 <div className="flex flex-col gap-1.5">
-                  {selectedRep.assignedProjects.map((p) => (
+                  {(selectedRep.assignedProjects || []).map((p) => (
                     <Link
-                      key={p.id}
-                      href={`/owner/projects/${p.id}`}
+                      key={p.id || (p as any).projectId || Math.random().toString()}
+                      href={`/owner/projects/${p.id || (p as any).projectId || "proj-lekki"}`}
                       className="p-2.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] flex items-center justify-between text-xs transition-colors cursor-pointer group"
                     >
                       <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors">
-                        {p.title}
+                        {p.title || (p as any).projectName || "Assigned Project"}
                       </span>
                       <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)] flex items-center gap-1">
-                        <span>{p.roleOnProject}</span>
+                        <span>{p.roleOnProject || "Representative"}</span>
                         <span className="text-[var(--vt-color-orange-500,#EF5F18)] opacity-0 group-hover:opacity-100 transition-opacity">
                           →
                         </span>
@@ -1457,37 +1542,37 @@ export function OwnerClientRepsPage() {
                   Active Delegated Permissions (PRD §5.2)
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {selectedRep.permissions.viewProgress && (
+                  {selectedRep.permissions?.viewProgress && (
                     <span className="px-2.5 py-1 rounded-md bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-700,#484564)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[11px] font-bold">
                       ✓ View Progress
                     </span>
                   )}
-                  {selectedRep.permissions.approveStages && (
+                  {(selectedRep.permissions?.approveStages ?? (selectedRep.permissions as any)?.approveRejectStages) && (
                     <span className="px-2.5 py-1 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] text-[11px] font-bold">
                       ✓ Stage Sign-Off
                     </span>
                   )}
-                  {selectedRep.permissions.managePayments && (
+                  {selectedRep.permissions?.managePayments && (
                     <span className="px-2.5 py-1 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] text-[11px] font-bold">
                       ✓ Payments & Escrow
                     </span>
                   )}
-                  {selectedRep.permissions.changeRequests && (
+                  {(selectedRep.permissions?.changeRequests ?? (selectedRep.permissions as any)?.suggestChanges) && (
                     <span className="px-2.5 py-1 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] text-[11px] font-bold">
                       ✓ Change Requests
                     </span>
                   )}
-                  {selectedRep.permissions.messageContractor && (
+                  {selectedRep.permissions?.messageContractor && (
                     <span className="px-2.5 py-1 rounded-md bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-700,#484564)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[11px] font-bold">
                       ✓ Direct Site Chat
                     </span>
                   )}
-                  {selectedRep.permissions.manageShareLinks && (
+                  {selectedRep.permissions?.manageShareLinks && (
                     <span className="px-2.5 py-1 rounded-md bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-700,#484564)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[11px] font-bold">
                       ✓ Share Links
                     </span>
                   )}
-                  {selectedRep.permissions.invitePeople && (
+                  {selectedRep.permissions?.invitePeople && (
                     <span className="px-2.5 py-1 rounded-md bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-700,#484564)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[11px] font-bold">
                       ✓ Invite People
                     </span>
@@ -1591,34 +1676,36 @@ export function OwnerClientRepsPage() {
                     <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] mb-1">
                       Professional Discipline
                     </label>
-                    <select
+                    <VantagedSelect
                       value={inviteDiscipline}
-                      onChange={(e) => setInviteDiscipline(e.target.value as ClientRepItem["discipline"])}
-                      className="w-full h-9 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer"
-                    >
-                      <option value="Structural & Civil">Structural & Civil</option>
-                      <option value="Architecture">Architecture</option>
-                      <option value="Quantity Surveying">Quantity Surveying</option>
-                      <option value="MEP Engineering">MEP Engineering</option>
-                      <option value="Marine & Geotech">Marine & Geotech</option>
-                      <option value="Owner Proxy">Owner Proxy</option>
-                    </select>
+                      onChange={(val) => setInviteDiscipline(val as ClientRepItem["discipline"])}
+                      className="w-full h-9 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]"
+                      options={[
+                        { value: "Structural & Civil", label: "Structural & Civil" },
+                        { value: "Architecture", label: "Architecture" },
+                        { value: "Quantity Surveying", label: "Quantity Surveying" },
+                        { value: "MEP Engineering", label: "MEP Engineering" },
+                        { value: "Marine & Geotech", label: "Marine & Geotech" },
+                        { value: "Owner Proxy", label: "Owner Proxy" },
+                      ]}
+                    />
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] mb-1">
                       Assign Site
                     </label>
-                    <select
+                    <VantagedSelect
                       value={inviteProject}
-                      onChange={(e) => setInviteProject(e.target.value)}
-                      className="w-full h-9 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer"
-                    >
-                      <option value="Lekki Phase 1 Luxury Villa">Lekki Phase 1 Luxury Villa</option>
-                      <option value="The Enclave Waterfront Resort">The Enclave Waterfront Resort</option>
-                      <option value="Guzape Hills Residence">Guzape Hills Residence</option>
-                      <option value="Banana Island Horizon Penthouse">Banana Island Horizon Penthouse</option>
-                    </select>
+                      onChange={(val) => setInviteProject(val)}
+                      className="w-full h-9 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]"
+                      options={[
+                        { value: "Lekki Phase 1 Luxury Villa", label: "Lekki Phase 1 Luxury Villa" },
+                        { value: "The Enclave Waterfront Resort", label: "The Enclave Waterfront Resort" },
+                        { value: "Guzape Hills Residence", label: "Guzape Hills Residence" },
+                        { value: "Banana Island Horizon Penthouse", label: "Banana Island Horizon Penthouse" },
+                      ]}
+                    />
                   </div>
                 </div>
 

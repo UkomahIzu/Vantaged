@@ -45,7 +45,7 @@ export function PublicShareLinkPage({ token }: PublicShareLinkPageProps) {
   if (isRevoked) {
     return (
       <div
-        style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className="min-h-screen w-full bg-[var(--vt-color-background-subtle,#F7F7FA)] flex items-center justify-center p-4 font-sans select-none"
       >
         <div className="w-full max-w-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl p-8 text-center shadow-lg flex flex-col items-center">
@@ -90,19 +90,18 @@ export function PublicShareLinkPage({ token }: PublicShareLinkPageProps) {
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="min-h-screen w-full bg-[var(--vt-color-background-subtle,#F7F7FA)] font-sans text-[var(--vt-color-text-default,#261A66)] select-none flex flex-col"
     >
       {/* ── Top Header Navigation Bar ── */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[var(--vt-color-border-default,#E2E0EC)] px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 shadow-2xs">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-7 h-7 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] text-white flex items-center justify-center font-black text-sm shadow-2xs">
-              V
-            </div>
-            <span className="font-extrabold text-sm sm:text-base tracking-tight text-[var(--vt-color-indigo-900,#261A66)]">
-              Vantaged
-            </span>
+          <Link href="/" className="flex items-center group" aria-label="Vantaged home">
+            <img
+              src="/brand/vantaged-measurement-logo.svg"
+              alt="Vantaged"
+              className="h-7 w-auto max-w-[140px] object-contain transition-opacity group-hover:opacity-90"
+            />
           </Link>
 
           <span className="h-4 w-px bg-[var(--vt-color-border-default,#E2E0EC)]" />

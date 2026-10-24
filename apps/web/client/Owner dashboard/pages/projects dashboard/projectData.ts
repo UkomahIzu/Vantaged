@@ -439,7 +439,7 @@ export const PROJECT_DETAILS_MAP: Record<string, ProjectDetailData> = {
         stageNumber: 4,
         title: "First Floor Decking (Slab)",
         category: "Decking",
-        description: "Formwork props, rebar tying for cantilever balconies and main slab, electrical conduits, casting of Grade 25 reinforced waterproof concrete, and 14-day wet curing.",
+        description: "Installing wooden supports, tying strong steel bars for balconies and main floor, laying electrical pipe conduits, pouring waterproof concrete, and completing 14 days of wet curing.",
         weightPercent: 25,
         trancheAmount: 61250000,
         status: "Ready for Review",
@@ -568,7 +568,7 @@ export const PROJECT_DETAILS_MAP: Record<string, ProjectDetailData> = {
             authorName: "Arc. Folake Davies",
             authorRole: "Quality Inspector (Representative)",
             avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=faces",
-            text: "Inspected the cantilever overhangs and plumbing sleeve placements on site yesterday. Clean alignment and no honeycombing observed on soffits. Recommend approval.",
+            text: "Inspected the balcony edges and plumbing pipe placements on site yesterday. Clean alignment and smooth underside concrete finish with no gaps or voids. Ready for approval.",
             timestamp: "Today, 11:32 AM",
             isClient: true,
           },
@@ -701,13 +701,13 @@ export const PROJECT_DETAILS_MAP: Record<string, ProjectDetailData> = {
       {
         id: "trx-6",
         trancheNumber: 6,
-        title: "5% Final Quality Hold (Retainage)",
+        title: "5% Final Quality Guarantee Hold",
         stageLinked: "Final Handover",
         amount: 12250000,
         status: "Held on Vantaged",
-        dueDate: "Released at final key handover & defect liability period",
+        dueDate: "Released 6 months after move-in once all final checks pass",
         paymentMethod: "Vantaged Secure Escrow",
-        notes: "Retained until 6 months defects liability period expires without structural issues.",
+        notes: "Held safely until the 6-month warranty period passes with no issues.",
       },
     ],
     disputes: [
@@ -764,7 +764,306 @@ export const PROJECT_DETAILS_MAP: Record<string, ProjectDetailData> = {
   },
 };
 
+export const COMPLETED_PROJECTS_META: Record<string, Partial<ProjectDetailData>> = {
+  "hist-ikoyi": {
+    id: "hist-ikoyi",
+    jobId: "JOB-3104",
+    title: "Ikoyi Waterfront Luxury Penthouse",
+    category: "Residential",
+    location: "Ikoyi, Lagos",
+    address: "Plot 12, Alexander Avenue, Ikoyi, Lagos",
+    specs: "Penthouse & Terrace Suite",
+    contractValue: 84500000,
+    startDate: "10 Feb 2024",
+    targetEndDate: "15 Aug 2025",
+    contractor: {
+      name: "Julius B. Consortium",
+      cacNumber: "RC-482910",
+      directorName: "Engr. Babatunde Adeleke",
+      rating: "4.9 ★",
+      reviewsCount: 42,
+      projectsCompleted: 28,
+      bankAccountName: "Julius B. Consortium Ltd",
+      bankName: "Zenith Bank",
+      bankAccountNumber: "1018492019",
+    },
+  },
+  "hist-vi-tech": {
+    id: "hist-vi-tech",
+    jobId: "JOB-2911",
+    title: "Victoria Island Commercial Tech Hub",
+    category: "Commercial",
+    location: "Victoria Island, Lagos",
+    address: "14 Kofo Abayomi Street, Victoria Island, Lagos",
+    specs: "5-Storey Corporate Headquarters",
+    contractValue: 165000000,
+    startDate: "05 Jun 2023",
+    targetEndDate: "20 Feb 2025",
+    contractor: {
+      name: "Crane & Stone Structural",
+      cacNumber: "RC-391840",
+      directorName: "Engr. Folake Ade",
+      rating: "4.9 ★",
+      reviewsCount: 38,
+      projectsCompleted: 19,
+      bankAccountName: "Crane & Stone Structural Nigeria",
+      bankName: "Stanbic IBTC Bank",
+      bankAccountNumber: "0029481940",
+    },
+  },
+  "hist-chevron": {
+    id: "hist-chevron",
+    jobId: "JOB-2680",
+    title: "Chevron Lekki Residential Estate",
+    category: "Residential",
+    location: "Lekki, Lagos",
+    address: "Phase 1 Infrastructure, Chevron Drive, Lekki, Lagos",
+    specs: "Phase 1 Infrastructure & 8 Units",
+    contractValue: 210000000,
+    startDate: "12 Jan 2023",
+    targetEndDate: "18 Nov 2024",
+    contractor: {
+      name: "Apex Build Nigeria Ltd",
+      cacNumber: "RC-268041",
+      directorName: "Arc. Bello K.",
+      rating: "4.8 ★",
+      reviewsCount: 31,
+      projectsCompleted: 15,
+      bankAccountName: "Apex Build Nigeria Ltd",
+      bankName: "Access Bank",
+      bankAccountNumber: "0104829104",
+    },
+  },
+  "hist-epe-cold": {
+    id: "hist-epe-cold",
+    jobId: "JOB-2419",
+    title: "Epe Agro Cold Storage Facility",
+    category: "Commercial",
+    location: "Epe, Lagos",
+    address: "Agro Industrial Zone, Epe Waterfront, Lagos",
+    specs: "Industrial Cold Storage Facility",
+    contractValue: 42000000,
+    startDate: "15 Sep 2023",
+    targetEndDate: "25 Jun 2024",
+    contractor: {
+      name: "Prime Terra Infrastructure",
+      cacNumber: "RC-241950",
+      directorName: "Engr. Tunde Coker",
+      rating: "4.7 ★",
+      reviewsCount: 22,
+      projectsCompleted: 11,
+      bankAccountName: "Prime Terra Infrastructure Ltd",
+      bankName: "First Bank of Nigeria",
+      bankAccountNumber: "2018492011",
+    },
+  },
+  "hist-maitama": {
+    id: "hist-maitama",
+    jobId: "JOB-2105",
+    title: "Maitama Diplomatic Villa",
+    category: "Residential",
+    location: "Maitama District, Abuja",
+    address: "Plot 88, Amazon Street, Maitama District, Abuja",
+    specs: "Diplomatic Residence & Perimeter",
+    contractValue: 195000000,
+    startDate: "08 Oct 2022",
+    targetEndDate: "14 Nov 2023",
+    contractor: {
+      name: "SolidGround Engineering",
+      cacNumber: "RC-210560",
+      directorName: "Arc. Bello K.",
+      rating: "4.9 ★",
+      reviewsCount: 35,
+      projectsCompleted: 24,
+      bankAccountName: "SolidGround Engineering Ltd",
+      bankName: "Access Bank",
+      bankAccountNumber: "0104928172",
+    },
+  },
+  "hist-asokoro": {
+    id: "hist-asokoro",
+    jobId: "JOB-1940",
+    title: "Asokoro Medical Center",
+    category: "Commercial",
+    location: "Asokoro District, Abuja",
+    address: "Asokoro Extension, Near ECOWAS Secretariat, Abuja",
+    specs: "Specialist Clinical Center",
+    contractValue: 130000000,
+    startDate: "10 Mar 2022",
+    targetEndDate: "30 May 2023",
+    contractor: {
+      name: "Hitech Construction",
+      cacNumber: "RC-194070",
+      directorName: "Engr. Amina Lawal",
+      rating: "4.8 ★",
+      reviewsCount: 29,
+      projectsCompleted: 18,
+      bankAccountName: "Hitech Construction Co. Ltd",
+      bankName: "Zenith Bank",
+      bankAccountNumber: "1019284910",
+    },
+  },
+};
+
+export function buildCompletedProjectDetail(
+  id: string,
+  meta?: Partial<ProjectDetailData>
+): ProjectDetailData {
+  const base = PROJECT_DETAILS_MAP["proj-lekki"];
+  const contractVal = meta?.contractValue || 145000000;
+  const stageWeights = [0.15, 0.2, 0.25, 0.15, 0.15, 0.1];
+  const stageTitles = [
+    { title: "Site Setting Out, Pegging & Excavation", category: "Substructure" },
+    { title: "Deep Foundation Pillars & Ground Beams", category: "Substructure" },
+    { title: "Superstructure Blockwork & Decking", category: "Superstructure" },
+    { title: "Roof Framing, Parapet & Waterproofing", category: "Roofing" },
+    { title: "Mechanical, Electrical & Wall Plastering", category: "MEP Services" },
+    { title: "Finishing Snagging, Handover & Retainage", category: "Finishing" },
+  ];
+
+  const stages: ProjectStage[] = stageTitles.map((st, i) => {
+    const stageNum = i + 1;
+    const tranche = Math.round(contractVal * stageWeights[i]);
+    return {
+      id: `hist-stg-${id}-${stageNum}`,
+      stageNumber: stageNum,
+      title: st.title,
+      category: st.category,
+      weightPercent: Math.round(stageWeights[i] * 100),
+      trancheAmount: tranche,
+      status: "Approved",
+      startDate: "Completed",
+      targetEndDate: "Completed",
+      completedDate: "Completed & Verified",
+      verifiedBy: "Dr. James Arinze (Owner) & Lead Quality Inspector",
+      checklist: [
+        { id: `c-${id}-${stageNum}-1`, label: `${st.title} fully inspected against structural drawings`, isPassed: true, completedDate: "Verified" },
+        { id: `c-${id}-${stageNum}-2`, label: `Material batch compliance and crush test certificates verified`, isPassed: true, completedDate: "Verified" },
+        { id: `c-${id}-${stageNum}-3`, label: `Site engineer and owner representative signed off approval`, isPassed: true, completedDate: "Verified" },
+      ],
+      proofMedia: [
+        {
+          id: `p-${id}-${stageNum}-1`,
+          type: "photo",
+          title: "Final Verified Inspection Proof",
+          url: "https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?w=800&auto=format&fit=crop&q=80",
+          gpsLocation: meta?.location || "Lagos, Nigeria",
+          withinSite: true,
+          timestamp: "Verified on site",
+          uploadedBy: "Lead Quality Inspector",
+        },
+      ],
+      activityLog: [
+        {
+          id: `act-${id}-${stageNum}`,
+          action: "Stage Approved & Milestone Paid",
+          user: "Owner & Inspector",
+          role: "Quality Sign-off",
+          timestamp: "Approved & Completed",
+          details: `Milestone ${stageNum} inspected, certified defect-free and funds released.`,
+        },
+      ],
+    };
+  });
+
+  const transactions: ProjectTransactionTranche[] = stageTitles.map((st, i) => {
+    const stageNum = i + 1;
+    const tranche = Math.round(contractVal * stageWeights[i]);
+    return {
+      id: `hist-trx-${id}-${stageNum}`,
+      trancheNumber: stageNum,
+      title: `Stage ${stageNum}: ${st.title}`,
+      stageLinked: `Stage ${stageNum}`,
+      amount: tranche,
+      status: "Paid to Builder",
+      dueDate: "Paid",
+      paidDate: "Paid & Cleared",
+      bankSessionId: `NIBSS/0000142${stageNum}819201`,
+      paymentMethod: "Vantaged Secure Escrow Settlement",
+      verifiedBy: "Dr. James Arinze",
+      verifiedRole: "Building Owner",
+      contractorConfirmed: true,
+      contractorConfirmedDate: "Payment Confirmed by Contractor",
+      notes: `Tranche ${stageNum} fully disbursed from escrow upon verified stage completion.`,
+    };
+  });
+
+  return {
+    ...base,
+    id,
+    jobId: meta?.jobId || `JOB-${Math.floor(1000 + Math.random() * 9000)}`,
+    title: meta?.title || "Completed Luxury Building",
+    category: meta?.category || "Residential",
+    location: meta?.location || "Lagos, Nigeria",
+    address: meta?.address || meta?.location || "Lagos, Nigeria",
+    specs: meta?.specs || "Completed Construction",
+    contractValue: contractVal,
+    currency: "NGN",
+    verifiedProgress: 100,
+    reportedProgress: 100,
+    startDate: meta?.startDate || "2023",
+    targetEndDate: meta?.targetEndDate || "2025",
+    status: "Completed",
+    currentActiveStageTitle: "All Stages Approved & Handed Over",
+    contractor: meta?.contractor ? { ...base.contractor, ...meta.contractor } : base.contractor,
+    stages,
+    transactions,
+    disputes: [
+      {
+        id: `dsp-${id}`,
+        disputeCode: "RESOLVED-01",
+        title: "Snagging punch-list items on final walkthrough",
+        category: "Quality of Work",
+        linkedStage: "Final Handover",
+        linkedTrancheAmount: 0,
+        status: "Resolved",
+        openedDate: "Before handover",
+        daysRemaining: 0,
+        raisedBy: "Owner Representative",
+        whatHappened: "Minor paint touch-ups and door lock adjustment identified.",
+        builderReply: "Rectified immediately within 24 hours.",
+        howItWasFixed: "All punch list snags verified and closed. Final handover certificate signed.",
+      },
+    ],
+    changeRequests: [],
+  };
+}
+
 export function getProjectDetail(id: string): ProjectDetailData {
+  // 1. If it's a known completed project or id starts with "hist-"
+  if (COMPLETED_PROJECTS_META[id] || id.startsWith("hist-")) {
+    return buildCompletedProjectDetail(id, COMPLETED_PROJECTS_META[id]);
+  }
+
+  // 2. Check if this project has been marked completed in localStorage
+  if (typeof window !== "undefined") {
+    try {
+      const savedHistory = localStorage.getItem("vantaged_contract_history");
+      if (savedHistory) {
+        const parsed = JSON.parse(savedHistory);
+        if (Array.isArray(parsed)) {
+          const inHistory = parsed.find((p: any) => p.id === id);
+          if (inHistory && (inHistory.progressPercent >= 100 || inHistory.status === "Final sign-off" || inHistory.status === "Completed")) {
+            return buildCompletedProjectDetail(id, {
+              id: inHistory.id,
+              jobId: inHistory.jobId,
+              title: inHistory.title,
+              category: inHistory.category,
+              location: inHistory.location,
+              specs: inHistory.specs,
+              contractValue: parseFloat(inHistory.escrowAmount?.replace(/[^0-9.]/g, "") || "145") * 1000000,
+              contractor: {
+                ...PROJECT_DETAILS_MAP["proj-lekki"].contractor,
+                name: inHistory.contractor?.name || "Contractor Consortium",
+                rating: inHistory.contractor?.rating || "4.9 ★",
+              },
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
   if (PROJECT_DETAILS_MAP[id]) return PROJECT_DETAILS_MAP[id];
 
   const base = PROJECT_DETAILS_MAP["proj-lekki"];

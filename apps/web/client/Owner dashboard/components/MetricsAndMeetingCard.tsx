@@ -5,7 +5,10 @@ import { circularMetrics, upcomingMeeting } from "../data/mockData";
 
 export function MetricsAndMeetingCard() {
   return (
-    <div className="flex flex-col gap-4 font-sans select-none">
+    <div
+      className="flex flex-col gap-4 font-sans select-none"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+    >
       {/* 1. Top Section: 2 Circular Progress Metric Cards Side-by-Side */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {/* Metric 1: 90% Data Research */}

@@ -468,6 +468,7 @@ export function DraggableChatWindow({
         <div
           ref={windowRef}
           style={{
+            fontFamily: "'Outfit', var(--vt-font-sans), sans-serif",
             position: "fixed",
             left: `${position.x}px`,
             top: `${position.y}px`,
@@ -573,6 +574,7 @@ export function DraggableChatWindow({
         <div
           ref={windowRef}
           style={{
+            fontFamily: "'Outfit', var(--vt-font-sans), sans-serif",
             position: "fixed",
             left: `${position.x}px`,
             top: `${position.y}px`,

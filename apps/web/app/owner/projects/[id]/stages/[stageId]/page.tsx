@@ -16,8 +16,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function Page({ params }: PageProps) {
   const { id, stageId } = await params;
   return (
-    <main className="h-screen w-screen max-h-screen max-w-screen overflow-hidden">
+    <div className="h-screen w-screen max-h-screen max-w-screen overflow-hidden">
       <ProjectStageDetailPage projectId={id} stageId={stageId} />
-    </main>
+    </div>
   );
 }

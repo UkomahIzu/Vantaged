@@ -10,11 +10,14 @@ import { ActiveProjectProgressCard } from "../components/ActiveProjectProgressCa
 import { ContractHistoryCard } from "../components/ContractHistoryCard";
 import { NotificationsCard } from "../components/NotificationsCard";
 import { SiteFieldOperationsCards } from "../components/SiteFieldOperationsCards";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
 
 export function OwnerDashboardHomePage() {
+  const scrollRef = useScrollRestoration<HTMLElement>("owner_home");
+
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), var(--font-sans), sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="h-screen w-screen max-h-screen max-w-screen overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] flex flex-col md:flex-row font-sans text-[var(--vt-color-text-default,#261A66)] select-none relative"
     >
       {/* Subtle decorative background vector waves matching the reference */}
@@ -41,7 +44,7 @@ export function OwnerDashboardHomePage() {
       <SidebarNav />
 
       {/* ── Main Dashboard Workspace (Takes remaining 100% width and height, internal scroll safe) ── */}
-      <main className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5 sm:gap-6">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5 sm:gap-6">
         {/* Top Header Navigation Bar */}
         <HeaderBar />
 

@@ -19,7 +19,10 @@ export function ProjectBreadcrumb({
   const backTitle = currentPageTitle ? "Back to Project Overview" : "Back to All Projects";
 
   return (
-    <div className="flex items-center gap-2 min-w-0 font-sans">
+    <div
+      className="flex items-center gap-2 min-w-0 font-sans"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+    >
       <Link
         href={backHref}
         title={backTitle}

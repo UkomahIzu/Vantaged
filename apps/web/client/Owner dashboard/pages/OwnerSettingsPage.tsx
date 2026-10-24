@@ -5,10 +5,13 @@ import Link from "next/link";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { VantagedSelect } from "../components/VantagedSelect";
 
 export type SettingsTab = "profile" | "security" | "escrow" | "notifications";
 
 export function OwnerSettingsPage() {
+  const scrollRef = useScrollRestoration<HTMLElement>("owner_settings");
   const currentUser = useCurrentUser();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -96,14 +99,14 @@ export function OwnerSettingsPage() {
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none"
     >
       {/* ── Left Sidebar Navigation ── */}
       <SidebarNav currentActiveItem="settings" />
 
       {/* ── Main Workspace ── */}
-      <main className="flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-5 flex flex-col gap-5">
         {/* Top Header Bar */}
         <HeaderBar
           leftSlot={
@@ -213,7 +216,7 @@ export function OwnerSettingsPage() {
                   {/* Photo & Role Banner */}
                   <div className="flex items-center gap-4 pb-2">
                     <div className="w-14 h-14 rounded-2xl bg-[var(--vt-color-indigo-900,#261A66)] text-white flex items-center justify-center text-lg font-extrabold shadow-sm">
-                      {fullName
+                      {(fullName || "OA")
                         .split(" ")
                         .map((n) => n[0])
                         .join("")
@@ -278,16 +281,17 @@ export function OwnerSettingsPage() {
                       <label className="block text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1.5">
                         Primary Region / State
                       </label>
-                      <select
+                      <VantagedSelect
                         value={stateRegion}
-                        onChange={(e) => setStateRegion(e.target.value)}
-                        className="w-full h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] focus:border-[var(--vt-color-orange-500,#EF5F18)] text-xs sm:text-sm text-[var(--vt-color-indigo-900,#261A66)] outline-none transition-all shadow-2xs cursor-pointer"
-                      >
-                        <option value="Lagos State">Lagos State, Nigeria</option>
-                        <option value="Abuja FCT">Abuja FCT, Nigeria</option>
-                        <option value="Rivers State">Rivers State (Port Harcourt), Nigeria</option>
-                        <option value="Oyo State">Oyo State (Ibadan), Nigeria</option>
-                      </select>
+                        onChange={(val) => setStateRegion(val)}
+                        className="w-full h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-xs sm:text-sm text-[var(--vt-color-indigo-900,#261A66)] font-medium"
+                        options={[
+                          { value: "Lagos State", label: "Lagos State, Nigeria" },
+                          { value: "Abuja FCT", label: "Abuja FCT, Nigeria" },
+                          { value: "Rivers State", label: "Rivers State (Port Harcourt), Nigeria" },
+                          { value: "Oyo State", label: "Oyo State (Ibadan), Nigeria" },
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>
@@ -321,14 +325,15 @@ export function OwnerSettingsPage() {
                     <label className="block text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1.5">
                       Portfolio Currency
                     </label>
-                    <select
+                    <VantagedSelect
                       value={currency}
-                      onChange={(e) => setCurrency(e.target.value)}
-                      className="w-full h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] focus:border-[var(--vt-color-orange-500,#EF5F18)] text-xs sm:text-sm text-[var(--vt-color-indigo-900,#261A66)] outline-none transition-all shadow-2xs cursor-pointer"
-                    >
-                      <option value="NGN">Nigerian Naira (₦ - NGN)</option>
-                      <option value="USD">US Dollar ($ - USD)</option>
-                    </select>
+                      onChange={(val) => setCurrency(val)}
+                      className="w-full h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-xs sm:text-sm text-[var(--vt-color-indigo-900,#261A66)] font-medium"
+                      options={[
+                        { value: "NGN", label: "Nigerian Naira (₦ - NGN)" },
+                        { value: "USD", label: "US Dollar ($ - USD)" },
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -464,17 +469,18 @@ export function OwnerSettingsPage() {
                     <label className="block text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1.5">
                       Bank Name
                     </label>
-                    <select
+                    <VantagedSelect
                       value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      className="w-full h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] focus:border-[var(--vt-color-orange-500,#EF5F18)] text-xs sm:text-sm text-[var(--vt-color-indigo-900,#261A66)] outline-none transition-all shadow-2xs cursor-pointer"
-                    >
-                      <option value="Guaranty Trust Bank (GTBank)">Guaranty Trust Bank (GTBank)</option>
-                      <option value="Zenith Bank Plc">Zenith Bank Plc</option>
-                      <option value="Access Bank Plc">Access Bank Plc</option>
-                      <option value="United Bank for Africa (UBA)">United Bank for Africa (UBA)</option>
-                      <option value="First Bank of Nigeria">First Bank of Nigeria</option>
-                    </select>
+                      onChange={(val) => setBankName(val)}
+                      className="w-full h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-xs sm:text-sm text-[var(--vt-color-indigo-900,#261A66)] font-medium"
+                      options={[
+                        { value: "Guaranty Trust Bank (GTBank)", label: "Guaranty Trust Bank (GTBank)" },
+                        { value: "Zenith Bank Plc", label: "Zenith Bank Plc" },
+                        { value: "Access Bank Plc", label: "Access Bank Plc" },
+                        { value: "United Bank for Africa (UBA)", label: "United Bank for Africa (UBA)" },
+                        { value: "First Bank of Nigeria", label: "First Bank of Nigeria" },
+                      ]}
+                    />
                   </div>
 
                   <div>

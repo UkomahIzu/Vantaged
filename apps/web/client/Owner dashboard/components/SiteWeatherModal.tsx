@@ -118,11 +118,13 @@ export function SiteWeatherModal({ isOpen, onClose }: SiteWeatherModalProps) {
     <div
       role="dialog"
       aria-modal="true"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs select-none font-sans"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className="w-full max-w-[460px] bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
       >
         {/* Modal Header */}

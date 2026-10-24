@@ -187,7 +187,7 @@ export function ShareLinkModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className="w-full max-w-xl max-h-[90vh] bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
       >
         {/* ── Modal Header ── */}

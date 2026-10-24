@@ -14,6 +14,18 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Vantaged | Construction Progress & Financial Verification",
   description: "Enterprise construction milestone management, progress verification, and stage payments.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
@@ -22,8 +34,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${outfit.variable} h-full antialiased`}>
+    <html lang="en" suppressHydrationWarning className={`${outfit.variable} h-full antialiased font-sans`}>
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -41,7 +57,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col font-sans bg-[var(--vt-color-background-default)] text-[var(--vt-color-text-default)]">
+      <body
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+        className="min-h-full flex flex-col font-sans bg-[var(--vt-color-background-default)] text-[var(--vt-color-text-default)]"
+      >
         <ThemeProvider>
           {children}
         </ThemeProvider>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
@@ -13,6 +13,8 @@ import {
   StageComment,
 } from "./projectData";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
+import { useScrollRestoration } from "../../hooks/useScrollRestoration";
+import { markProjectAsCompleted } from "./projectStore";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -42,6 +44,7 @@ export function ProjectStageDetailPage({
   stageId,
 }: ProjectStageDetailPageProps) {
   const router = useRouter();
+  const scrollRef = useScrollRestoration<HTMLElement>(`proj_stage_detail_${projectId}_${stageId}`);
   const { project, stage: initialStage } = getStageDetail(projectId, stageId);
 
   const [stage, setStage] = useState<ProjectStage>(initialStage);
@@ -59,9 +62,38 @@ export function ProjectStageDetailPage({
   const [rejectionComment, setRejectionComment] = useState("");
   const [isRejectSuccess, setIsRejectSuccess] = useState(false);
 
+  const commentsStorageKey = `vantaged_stage_comments_${projectId}_${stageId}`;
+
   // New comment input
   const [newCommentText, setNewCommentText] = useState("");
   const [commentsList, setCommentsList] = useState<StageComment[]>(stage.comments || []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(commentsStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCommentsList(parsed);
+        }
+      }
+    } catch {}
+  }, [commentsStorageKey]);
+
+  useEffect(() => {
+    try {
+      const savedStages = localStorage.getItem(`vantaged_stages_${projectId}`);
+      if (savedStages) {
+        const parsed = JSON.parse(savedStages);
+        if (Array.isArray(parsed)) {
+          const match = parsed.find((s: ProjectStage) => s.id === stageId);
+          if (match) {
+            setStage((prev) => ({ ...prev, ...match }));
+          }
+        }
+      }
+    } catch {}
+  }, [projectId, stageId]);
 
   // Filter media by checklist item if clicked
   const [selectedChecklistItemId, setSelectedChecklistItemId] = useState<string | null>(null);
@@ -100,45 +132,100 @@ export function ProjectStageDetailPage({
       isClient: true,
     };
 
-    setCommentsList([...commentsList, newComment]);
+    const next = [...commentsList, newComment];
+    setCommentsList(next);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(commentsStorageKey, JSON.stringify(next));
+      } catch {}
+    }
     setNewCommentText("");
   };
 
   const handleApproveStage = () => {
     setIsApprovedSuccess(true);
-    setStage((prev) => ({
-      ...prev,
-      status: "Approved",
-      ballInCourt: "Completed",
-      completedDate: "Today",
-      verifiedBy: "Dr. James Arinze (Owner)",
-    }));
+    setStage((prev) => {
+      const updated = {
+        ...prev,
+        status: "Approved" as const,
+        ballInCourt: "Completed",
+        completedDate: "Today",
+        verifiedBy: "Dr. James Arinze (Owner)",
+      };
+
+      if (typeof window !== "undefined") {
+        try {
+          const stagesKey = `vantaged_stages_${projectId}`;
+          const saved = localStorage.getItem(stagesKey);
+          const currentStages: ProjectStage[] = saved ? JSON.parse(saved) : project.stages;
+          const nextStages = currentStages.map((s) =>
+            s.id === stageId
+              ? {
+                  ...s,
+                  status: "Approved" as const,
+                  completedDate: "Today",
+                  verifiedBy: "Dr. James Arinze (Owner)",
+                }
+              : s
+          );
+          localStorage.setItem(stagesKey, JSON.stringify(nextStages));
+          if (nextStages.every((s) => s.status === "Approved")) {
+            markProjectAsCompleted(projectId);
+          }
+          window.dispatchEvent(new Event("vantaged_storage_update"));
+        } catch {}
+      }
+
+      return updated;
+    });
   };
 
   const handleRejectStage = () => {
     setIsRejectSuccess(true);
-    setStage((prev) => ({
-      ...prev,
-      status: "In Progress",
-      ballInCourt: "Contractor (Fixing Issues)",
-      rejectionCount: (prev.rejectionCount || 0) + 1,
-      issues: [
-        ...(prev.issues || []),
-        {
-          id: `iss-${Date.now()}`,
-          issueCode: `ISSUE-0${(prev.issues?.length || 0) + 2}`,
-          title: rejectionComment || "Checklist rectification requested by client",
-          status: "Open",
-          assignedTo: project.siteManager.name,
-          dateRaised: "Today",
-        },
-      ],
-    }));
+    setStage((prev) => {
+      const updated = {
+        ...prev,
+        status: "In Progress" as const,
+        ballInCourt: "Contractor (Fixing Issues)",
+        rejectionCount: (prev.rejectionCount || 0) + 1,
+        issues: [
+          ...(prev.issues || []),
+          {
+            id: `iss-${Date.now()}`,
+            issueCode: `ISSUE-0${(prev.issues?.length || 0) + 2}`,
+            title: rejectionComment || "Checklist rectification requested by client",
+            status: "Open" as const,
+            assignedTo: project.siteManager.name,
+            dateRaised: "Today",
+          },
+        ],
+      };
+
+      if (typeof window !== "undefined") {
+        try {
+          const stagesKey = `vantaged_stages_${projectId}`;
+          const saved = localStorage.getItem(stagesKey);
+          const currentStages: ProjectStage[] = saved ? JSON.parse(saved) : project.stages;
+          const nextStages = currentStages.map((s) =>
+            s.id === stageId
+              ? {
+                  ...s,
+                  status: "In Progress" as const,
+                  ballInCourt: "Contractor (Fixing Issues)",
+                }
+              : s
+          );
+          localStorage.setItem(stagesKey, JSON.stringify(nextStages));
+        } catch {}
+      }
+
+      return updated;
+    });
   };
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), var(--font-sans), sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       {/* Decorative background grid subtle */}
@@ -153,7 +240,7 @@ export function ProjectStageDetailPage({
       <ProjectSidebarNav projectId={project.id} activeTab="stages" />
 
       {/* Main Workspace */}
-      <main className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
         {/* Header Bar */}
         <HeaderBar
           leftSlot={

@@ -7,7 +7,10 @@ export function SiteFieldOperationsCards() {
   const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
 
   return (
-    <div className="w-full font-sans select-none pb-8">
+    <div
+      className="w-full font-sans select-none pb-8"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+    >
       {/* ── 2-Card Clean Row: Project Changes (Left) + Contractor Checks (Right) ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 w-full items-stretch">
         {/* 1. Project Changes Card */}
@@ -136,7 +139,7 @@ export function SiteFieldOperationsCards() {
                     Contractor Checks
                   </h3>
                   <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                    SolidGround Engineering Ltd · Verified EPC
+                    SolidGround Engineering Ltd · Verified Builder
                   </p>
                 </div>
               </div>
@@ -204,7 +207,7 @@ export function SiteFieldOperationsCards() {
                   </span>
                 </div>
                 <span className="text-[10px] font-bold text-[var(--vt-color-green-700,#1F6B3E)]">
-                  LASBCA Stamped
+                  Government Approved (LASBCA)
                 </span>
               </div>
             </div>
@@ -212,7 +215,7 @@ export function SiteFieldOperationsCards() {
 
           {/* Card Footer */}
           <div className="mt-3 pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center justify-between text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
-            <span>Verified state construction files</span>
+            <span>Verified legal and site documents</span>
             <Link
               href="/owner/projects/proj-lekki/plan"
               className="font-semibold text-[var(--vt-color-orange-600,#D84C0B)] cursor-pointer hover:underline"

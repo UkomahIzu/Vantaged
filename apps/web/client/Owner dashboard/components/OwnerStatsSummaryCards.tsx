@@ -5,7 +5,10 @@ import Link from "next/link";
 
 export function OwnerStatsSummaryCards() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 w-full select-none font-sans">
+    <div
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+      className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 w-full select-none font-sans"
+    >
       {/* 1. Active Projects Card - Linked to /owner/projects */}
       <Link
         href="/owner/projects"
@@ -81,7 +84,7 @@ export function OwnerStatsSummaryCards() {
             </svg>
           </div>
           <span className="text-[11px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] group-hover:text-[var(--vt-color-green-700,#1F6B3E)] flex items-center gap-1 transition-colors">
-            <span>Ledger</span>
+            <span>View payments</span>
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="9 18 15 12 9 6" />
             </svg>

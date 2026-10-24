@@ -7,411 +7,26 @@ import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { ProjectFolderCard, ProjectItem } from "../components/ProjectFolderCard";
 import { DraggableChatWindow } from "../components/DraggableChatWindow";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { VantagedSelect } from "../components/VantagedSelect";
 
-export const ACTIVE_PROJECTS: ProjectItem[] = [
-  {
-    id: "proj-lekki",
-    jobId: "JOB-4821",
-    title: "Lekki Phase 1 Luxury Villa",
-    category: "Residential",
-    location: "Plot 14, Admiralty Way, Lekki",
-    specs: "4-Bedroom Detached + Penthouse",
-    status: "In progress",
-    milestonesCount: 14,
-    milestonesTotal: 18,
-    progressPercent: 82,
-    escrowAmount: "₦145.0M",
-    contractor: {
-      name: "Julius B. Consortium",
-      rating: "4.8 ★",
-      assignedRep: "Engr. Chidi O.",
-    },
-    currentScope: "1st Floor Slab Casting & Rebar Ties",
-    stageSubtitle: "Stage 3: First floor suspended slab",
-    snippetLines: [
-      "1st floor slab rebar tied",
-      "C30 slump test: 110mm",
-      "Cube specimens logged",
-    ],
-    lastUpdated: "Today, 11:42 AM",
-  },
-  {
-    id: "proj-enclave",
-    jobId: "JOB-3914",
-    title: "The Enclave Waterfront Resort",
-    category: "Waterfront",
-    location: "Epe Waterfront Corridor, Lagos",
-    specs: "Boutique Eco-Resort & Spa Villa",
-    status: "In progress",
-    milestonesCount: 9,
-    milestonesTotal: 20,
-    progressPercent: 45,
-    escrowAmount: "₦82.5M",
-    contractor: {
-      name: "Crane & Stone Structural",
-      rating: "4.9 ★",
-      assignedRep: "Engr. Folake Ade",
-    },
-    currentScope: "Deep Foundation Piling Cages",
-    stageSubtitle: "Stage 2: Piling & deep foundation",
-    snippetLines: [
-      "24 piles driven on site",
-      "Marine concrete poured",
-      "Sonic probe certified",
-    ],
-    lastUpdated: "Yesterday, 16:30",
-  },
-  {
-    id: "proj-guzape",
-    jobId: "JOB-5102",
-    title: "Guzape Hills Residence",
-    category: "Residential",
-    location: "Guzape District, Asokoro Ext., Abuja",
-    specs: "6-Bedroom Contemporary Mansion",
-    status: "In progress",
-    milestonesCount: 18,
-    milestonesTotal: 28,
-    progressPercent: 64,
-    escrowAmount: "₦210.0M",
-    contractor: {
-      name: "SolidGround Engineering",
-      rating: "4.8 ★",
-      assignedRep: "Arc. Bello K.",
-    },
-    currentScope: "Galvanized Roof Truss Assembly",
-    stageSubtitle: "Stage 4: Roof truss & parapet",
-    snippetLines: [
-      "Galvanized trusses fixed",
-      "Parapet concrete casted",
-      "Deflection test passed",
-    ],
-    lastUpdated: "Oct 08, 09:15",
-  },
-  {
-    id: "proj-eko",
-    jobId: "JOB-6205",
-    title: "Eko Atlantic Sky Tower",
-    category: "Commercial",
-    location: "Marina District, Eko Atlantic City",
-    specs: "14-Storey Mixed-Use Commercial",
-    status: "In progress",
-    milestonesCount: 7,
-    milestonesTotal: 24,
-    progressPercent: 30,
-    escrowAmount: "₦450.0M",
-    contractor: {
-      name: "Cappa & D'Alberto",
-      rating: "4.9 ★",
-      assignedRep: "Engr. Tunde Coker",
-    },
-    currentScope: "Level 4 Core Slip-Forming",
-    stageSubtitle: "Stage 4: Core slip-forming",
-    snippetLines: [
-      "Level 4 slip-form active",
-      "Cables tensioned",
-      "Jacks pressure checked",
-    ],
-    lastUpdated: "Oct 06, 14:00",
-  },
-  {
-    id: "proj-banana",
-    jobId: "JOB-7311",
-    title: "Banana Island Horizon Penthouse",
-    category: "Residential",
-    location: "Zone C, Banana Island, Ikoyi",
-    specs: "Ultra-Luxury Triplex Penthouse",
-    status: "In progress",
-    milestonesCount: 22,
-    milestonesTotal: 25,
-    progressPercent: 90,
-    escrowAmount: "₦320.0M",
-    contractor: {
-      name: "Hitech Construction",
-      rating: "4.9 ★",
-      assignedRep: "Engr. Amina Lawal",
-    },
-    currentScope: "Italian Marble Tiling & BMS Wiring",
-    stageSubtitle: "Stage 5: Interior finish & BMS",
-    snippetLines: [
-      "Italian marble delivered",
-      "BMS automation wired",
-      "Ceiling framing done",
-    ],
-    lastUpdated: "Oct 04, 11:20",
-  },
-  {
-    id: "proj-vi",
-    jobId: "JOB-8140",
-    title: "Victoria Island Commercial Plaza",
-    category: "Commercial",
-    location: "Adeola Odeku St, Victoria Island",
-    specs: "Premium Office & Retail Complex",
-    status: "In progress",
-    milestonesCount: 3,
-    milestonesTotal: 16,
-    progressPercent: 18,
-    escrowAmount: "₦95.0M",
-    contractor: {
-      name: "Costain West Africa",
-      rating: "4.7 ★",
-      assignedRep: "Engr. Emeka Obi",
-    },
-    currentScope: "Subgrade Earthworks Compaction",
-    stageSubtitle: "Stage 1: Perimeter sheet piling",
-    snippetLines: [
-      "Sheet piling perimeter set",
-      "Compaction at 98% MDD",
-      "Dewatering pumps active",
-    ],
-    lastUpdated: "Oct 01, 08:45",
-  },
-];
+import {
+  INITIAL_ACTIVE_PROJECTS as ACTIVE_PROJECTS,
+  INITIAL_CONTRACT_HISTORY as CONTRACT_HISTORY,
+  INITIAL_PROPOSED_PLANS as PROPOSED_PLANS,
+  getActiveProjects,
+  getContractHistory,
+  getProposedPlans,
+} from "./projects dashboard/projectStore";
 
-export const CONTRACT_HISTORY: ProjectItem[] = [
-  {
-    id: "hist-ikoyi",
-    jobId: "JOB-3104",
-    title: "Ikoyi Waterfront Luxury Penthouse",
-    category: "Residential",
-    location: "Ikoyi, Lagos",
-    specs: "Penthouse & Terrace Suite",
-    status: "Final sign-off",
-    milestonesCount: 12,
-    milestonesTotal: 12,
-    progressPercent: 100,
-    escrowAmount: "₦84.5M",
-    contractor: {
-      name: "Julius B. Consortium",
-      rating: "4.9 ★",
-      assignedRep: "Engr. Chidi O.",
-    },
-    currentScope: "Completed Handover & Defect Closure",
-    stageSubtitle: "Completed & handed over",
-    snippetLines: [
-      "Terrace waterproofing done",
-      "Final snagging cleared",
-      "Escrow tranche released",
-    ],
-    lastUpdated: "Aug 2025",
-  },
-  {
-    id: "hist-vi-tech",
-    jobId: "JOB-2911",
-    title: "Victoria Island Commercial Tech Hub",
-    category: "Commercial",
-    location: "Victoria Island, Lagos",
-    specs: "5-Storey Corporate Headquarters",
-    status: "Final sign-off",
-    milestonesCount: 16,
-    milestonesTotal: 16,
-    progressPercent: 100,
-    escrowAmount: "₦165.0M",
-    contractor: {
-      name: "Crane & Stone Structural",
-      rating: "4.9 ★",
-      assignedRep: "Engr. Folake Ade",
-    },
-    currentScope: "Full Commissioning & Handover",
-    stageSubtitle: "Completed & handed over",
-    snippetLines: [
-      "HVAC & fiber certified",
-      "Occupancy permit signed",
-      "Handover completed",
-    ],
-    lastUpdated: "Feb 2025",
-  },
-  {
-    id: "hist-chevron",
-    jobId: "JOB-2680",
-    title: "Chevron Lekki Residential Estate",
-    category: "Residential",
-    location: "Lekki, Lagos",
-    specs: "Phase 1 Infrastructure & 8 Units",
-    status: "Final sign-off",
-    milestonesCount: 24,
-    milestonesTotal: 24,
-    progressPercent: 100,
-    escrowAmount: "₦210.0M",
-    contractor: {
-      name: "Apex Build Nigeria Ltd",
-      rating: "4.8 ★",
-      assignedRep: "Arc. Bello K.",
-    },
-    currentScope: "Road Drainage & Building Handover",
-    stageSubtitle: "Completed & handed over",
-    snippetLines: [
-      "Road drainage complete",
-      "Full sign-off issued",
-      "Retainage closed",
-    ],
-    lastUpdated: "Nov 2024",
-  },
-  {
-    id: "hist-epe-cold",
-    jobId: "JOB-2419",
-    title: "Epe Agro Cold Storage Facility",
-    category: "Commercial",
-    location: "Epe, Lagos",
-    specs: "Industrial Cold Storage Facility",
-    status: "Final sign-off",
-    milestonesCount: 8,
-    milestonesTotal: 8,
-    progressPercent: 100,
-    escrowAmount: "₦42.0M",
-    contractor: {
-      name: "Prime Terra Infrastructure",
-      rating: "4.7 ★",
-      assignedRep: "Engr. Tunde Coker",
-    },
-    currentScope: "Substation & Refrigeration Handover",
-    stageSubtitle: "Completed & handed over",
-    snippetLines: [
-      "Insulated panels fitted",
-      "Substation energized",
-      "Final audit passed",
-    ],
-    lastUpdated: "Jun 2024",
-  },
-  {
-    id: "hist-maitama",
-    jobId: "JOB-2105",
-    title: "Maitama Diplomatic Villa",
-    category: "Residential",
-    location: "Maitama District, Abuja",
-    specs: "Diplomatic Residence & Perimeter",
-    status: "Final sign-off",
-    milestonesCount: 20,
-    milestonesTotal: 20,
-    progressPercent: 100,
-    escrowAmount: "₦195.0M",
-    contractor: {
-      name: "SolidGround Engineering",
-      rating: "4.9 ★",
-      assignedRep: "Arc. Bello K.",
-    },
-    currentScope: "Perimeter & Structural Commissioning",
-    stageSubtitle: "Completed & handed over",
-    snippetLines: [
-      "Perimeter security wall",
-      "Landscape completed",
-      "Warranty certificate logged",
-    ],
-    lastUpdated: "Nov 2023",
-  },
-  {
-    id: "hist-asokoro",
-    jobId: "JOB-1940",
-    title: "Asokoro Medical Center",
-    category: "Commercial",
-    location: "Asokoro District, Abuja",
-    specs: "Specialist Clinical Center",
-    status: "Final sign-off",
-    milestonesCount: 14,
-    milestonesTotal: 14,
-    progressPercent: 100,
-    escrowAmount: "₦130.0M",
-    contractor: {
-      name: "Hitech Construction",
-      rating: "4.8 ★",
-      assignedRep: "Engr. Amina Lawal",
-    },
-    currentScope: "Medical Cleanrooms Certification",
-    stageSubtitle: "Completed & handed over",
-    snippetLines: [
-      "Cleanroom flooring set",
-      "Lead shielding tested",
-      "Final milestone paid",
-    ],
-    lastUpdated: "May 2023",
-  },
-];
-
-export const PROPOSED_PLANS: ProjectItem[] = [
-  {
-    id: "proj-lekki",
-    jobId: "PROP-4821",
-    title: "Lekki Phase 1 Luxury Villa",
-    category: "Residential",
-    location: "Plot 14, Admiralty Way, Lekki",
-    specs: "4-Bedroom Detached House + Penthouse & Pool",
-    status: "Inspection pending",
-    milestonesCount: 0,
-    milestonesTotal: 6,
-    progressPercent: 0,
-    escrowAmount: "₦245.0M Proposed",
-    contractor: {
-      name: "Julius B. Consortium",
-      rating: "4.8 ★",
-      assignedRep: "Engr. Babatunde Adeleke",
-    },
-    currentScope: "Proposed 6-Stage Construction Agreement",
-    stageSubtitle: "Awaiting your review & agreement",
-    snippetLines: [
-      "10% Mobilisation deposit: ₦24.5M",
-      "6 milestone stages (100% budget)",
-      "5% Defect liability retention hold",
-    ],
-    lastUpdated: "Sent Jan 15, 2026",
-  },
-  {
-    id: "proj-guzape",
-    jobId: "PROP-5102",
-    title: "Guzape Hills Residence",
-    category: "Residential",
-    location: "Guzape District, Asokoro Ext., Abuja",
-    specs: "6-Bedroom Contemporary Mansion",
-    status: "Inspection pending",
-    milestonesCount: 0,
-    milestonesTotal: 8,
-    progressPercent: 0,
-    escrowAmount: "₦210.0M Proposed",
-    contractor: {
-      name: "SolidGround Engineering",
-      rating: "4.8 ★",
-      assignedRep: "Arc. Bello K.",
-    },
-    currentScope: "8-Stage Structural & Finishing Plan",
-    stageSubtitle: "Awaiting your review & agreement",
-    snippetLines: [
-      "10% Mobilisation deposit: ₦21.0M",
-      "Checklist inspection criteria set",
-      "5% Retention locked until handover",
-    ],
-    lastUpdated: "Sent Oct 12, 2026",
-  },
-  {
-    id: "proj-enclave",
-    jobId: "PROP-3914",
-    title: "The Enclave Waterfront Resort",
-    category: "Waterfront",
-    location: "Epe Waterfront Corridor, Lagos",
-    specs: "Boutique Eco-Resort & Spa Villa",
-    status: "Substructure",
-    milestonesCount: 0,
-    milestonesTotal: 7,
-    progressPercent: 0,
-    escrowAmount: "₦188.5M Proposed",
-    contractor: {
-      name: "Crane & Stone Structural",
-      rating: "4.9 ★",
-      assignedRep: "Engr. Folake Ade",
-    },
-    currentScope: "Piling & Eco-Resort Phased Plan",
-    stageSubtitle: "Changes requested by owner",
-    snippetLines: [
-      "Stage 2 timeline revised",
-      "Piling spec adjustments sent",
-      "Builder revising draft proposal",
-    ],
-    lastUpdated: "Revised Yesterday",
-  },
-];
+export { ACTIVE_PROJECTS, CONTRACT_HISTORY, PROPOSED_PLANS };
 
 export function OwnerProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get("tab");
   const searchParam = searchParams?.get("search");
+  const scrollRef = useScrollRestoration<HTMLElement>("owner_projects");
 
   // 3-Way View Switch State: 'active' | 'plans' | 'history'
   const [viewMode, setViewMode] = useState<"active" | "plans" | "history">("active");
@@ -433,13 +48,34 @@ export function OwnerProjectsPage() {
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  // Synchronized lists for Active Projects, Plan & Contract, and Contract History
+  const [activeProjects, setActiveProjects] = useState<ProjectItem[]>(() => getActiveProjects());
+  const [proposedPlans, setProposedPlans] = useState<ProjectItem[]>(() => getProposedPlans());
+  const [contractHistory, setContractHistory] = useState<ProjectItem[]>(() => getContractHistory());
+
+  useEffect(() => {
+    const syncAll = () => {
+      setActiveProjects(getActiveProjects());
+      setProposedPlans(getProposedPlans());
+      setContractHistory(getContractHistory());
+    };
+
+    syncAll();
+    window.addEventListener("vantaged_storage_update", syncAll);
+    window.addEventListener("storage", syncAll);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", syncAll);
+      window.removeEventListener("storage", syncAll);
+    };
+  }, []);
+
   // Active list based on 3-way switch
   const currentList =
     viewMode === "active"
-      ? ACTIVE_PROJECTS
+      ? activeProjects
       : viewMode === "plans"
-      ? PROPOSED_PLANS
-      : CONTRACT_HISTORY;
+      ? proposedPlans
+      : contractHistory;
 
   // Dynamically derived unique contractor names for the current list
   const availableContractors = useMemo(() => {
@@ -526,7 +162,7 @@ export function OwnerProjectsPage() {
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="h-screen w-screen max-h-screen max-w-screen overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] flex flex-col md:flex-row font-sans text-[var(--vt-color-text-default,#261A66)] select-none relative"
     >
       {/* Decorative vector background lines */}
@@ -553,7 +189,8 @@ export function OwnerProjectsPage() {
 
       {/* ── Main Workspace ── */}
       <main
-        style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+        ref={scrollRef}
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-4 sm:gap-5"
       >
         {/* Top Header Navigation Bar with Left Slot Back Arrow (Aligned with Search bar; hidden on dashboard) */}
@@ -572,38 +209,38 @@ export function OwnerProjectsPage() {
           }
         />
 
-        {/* ── Title & Right Controls (Title on left; 2-Way Switch & Filter on right) ── */}
+        {/* ── Title & Right Controls (Title on left; 3-Way Switch & Filter on right) ── */}
         <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
-          {/* Large Title: Dynamic based on 3-way switch */}
-          <div>
+          {/* Large Title: Dynamic based on 3-way switch with stable dimensions */}
+          <div className="min-w-0">
             <h1
-              style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
-              className="text-2xl sm:text-3xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight"
+              style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+              className="text-2xl sm:text-3xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight whitespace-nowrap"
             >
               {viewMode === "active"
                 ? "Active Projects"
                 : viewMode === "plans"
-                ? "Plan & Contract Proposals"
+                ? "Plan & Contract"
                 : "Contract History"}
             </h1>
-            <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+            <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate sm:whitespace-normal">
               {viewMode === "active"
                 ? "Live building sites and ongoing milestone construction."
                 : viewMode === "plans"
-                ? "Building plans and milestone payment terms sent by builders awaiting your agreement."
+                ? "Milestone plans and payment terms awaiting your agreement."
                 : "Finished projects and handed-over buildings."}
             </p>
           </div>
 
-          {/* Right Group: 3-Way Switch (left of filter) + Filter Button */}
-          <div className="flex items-center gap-2.5 self-end sm:self-auto">
+          {/* Right Group: 3-Way Switch (left of filter) + Add Building + Filter Button */}
+          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto flex-wrap sm:flex-nowrap">
             {/* 3-Way Segmented Switch: 'Active projects' | 'Plan & contract' | 'Contract history' */}
-            <div className="flex items-center p-1 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-lg shadow-2xs">
+            <div className="h-9 p-0.5 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-lg flex items-center shadow-2xs shrink-0 font-sans">
               <button
                 type="button"
                 onClick={() => handleViewModeChange("active")}
-                style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+                className={`h-full px-3 sm:px-3.5 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                   viewMode === "active"
                     ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-xs"
                     : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
@@ -611,20 +248,20 @@ export function OwnerProjectsPage() {
               >
                 <span>Active projects</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                     viewMode === "active"
                       ? "bg-white/20 text-white"
                       : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
                   }`}
                 >
-                  {ACTIVE_PROJECTS.length}
+                  {activeProjects.length}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => handleViewModeChange("plans")}
-                style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+                className={`h-full px-3 sm:px-3.5 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                   viewMode === "plans"
                     ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-xs"
                     : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
@@ -632,20 +269,20 @@ export function OwnerProjectsPage() {
               >
                 <span>Plan & contract</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                     viewMode === "plans"
                       ? "bg-white/20 text-white"
                       : "bg-[var(--vt-color-orange-100,#FFE6D5)] text-[var(--vt-color-orange-800,#8F320D)]"
                   }`}
                 >
-                  {PROPOSED_PLANS.length}
+                  {proposedPlans.length}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => handleViewModeChange("history")}
-                style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+                className={`h-full px-3 sm:px-3.5 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                   viewMode === "history"
                     ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-xs"
                     : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
@@ -653,23 +290,37 @@ export function OwnerProjectsPage() {
               >
                 <span>Contract history</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                     viewMode === "history"
                       ? "bg-white/20 text-white"
                       : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
                   }`}
                 >
-                  {CONTRACT_HISTORY.length}
+                  {contractHistory.length}
                 </span>
               </button>
             </div>
+
+            {/* Add Building Button -> Links to Find Companies Page to Send Brief / Request */}
+            <Link
+              href="/owner/find-companies"
+              title="Find a verified construction company to start a new building project"
+              style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+              className="h-9 px-3.5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>Add Building</span>
+            </Link>
 
             {/* Comprehensive Filter Button */}
             <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-                style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+                style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
                 className={`h-9 px-3.5 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-2xs ${
                   activeFilterCount > 0
                     ? "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-400,#F78241)] text-[var(--vt-color-orange-700,#B33C08)] font-bold shadow-xs"
@@ -705,7 +356,7 @@ export function OwnerProjectsPage() {
                     onClick={() => setIsFilterMenuOpen(false)}
                   />
                   <div
-                    style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+                    style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
                     className="absolute right-0 top-11 w-80 sm:w-96 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl p-4 sm:p-5 z-50 animate-in fade-in zoom-in-95 duration-150 text-xs flex flex-col gap-4"
                   >
                     {/* Header */}
@@ -762,26 +413,14 @@ export function OwnerProjectsPage() {
                       <span className="font-bold text-[10.5px] uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
                         Contractor / Partner
                       </span>
-                      <div className="relative">
-                        <select
-                          value={filterContractor}
-                          onChange={(e) => setFilterContractor(e.target.value)}
-                          style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
-                          className="w-full h-9 px-3 pr-8 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer appearance-none"
-                        >
-                          <option value="all">All Contractors ({availableContractors.length})</option>
-                          {availableContractors.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="6 9 12 15 18 9" />
-                          </svg>
-                        </div>
-                      </div>
+                      <VantagedSelect
+                        value={filterContractor}
+                        onChange={(val) => setFilterContractor(val)}
+                        options={[
+                          { value: "all", label: `All Contractors (${availableContractors.length})` },
+                          ...availableContractors.map((c) => ({ value: c, label: c })),
+                        ]}
+                      />
                     </div>
 
                     {/* 3. Stage Progress (Only active projects) */}
@@ -997,7 +636,7 @@ export function OwnerProjectsPage() {
       <DraggableChatWindow
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
-        projectName={ACTIVE_PROJECTS[0].title}
+        projectName={activeProjects[0]?.title || "Lekki Luxury Villa"}
       />
     </div>
   );

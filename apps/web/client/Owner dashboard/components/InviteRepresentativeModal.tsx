@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { VantagedSelect } from "./VantagedSelect";
 
 export interface InviteRepFormData {
   name: string;
@@ -53,25 +54,50 @@ export function InviteRepresentativeModal({
           email: repData.email,
           discipline: repData.discipline,
           title: repData.roleTitle,
-          status: "Invite Sent",
+          location: "Lekki, Lagos",
+          state: "Lagos",
+          stagesVerifiedCount: 0,
+          licenseNumber: "Accreditation Verification Pending",
+          isVerified: false,
+          isFavorite: false,
+          isFeatured: false,
+          avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&h=160&fit=crop&crop=face",
+          phone: "+234 800 000 0000",
+          status: "Pending Invitation",
+          mandateSummary: `Authorized client representative appointed to oversee site milestones and quality assurance for ${repData.assignedProject}.`,
           assignedProjects: [
             {
-              projectId: "proj-lekki",
-              projectName: repData.assignedProject,
+              id: "proj-lekki",
+              title: repData.assignedProject,
               roleOnProject: repData.roleTitle,
+              progressPercent: 50,
+              status: "Active Construction",
             },
           ],
           permissions: {
             viewProgress: true,
-            approveRejectStages: true,
+            approveStages: true,
             makePayments: false,
-            suggestChanges: true,
+            changeRequests: true,
             messageContractor: true,
             manageShareLinks: false,
             invitePeople: false,
+            maxEscrowLimit: 25,
+            maxChangeLimit: 10,
           },
+          recentAudits: [
+            {
+              id: `log-${Date.now()}`,
+              action: `Invitation link dispatched to ${repData.email}`,
+              projectTitle: repData.assignedProject,
+              module: "Site Inspection",
+              status: "Pending Review",
+              timestamp: "Just now",
+            },
+          ],
         });
         localStorage.setItem("vantaged_client_reps_list", JSON.stringify(list));
+        window.dispatchEvent(new Event("vantaged_storage_update"));
       } catch {
         // ignore
       }
@@ -100,7 +126,7 @@ export function InviteRepresentativeModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className="w-full max-w-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 font-sans"
       >
         {/* Header */}
@@ -175,34 +201,36 @@ export function InviteRepresentativeModal({
                 <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] mb-1">
                   Professional Discipline
                 </label>
-                <select
+                <VantagedSelect
                   value={discipline}
-                  onChange={(e) => setDiscipline(e.target.value as InviteRepFormData["discipline"])}
-                  className="w-full h-9 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer"
-                >
-                  <option value="Structural & Civil">Structural & Civil</option>
-                  <option value="Architecture">Architecture</option>
-                  <option value="Quantity Surveying">Quantity Surveying</option>
-                  <option value="MEP Engineering">MEP Engineering</option>
-                  <option value="Marine & Geotech">Marine & Geotech</option>
-                  <option value="Owner Proxy">Owner Proxy</option>
-                </select>
+                  onChange={(val) => setDiscipline(val as InviteRepFormData["discipline"])}
+                  className="w-full h-9 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]"
+                  options={[
+                    { value: "Structural & Civil", label: "Structural & Civil" },
+                    { value: "Architecture", label: "Architecture" },
+                    { value: "Quantity Surveying", label: "Quantity Surveying" },
+                    { value: "MEP Engineering", label: "MEP Engineering" },
+                    { value: "Marine & Geotech", label: "Marine & Geotech" },
+                    { value: "Owner Proxy", label: "Owner Proxy" },
+                  ]}
+                />
               </div>
 
               <div>
                 <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] mb-1">
                   Assign Site
                 </label>
-                <select
+                <VantagedSelect
                   value={assignedProject}
-                  onChange={(e) => setAssignedProject(e.target.value)}
-                  className="w-full h-9 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer"
-                >
-                  <option value="Lekki Phase 1 Luxury Villa">Lekki Phase 1 Luxury Villa</option>
-                  <option value="The Enclave Waterfront Resort">The Enclave Waterfront Resort</option>
-                  <option value="Guzape Hills Residence">Guzape Hills Residence</option>
-                  <option value="Banana Island Horizon Penthouse">Banana Island Horizon Penthouse</option>
-                </select>
+                  onChange={(val) => setAssignedProject(val)}
+                  className="w-full h-9 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]"
+                  options={[
+                    { value: "Lekki Phase 1 Luxury Villa", label: "Lekki Phase 1 Luxury Villa" },
+                    { value: "The Enclave Waterfront Resort", label: "The Enclave Waterfront Resort" },
+                    { value: "Guzape Hills Residence", label: "Guzape Hills Residence" },
+                    { value: "Banana Island Horizon Penthouse", label: "Banana Island Horizon Penthouse" },
+                  ]}
+                />
               </div>
             </div>
 

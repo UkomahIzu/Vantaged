@@ -8,23 +8,25 @@ import { DraggableChatWindow } from "../../components/DraggableChatWindow";
 import { getProjectDetail } from "./projectData";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { IconArrowRight, IconMessage, IconPlus, IconShieldCheck } from "./ProjectIcons";
+import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 
 interface ProjectTeamSitePageProps {
   projectId?: string;
 }
 
 export function ProjectTeamSitePage({ projectId = "proj-lekki" }: ProjectTeamSitePageProps) {
+  const scrollRef = useScrollRestoration<HTMLElement>(`proj_team_${projectId}`);
   const project = getProjectDetail(projectId);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), var(--font-sans), sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       <ProjectSidebarNav projectId={project.id} activeTab="team" />
 
-      <main className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
         <HeaderBar
           leftSlot={
             <ProjectBreadcrumb

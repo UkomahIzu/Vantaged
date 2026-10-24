@@ -9,7 +9,7 @@ export interface ProjectItem {
   category: "Residential" | "Commercial" | "Waterfront" | "Hospitality";
   location: string;
   specs: string;
-  status: "In progress" | "Inspection pending" | "Final sign-off" | "Substructure";
+  status: "In progress" | "Inspection pending" | "Final sign-off" | "Substructure" | "Completed";
   milestonesCount: number;
   milestonesTotal: number;
   progressPercent: number;
@@ -44,7 +44,7 @@ export function ProjectFolderCard({
   return (
     <div
       onClick={() => onSelect?.(project)}
-      style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className={`group relative w-full h-[265px] sm:h-[280px] cursor-pointer select-none transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-[0.96] focus:outline-none ${
         isSelected
           ? "-translate-y-3.5 sm:-translate-y-4 z-30"
@@ -96,7 +96,7 @@ export function ProjectFolderCard({
 
       {/* ── 2. Inserted White Paper Sheet (Springs up on click & hover) ── */}
       <div
-        style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className={`absolute left-3.5 right-3.5 top-2 h-38 bg-white rounded-2xl border p-3.5 sm:p-4 z-10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] flex flex-col justify-between overflow-hidden pointer-events-none ${
           isSelected
             ? "-translate-y-8 sm:-translate-y-9 shadow-[0_16px_36px_rgba(38,26,102,0.14)] border-[var(--vt-color-orange-400,#F78241)] ring-1 ring-[var(--vt-color-orange-300,#FBA674)]"
@@ -106,7 +106,7 @@ export function ProjectFolderCard({
         {/* Top: Snippet line 1 + Selected/Active pill badge */}
         <div className="flex items-center justify-between gap-1.5">
           <p
-            style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
             className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)] truncate pr-1"
           >
             {project.snippetLines[0] || ""}
@@ -126,13 +126,13 @@ export function ProjectFolderCard({
         {/* Middle: Snippet lines 2 and 3 */}
         <div className="flex-1 flex flex-col justify-center py-1">
           <p
-            style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
             className="text-[#6C6882] text-[11px] truncate font-medium"
           >
             {project.snippetLines[1] || ""}
           </p>
           <p
-            style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
             className="text-[#8E8B9E] text-[10.5px] truncate mt-0.5"
           >
             {project.snippetLines[2] || ""}
@@ -199,7 +199,7 @@ export function ProjectFolderCard({
 
         {/* Front Flap Content: Uncluttered, bold Title, construction stage subtitle, and value at bottom */}
         <div
-          style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+          style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
           className={`relative z-10 flex-1 p-5 sm:p-5.5 flex flex-col justify-between transition-all duration-300 ${
             isOrange ? "text-white" : "text-[var(--vt-color-indigo-900,#261A66)]"
           }`}
@@ -207,7 +207,7 @@ export function ProjectFolderCard({
           {/* Middle: Title & Project Stage Subtitle (brought down cleanly into comfortable center) */}
           <div className="pt-5 sm:pt-6">
             <h3
-              style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+              style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
               className={`text-base sm:text-[17px] font-extrabold tracking-tight leading-snug truncate transition-colors ${
                 isOrange
                   ? "text-white"
@@ -219,7 +219,7 @@ export function ProjectFolderCard({
 
             {/* Construction stage subtitle (e.g. Stage 3: First floor suspended slab) */}
             <p
-              style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+              style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
               className={`text-xs mt-1 font-medium leading-none ${
                 isOrange ? "text-white/80" : "text-[var(--vt-color-neutral-500,#7C7894)]"
               }`}
@@ -231,7 +231,7 @@ export function ProjectFolderCard({
           {/* Bottom Left: Value (without any GB numbers) */}
           <div className="pb-1">
             <span
-              style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+              style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
               className={`text-xs font-semibold tracking-tight ${
                 isOrange
                   ? "text-white/90 font-mono"

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
@@ -10,6 +10,8 @@ import { ShareLinkModal } from "../../components/ShareLinkModal";
 import { getProjectDetail, ProjectStage } from "./projectData";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { IconArrowRight, IconCheck, IconClose } from "./ProjectIcons";
+import { useScrollRestoration } from "../../hooks/useScrollRestoration";
+import { markProjectAsCompleted } from "./projectStore";
 
 interface ProjectOverviewPageProps {
   projectId?: string;
@@ -17,13 +19,45 @@ interface ProjectOverviewPageProps {
 
 export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOverviewPageProps) {
   const router = useRouter();
+  const scrollRef = useScrollRestoration<HTMLElement>(`proj_overview_${projectId}`);
   const project = getProjectDetail(projectId);
+  const storageKey = `vantaged_stages_${projectId}`;
+
+  const [stages, setStages] = useState<ProjectStage[]>(project.stages);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [reviewingStage, setReviewingStage] = useState<ProjectStage | null>(null);
   const [approvalStep, setApprovalStep] = useState<"review" | "success">("review");
 
-  const currentStage = project.stages.find((s) => s.status === "Ready for Review") || project.stages[3] || project.stages[0];
+  useEffect(() => {
+    const syncStages = () => {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setStages(parsed);
+          }
+        }
+      } catch {}
+    };
+
+    syncStages();
+    window.addEventListener("vantaged_storage_update", syncStages);
+    window.addEventListener("storage", syncStages);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", syncStages);
+      window.removeEventListener("storage", syncStages);
+    };
+  }, [storageKey]);
+
+  const approvedStages = stages.filter((s) => s.status === "Approved");
+  const readyStage = stages.find((s) => s.status === "Ready for Review");
+  const nextStage = readyStage || stages.find((s) => s.status !== "Approved") || stages[stages.length - 1];
+
+  const verifiedProgress = Math.round((approvedStages.length / stages.length) * 100);
+  const totalPaid = approvedStages.reduce((acc, s) => acc + s.trancheAmount, 0);
+  const totalInEscrow = Math.max(0, project.contractValue - totalPaid);
 
   const formatNaira = (val: number) => {
     if (val >= 1000000) {
@@ -32,17 +66,36 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
     return `₦${val.toLocaleString("en-NG")}`;
   };
 
-  const totalPaid = project.transactions
-    .filter((t) => t.status === "Paid to Builder")
-    .reduce((acc, t) => acc + t.amount, 0);
+  const handleApproveCurrentStageModal = () => {
+    if (!reviewingStage) return;
+    const nextStages = stages.map((s) => {
+      if (s.id === reviewingStage.id) {
+        return {
+          ...s,
+          status: "Approved" as const,
+          completedDate: "Today",
+          verifiedBy: "Dr. James Arinze (Owner)",
+        };
+      }
+      return s;
+    });
+    setStages(nextStages);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(nextStages));
+      window.dispatchEvent(new Event("vantaged_storage_update"));
+    } catch {}
 
-  const totalInEscrow = project.transactions
-    .filter((t) => t.status === "Held on Vantaged" || t.status === "Ready for Your Approval")
-    .reduce((acc, t) => acc + t.amount, 0);
+    // When all stages become approved, move project to contract history!
+    if (nextStages.every((s) => s.status === "Approved")) {
+      markProjectAsCompleted(projectId);
+    }
+
+    setApprovalStep("success");
+  };
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), var(--font-sans), sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       {/* Decorative background line */}
@@ -58,7 +111,7 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
       <ProjectSidebarNav projectId={project.id} activeTab="overview" />
 
       {/* Main Workspace */}
-      <main className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
         {/* Header Bar */}
         <HeaderBar
           leftSlot={
@@ -68,6 +121,30 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
             />
           }
         />
+
+        {/* Completed Handover Banner for History / Finished Projects */}
+        {(project.status === "Completed" || verifiedProgress >= 100 || projectId.startsWith("hist-")) && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-[var(--vt-color-green-50,#E9F6EC)] border border-[var(--vt-color-green-200,#A3D9B1)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[var(--vt-color-green-900,#0F331E)] shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[var(--vt-color-green-600,#248246)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <IconCheck className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <span className="font-black text-sm text-[var(--vt-color-green-950,#061F10)] block">
+                  Project 100% Completed & Handed Over
+                </span>
+                <span className="text-[11.5px] text-[var(--vt-color-green-800,#17512F)]">
+                  All construction milestones inspected and verified • Escrow funds fully settled to builder • Defect liability signed off • Handover package complete
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+              <span className="px-3 py-1.5 rounded-lg bg-white border border-[var(--vt-color-green-200,#A3D9B1)] text-xs font-bold text-[var(--vt-color-green-800,#17512F)]">
+                Certificate of Practical Completion Active
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* ── Top Project Header Card ── */}
         <section className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col gap-4">
@@ -106,14 +183,14 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
           <div className="pt-3 border-t border-[var(--vt-color-border-default,#E2E0EC)]">
             <div className="flex items-center justify-between text-xs font-bold mb-1.5">
               <span className="text-[var(--vt-color-indigo-900,#261A66)]">
-                Work completed and approved: <strong className="text-[var(--vt-color-orange-600,#D84C0B)]">{project.verifiedProgress}%</strong>
+                Work completed and approved: <strong className={verifiedProgress >= 100 ? "text-[var(--vt-color-green-700,#1F6B3E)]" : "text-[var(--vt-color-orange-600,#D84C0B)]"}>{verifiedProgress}%</strong>
               </span>
               <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] font-medium">
-                Target finish date: {project.targetEndDate}
+                {verifiedProgress >= 100 ? "Completed & Handed Over" : `Target finish date: ${project.targetEndDate}`}
               </span>
             </div>
             <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
-              <div style={{ width: `${project.verifiedProgress}%` }} className="h-full bg-[var(--vt-color-orange-500,#EF5F18)] rounded-full" />
+              <div style={{ width: `${verifiedProgress}%` }} className={`h-full ${verifiedProgress >= 100 ? "bg-[var(--vt-color-green-600,#248246)]" : "bg-[var(--vt-color-orange-500,#EF5F18)]"} rounded-full transition-all duration-300`} />
             </div>
           </div>
         </section>
@@ -131,7 +208,7 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
               </div>
             </div>
             <div className="pt-2.5 mt-2 border-t border-[var(--vt-color-border-default,#E2E0EC)]/70 flex items-center justify-between text-xs">
-              <span className="text-[var(--vt-color-neutral-500,#7C7894)]">3 stages finished</span>
+              <span className="text-[var(--vt-color-neutral-500,#7C7894)]">{approvedStages.length} of {stages.length} finished</span>
               <Link href={`/owner/projects/${project.id}/transactions`} className="font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:underline inline-flex items-center gap-1">
                 <span>View receipts</span>
                 <IconArrowRight className="w-3.5 h-3.5" />
@@ -162,42 +239,52 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
                 Current Stage
               </span>
               <div className="text-sm font-black text-[var(--vt-color-indigo-900,#261A66)] mt-1 line-clamp-1">
-                {currentStage.title}
+                {nextStage?.title || "All Complete"}
               </div>
             </div>
             <div className="pt-2.5 mt-2 border-t border-[var(--vt-color-border-default,#E2E0EC)]/70 flex items-center justify-between text-xs">
-              <span className="font-bold text-[var(--vt-color-orange-600,#D84C0B)]">Ready to review</span>
-              <button
-                type="button"
-                onClick={() => setReviewingStage(currentStage)}
-                className="font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:underline cursor-pointer inline-flex items-center gap-1"
-              >
-                <span>Check work</span>
-                <IconArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <span className={`font-bold ${nextStage?.status === "Approved" ? "text-[var(--vt-color-green-700,#1F6B3E)]" : "text-[var(--vt-color-orange-600,#D84C0B)]"}`}>
+                {nextStage?.status === "Approved" ? "Completed" : nextStage?.status === "Ready for Review" ? "Ready to review" : "In schedule"}
+              </span>
+              {nextStage && (
+                <button
+                  type="button"
+                  onClick={() => setReviewingStage(nextStage)}
+                  className="font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:underline cursor-pointer inline-flex items-center gap-1"
+                >
+                  <span>Check work</span>
+                  <IconArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Card 4: Waiting for you */}
-          <div className="bg-[var(--vt-color-orange-50,#FFF4EE)] p-4.5 rounded-2xl border border-[var(--vt-color-orange-200,#FDCAA9)] shadow-2xs flex flex-col justify-between">
+          <div className={`p-4.5 rounded-2xl border shadow-2xs flex flex-col justify-between ${readyStage ? "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-200,#FDCAA9)]" : "bg-white border-[var(--vt-color-border-default,#E2E0EC)]"}`}>
             <div>
-              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-800,#8F320D)]">
-                Waiting for You
+              <span className={`text-[10.5px] font-extrabold uppercase tracking-wider ${readyStage ? "text-[var(--vt-color-orange-800,#8F320D)]" : "text-[var(--vt-color-green-700,#1F6B3E)]"}`}>
+                {readyStage ? "Waiting for You" : "All Clear"}
               </span>
-              <div className="text-sm font-black text-[var(--vt-color-orange-900,#722306)] mt-1">
-                1 Stage Ready for Review
+              <div className={`text-sm font-black mt-1 ${readyStage ? "text-[var(--vt-color-orange-900,#722306)]" : "text-[var(--vt-color-green-800,#17512F)]"}`}>
+                {readyStage ? `Stage ${readyStage.stageNumber} Ready for Review` : "No pending approvals"}
               </div>
             </div>
-            <div className="pt-2.5 mt-2 border-t border-[var(--vt-color-orange-200,#FDCAA9)]/80 flex items-center justify-between text-xs">
-              <span className="text-[var(--vt-color-orange-800,#8F320D)] font-medium">Review photos</span>
-              <button
-                type="button"
-                onClick={() => setReviewingStage(currentStage)}
-                className="font-black text-[var(--vt-color-orange-600,#D84C0B)] hover:underline cursor-pointer inline-flex items-center gap-1"
-              >
-                <span>Review now</span>
-                <IconArrowRight className="w-3.5 h-3.5" />
-              </button>
+            <div className={`pt-2.5 mt-2 border-t flex items-center justify-between text-xs ${readyStage ? "border-[var(--vt-color-orange-200,#FDCAA9)]/80" : "border-[var(--vt-color-border-default,#E2E0EC)]/70"}`}>
+              {readyStage ? (
+                <>
+                  <span className="text-[var(--vt-color-orange-800,#8F320D)] font-medium">Review photos</span>
+                  <button
+                    type="button"
+                    onClick={() => setReviewingStage(readyStage)}
+                    className="font-black text-[var(--vt-color-orange-600,#D84C0B)] hover:underline cursor-pointer inline-flex items-center gap-1"
+                  >
+                    <span>Review now</span>
+                    <IconArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              ) : (
+                <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium">Schedule on track</span>
+              )}
             </div>
           </div>
         </section>
@@ -210,60 +297,70 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
             <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--vt-color-border-default,#E2E0EC)] pb-3">
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase text-[var(--vt-color-orange-600,#D84C0B)]">
-                    Work Submitted for Your Approval
+                  <span className={`text-[10px] font-extrabold uppercase ${readyStage ? "text-[var(--vt-color-orange-600,#D84C0B)]" : "text-[var(--vt-color-green-700,#1F6B3E)]"}`}>
+                    {readyStage ? "Work Submitted for Your Approval" : "Current Active Phase"}
                   </span>
                   <h3 className="text-base sm:text-lg font-black text-[var(--vt-color-indigo-900,#261A66)]">
-                    {currentStage.title}
+                    {nextStage?.title || "Project Complete"}
                   </h3>
                   <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                    Amount to be released when approved: <strong>{formatNaira(currentStage.trancheAmount)}</strong>
+                    {nextStage?.status === "Approved" ? (
+                      <span className="text-[var(--vt-color-green-700,#1F6B3E)] font-bold">Stage inspected and paid to builder</span>
+                    ) : (
+                      <>Amount to be released when approved: <strong>{formatNaira(nextStage?.trancheAmount || 0)}</strong></>
+                    )}
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setReviewingStage(currentStage)}
-                  className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
-                >
-                  Check Work & Approve
-                </button>
+                {nextStage?.status === "Ready for Review" && (
+                  <button
+                    type="button"
+                    onClick={() => setReviewingStage(nextStage)}
+                    className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+                  >
+                    Check Work & Approve
+                  </button>
+                )}
               </div>
 
               {/* Photos from the building site */}
-              <div>
-                <h4 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-2">
-                  Photos from the site:
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {currentStage.proofMedia.map((m) => (
-                    <div key={m.id} className="rounded-xl overflow-hidden border border-[var(--vt-color-border-default,#E2E0EC)]">
-                      <img src={m.url} alt={m.title} className="w-full h-44 object-cover" />
-                      <div className="p-3 bg-white">
-                        <p className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)] truncate">{m.title}</p>
-                        <p className="text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5">{m.timestamp}</p>
+              {nextStage && (
+                <div>
+                  <h4 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-2">
+                    Photos from the site:
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {nextStage.proofMedia.map((m) => (
+                      <div key={m.id} className="rounded-xl overflow-hidden border border-[var(--vt-color-border-default,#E2E0EC)]">
+                        <img src={m.url} alt={m.title} className="w-full h-44 object-cover" />
+                        <div className="p-3 bg-white">
+                          <p className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)] truncate">{m.title}</p>
+                          <p className="text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5">{m.timestamp}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Checklist */}
-              <div className="pt-3 border-t border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] block mb-2">
-                  Things checked on site:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {currentStage.checklist.map((item) => (
-                    <div key={item.id} className="p-2.5 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]/70 flex items-center gap-2">
-                      <span className="text-[var(--vt-color-green-600,#248246)] flex items-center shrink-0">
-                        <IconCheck className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="text-[var(--vt-color-neutral-700,#46425F)]">{item.label}</span>
-                    </div>
-                  ))}
+              {nextStage && (
+                <div className="pt-3 border-t border-[var(--vt-color-border-default,#E2E0EC)]">
+                  <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] block mb-2">
+                    Things checked on site:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {nextStage.checklist.map((item) => (
+                      <div key={item.id} className="p-2.5 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]/70 flex items-center gap-2">
+                        <span className="text-[var(--vt-color-green-600,#248246)] flex items-center shrink-0">
+                          <IconCheck className="w-3.5 h-3.5" />
+                        </span>
+                        <span className="text-[var(--vt-color-neutral-700,#46425F)]">{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Stages Roadmap */}
@@ -271,7 +368,7 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-black text-[var(--vt-color-indigo-900,#261A66)]">
-                    All Building Stages ({project.stages.length})
+                    All Building Stages ({stages.length})
                   </h3>
                   <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
                     Step-by-step progress from start to finish
@@ -287,7 +384,7 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
               </div>
 
               <div className="flex flex-col gap-2.5">
-                {project.stages.map((stg) => (
+                {stages.map((stg) => (
                   <div
                     key={stg.id}
                     onClick={() => router.push(`/owner/projects/${project.id}/stages/${stg.id}`)}
@@ -496,7 +593,7 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
                     </button>
                     <button
                       type="button"
-                      onClick={() => setApprovalStep("success")}
+                      onClick={handleApproveCurrentStageModal}
                       className="h-9 px-4 rounded-md bg-[var(--vt-color-green-600,#248246)] hover:bg-[var(--vt-color-green-700,#1F6B3E)] text-white text-xs font-bold cursor-pointer shadow-2xs transition-colors"
                     >
                       Approve & Pay Builder

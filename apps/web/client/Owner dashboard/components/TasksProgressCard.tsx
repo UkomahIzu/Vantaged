@@ -5,7 +5,10 @@ import { todayTasks } from "../data/mockData";
 
 export function TasksProgressCard() {
   return (
-    <div className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 shadow-[0_4px_12px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none min-h-[310px]">
+    <div
+      className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 shadow-[0_4px_12px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none min-h-[310px]"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+    >
       {/* Header with Title, Avatar Stack & Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">

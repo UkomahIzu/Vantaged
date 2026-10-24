@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
@@ -8,6 +8,8 @@ import { HeaderBar } from "../../components/HeaderBar";
 import { getProjectDetail, ProjectStage } from "./projectData";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { IconArrowRight, IconCheck, IconClose } from "./ProjectIcons";
+import { useScrollRestoration } from "../../hooks/useScrollRestoration";
+import { markProjectAsCompleted } from "./projectStore";
 
 interface ProjectStagesPageProps {
   projectId?: string;
@@ -15,7 +17,34 @@ interface ProjectStagesPageProps {
 
 export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPageProps) {
   const router = useRouter();
+  const scrollRef = useScrollRestoration<HTMLElement>(`proj_stages_${projectId}`);
   const project = getProjectDetail(projectId);
+  const storageKey = `vantaged_stages_${projectId}`;
+
+  const [stages, setStages] = useState<ProjectStage[]>(project.stages);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setStages(parsed);
+        }
+      }
+    } catch {}
+  }, [storageKey]);
+
+  const persistStages = (updated: ProjectStage[]) => {
+    setStages(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+        window.dispatchEvent(new Event("vantaged_storage_update"));
+      } catch {}
+    }
+  };
+
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedStage, setSelectedStage] = useState<ProjectStage | null>(null);
   const [isApproveSuccess, setIsApproveSuccess] = useState(false);
@@ -27,7 +56,7 @@ export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPag
     return `₦${val.toLocaleString("en-NG")}`;
   };
 
-  const filteredStages = project.stages.filter((s) => {
+  const filteredStages = stages.filter((s) => {
     if (filterStatus === "all") return true;
     if (filterStatus === "approved") return s.status === "Approved";
     if (filterStatus === "review") return s.status === "Ready for Review";
@@ -35,16 +64,40 @@ export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPag
     return true;
   });
 
-  const approvedCount = project.stages.filter((s) => s.status === "Approved").length;
+  const approvedCount = stages.filter((s) => s.status === "Approved").length;
+  const reviewCount = stages.filter((s) => s.status === "Ready for Review").length;
+  const scheduledCount = stages.filter((s) => s.status === "Scheduled").length;
+  const isCompleted = approvedCount === stages.length || project.verifiedProgress >= 100 || project.status === "Completed";
+  const progressPercent = isCompleted ? 100 : Math.round((approvedCount / stages.length) * 100);
+
+  const handleApproveCurrentStage = () => {
+    if (!selectedStage) return;
+    const next = stages.map((s) => {
+      if (s.id === selectedStage.id) {
+        return {
+          ...s,
+          status: "Approved" as const,
+          completedDate: "Today",
+          verifiedBy: "Dr. James Arinze (Owner)",
+        };
+      }
+      return s;
+    });
+    persistStages(next);
+    if (next.every((s) => s.status === "Approved")) {
+      markProjectAsCompleted(projectId);
+    }
+    setIsApproveSuccess(true);
+  };
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), var(--font-sans), sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       <ProjectSidebarNav projectId={project.id} activeTab="stages" />
 
-      <main className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
         <HeaderBar
           leftSlot={
             <ProjectBreadcrumb
@@ -71,20 +124,45 @@ export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPag
               <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] uppercase block">Stages Finished</span>
               <span className="text-base font-black text-[var(--vt-color-green-700,#1F6B3E)]">{approvedCount} of {project.stages.length}</span>
             </div>
-            <div className="p-3 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-200,#FDCAA9)] text-right">
-              <span className="text-[10px] font-bold text-[var(--vt-color-orange-700,#B33C08)] uppercase block">Completed</span>
-              <span className="text-base font-black text-[var(--vt-color-orange-600,#D84C0B)]">{project.verifiedProgress}%</span>
+            <div className={`p-3 rounded-xl border text-right ${isCompleted ? "bg-[var(--vt-color-green-50,#E9F6EC)] border-[var(--vt-color-green-200,#A3D9B1)]" : "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-200,#FDCAA9)]"}`}>
+              <span className={`text-[10px] font-bold uppercase block ${isCompleted ? "text-[var(--vt-color-green-700,#1F6B3E)]" : "text-[var(--vt-color-orange-700,#B33C08)]"}`}>Completed</span>
+              <span className={`text-base font-black ${isCompleted ? "text-[var(--vt-color-green-700,#1F6B3E)]" : "text-[var(--vt-color-orange-600,#D84C0B)]"}`}>{progressPercent}%</span>
             </div>
           </div>
         </section>
+
+        {/* ── 100% Completion Notification Banner ── */}
+        {isCompleted && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-[var(--vt-color-green-50,#E9F6EC)] border border-[var(--vt-color-green-200,#A3D9B1)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[var(--vt-color-green-900,#0F331E)] shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[var(--vt-color-green-600,#248246)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <IconCheck className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <span className="font-black text-sm text-[var(--vt-color-green-950,#061F10)] block">
+                  All Construction Stages 100% Approved & Completed
+                </span>
+                <span className="text-[11.5px] text-[var(--vt-color-green-800,#17512F)]">
+                  Every stage milestone has been verified with geo-tagged proof and approved. This project is safely archived in Contract History.
+                </span>
+              </div>
+            </div>
+            <Link
+              href={`/owner/projects/${project.id}/transactions`}
+              className="h-9 px-3.5 rounded-lg bg-white border border-[var(--vt-color-green-300,#81C792)] hover:bg-[var(--vt-color-green-50,#E9F6EC)] text-xs font-bold text-[var(--vt-color-green-800,#17512F)] transition-colors inline-flex items-center gap-1.5 shrink-0"
+            >
+              <span>View Payment Receipts</span>
+            </Link>
+          </div>
+        )}
 
         {/* Filter Pills */}
         <section className="flex items-center gap-2 text-xs">
           {[
             { id: "all", label: `All Stages (${project.stages.length})` },
-            { id: "review", label: "Ready to Check (1)" },
+            ...(reviewCount > 0 ? [{ id: "review", label: `Ready to Check (${reviewCount})` }] : []),
             { id: "approved", label: `Finished (${approvedCount})` },
-            { id: "scheduled", label: "Coming Up (2)" },
+            ...(scheduledCount > 0 ? [{ id: "scheduled", label: `Coming Up (${scheduledCount})` }] : []),
           ].map((f) => (
             <button
               key={f.id}
@@ -302,7 +380,7 @@ export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPag
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsApproveSuccess(true)}
+                      onClick={handleApproveCurrentStage}
                       className="h-9 px-4 rounded-md bg-[var(--vt-color-green-600,#248246)] hover:bg-[var(--vt-color-green-700,#1F6B3E)] text-white text-xs font-bold cursor-pointer shadow-2xs transition-colors"
                     >
                       Approve & Pay Builder

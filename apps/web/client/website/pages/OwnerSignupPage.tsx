@@ -247,15 +247,17 @@ export function OwnerSignupPage() {
         <div className="relative z-10 flex items-center justify-between mb-6">
           <a
             href="/"
-            className="group flex items-baseline font-bold text-2xl tracking-tight text-white transition-opacity hover:opacity-90 font-sans"
+            className="group flex items-center gap-2.5 transition-opacity hover:opacity-90 font-sans"
             title="Return to Vantaged Home"
+            aria-label="Vantaged home"
           >
-            <span>vantaged</span>
-            <span className="text-[var(--vt-color-orange-500,#EF5F18)] text-2xl font-black transition-transform duration-300 group-hover:scale-125">
-              .
-            </span>
-            <span className="text-[9px] font-normal align-top ml-0.5 text-white/60">
-              ®
+            <img
+              src="/brand/vantaged-v-white.svg"
+              alt=""
+              className="h-7 w-auto object-contain"
+            />
+            <span className="font-extrabold text-2xl tracking-tight text-white font-sans">
+              Vantaged
             </span>
           </a>
         </div>

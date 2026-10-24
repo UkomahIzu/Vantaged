@@ -77,7 +77,10 @@ export function NotificationsCard() {
   const [notifications] = useState(initialOwnerNotifications);
 
   return (
-    <div className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none h-full min-h-[360px] lg:min-h-0">
+    <div
+      className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none h-full min-h-[360px] lg:min-h-0"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+    >
       {/* 1. Header Bar matching Contract History Card */}
       <div className="shrink-0 mb-3">
         <div className="flex items-center gap-2.5">

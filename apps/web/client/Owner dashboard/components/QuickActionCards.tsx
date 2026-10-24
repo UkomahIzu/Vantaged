@@ -166,7 +166,10 @@ export function QuickActionCards() {
   return (
     <>
       {/* ── Dashboard Quick Actions 4-Column Grid ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 select-none font-sans">
+      <div
+        className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 select-none font-sans"
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+      >
         {slots.map((actionId, index) => {
           const action = actionId ? ALL_QUICK_ACTIONS.find((a) => a.id === actionId) : null;
           if (!action) {
@@ -251,12 +254,14 @@ export function QuickActionCards() {
         <div
           role="dialog"
           aria-modal="true"
+          style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs select-none font-sans"
           onClick={() => setIsModalOpen(false)}
         >
           {/* Modal Container: More Length Than Width (Taller than wide, e.g. w-[410px] by h-[640px]) */}
           <div
             onClick={(e) => e.stopPropagation()}
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
             className="w-full max-w-[410px] max-h-[85vh] h-[640px] bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           >
             {/* Modal Header */}

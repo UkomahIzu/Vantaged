@@ -25,6 +25,7 @@ export * from "./components/OwnerFloatingDeskWidget";
 export * from "./components/ShareLinkModal";
 export * from "./components/InviteRepresentativeModal";
 export * from "./pages/PublicShareLinkPage";
+export * from "./hooks/useScrollRestoration";
 export * from "./types";
 export * from "./data/mockData";
 export * from "../context/ThemeContext";

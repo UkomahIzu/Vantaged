@@ -4,7 +4,10 @@ import React from "react";
 
 export function EscrowPromoCard() {
   return (
-    <div className="bg-gradient-to-br from-[var(--vt-color-orange-500,#EF5F18)] via-[var(--vt-color-orange-600,#D84C0B)] to-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-400,#F6803F)] text-white rounded-xl p-5 sm:p-6 shadow-[0_16px_36px_-6px_rgba(239,95,24,0.35)] flex flex-col items-center justify-between text-center select-none min-h-[310px] relative overflow-hidden group font-sans">
+    <div
+      className="bg-gradient-to-br from-[var(--vt-color-orange-500,#EF5F18)] via-[var(--vt-color-orange-600,#D84C0B)] to-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-400,#F6803F)] text-white rounded-xl p-5 sm:p-6 shadow-[0_16px_36px_-6px_rgba(239,95,24,0.35)] flex flex-col items-center justify-between text-center select-none min-h-[310px] relative overflow-hidden group font-sans"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+    >
       {/* Subtle background glow */}
       <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/15 rounded-full blur-2xl pointer-events-none" />
 

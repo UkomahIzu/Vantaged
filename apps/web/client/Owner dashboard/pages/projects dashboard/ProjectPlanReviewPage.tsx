@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SidebarNav } from "../../components/SidebarNav";
@@ -16,19 +16,40 @@ import {
   IconDownload,
   IconPrinter,
 } from "./ProjectIcons";
+import { useScrollRestoration } from "../../hooks/useScrollRestoration";
+
+import { acceptProposedPlan } from "./projectStore";
 
 interface ProjectPlanReviewPageProps {
   projectId?: string;
 }
 
 export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanReviewPageProps) {
+  const scrollRef = useScrollRestoration<HTMLElement>(`proj_plan_review_${projectId}`);
   const router = useRouter();
   const project = getProjectDetail(projectId);
 
+  const storageKey = `vantaged_plan_status_${projectId}`;
+  const feedbackKey = `vantaged_plan_feedback_${projectId}`;
+
   const [planStatus, setPlanStatus] = useState<"PROPOSED" | "ACCEPTED" | "CHANGES_REQUESTED">("PROPOSED");
+  const [changeFeedback, setChangeFeedback] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved && (saved === "PROPOSED" || saved === "ACCEPTED" || saved === "CHANGES_REQUESTED")) {
+        setPlanStatus(saved);
+      }
+      const savedFb = localStorage.getItem(feedbackKey);
+      if (savedFb) {
+        setChangeFeedback(savedFb);
+      }
+    } catch {}
+  }, [storageKey, feedbackKey]);
+
   const [isAcceptModalOpen, setIsAcceptModalOpen] = useState(false);
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
-  const [changeFeedback, setChangeFeedback] = useState("");
   const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
 
   const formatNaira = (val: number) => {
@@ -47,21 +68,28 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
 
   const handleAcceptPlan = () => {
     setPlanStatus("ACCEPTED");
+    acceptProposedPlan(projectId);
   };
 
   const handleRequestChanges = () => {
     if (!changeFeedback.trim()) return;
     setPlanStatus("CHANGES_REQUESTED");
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(storageKey, "CHANGES_REQUESTED");
+        localStorage.setItem(feedbackKey, changeFeedback.trim());
+      } catch {}
+    }
   };
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), var(--font-sans), sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       <SidebarNav currentActiveItem="projects" />
 
-      <main className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
         <HeaderBar
           leftSlot={
             <div className="flex items-center gap-2.5">
@@ -145,20 +173,35 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
 
         {/* ── Status Banner ── */}
         {planStatus === "ACCEPTED" ? (
-          <div className="p-4 rounded-xl bg-[var(--vt-color-green-50,#E9F6EC)] border border-[var(--vt-color-green-200,#A3D9B1)] flex items-center justify-between text-xs text-[var(--vt-color-green-900,#0F331E)]">
-            <div className="flex items-center gap-2">
-              <IconCheck className="w-5 h-5 text-[var(--vt-color-green-600,#248246)] shrink-0" />
-              <span>
-                <strong>Plan Accepted & Locked (Agreement Version 1.0):</strong> The stages and payment schedule are now active. Work has commenced.
-              </span>
+          <div className="p-4 sm:p-5 rounded-2xl bg-[var(--vt-color-green-50,#E9F6EC)] border border-[var(--vt-color-green-200,#A3D9B1)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[var(--vt-color-green-900,#0F331E)] shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[var(--vt-color-green-600,#248246)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <IconCheck className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <span className="font-black text-sm text-[var(--vt-color-green-950,#061F10)] block">
+                  Plan Accepted & Agreement Locked (Version 1.0)
+                </span>
+                <span className="text-[11.5px] text-[var(--vt-color-green-800,#17512F)]">
+                  The building plan is now active. This project has moved into your <strong>Active Projects</strong> section.
+                </span>
+              </div>
             </div>
-            <Link
-              href={`/owner/projects/${project.id}`}
-              className="font-bold text-[var(--vt-color-green-700,#1F6B3E)] hover:underline inline-flex items-center gap-1 shrink-0"
-            >
-              <span>Open Project Dashboard</span>
-              <IconArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+              <Link
+                href="/owner/projects?tab=active"
+                className="h-9 px-3.5 rounded-lg bg-white border border-[var(--vt-color-green-300,#81C792)] hover:bg-[var(--vt-color-green-50,#E9F6EC)] text-xs font-bold text-[var(--vt-color-green-800,#17512F)] transition-colors inline-flex items-center gap-1.5"
+              >
+                <span>View Active Projects</span>
+              </Link>
+              <Link
+                href={`/owner/projects/${project.id}`}
+                className="h-9 px-4 rounded-lg bg-[var(--vt-color-green-600,#248246)] hover:bg-[var(--vt-color-green-700,#1F6B3E)] text-white text-xs font-bold transition-all shadow-2xs inline-flex items-center gap-1.5"
+              >
+                <span>Open Project Dashboard</span>
+                <IconArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         ) : planStatus === "CHANGES_REQUESTED" ? (
           <div className="p-4 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-200,#FDCAA9)] flex items-center gap-2 text-xs text-[var(--vt-color-orange-900,#722306)]">

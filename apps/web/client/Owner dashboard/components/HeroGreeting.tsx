@@ -7,7 +7,10 @@ export function HeroGreeting() {
   const { firstName } = useCurrentUser();
 
   return (
-    <div className="flex flex-col justify-center select-none py-1 font-sans">
+    <div
+      className="flex flex-col justify-center select-none py-1 font-sans"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+    >
       {/* Top greeting without the active badge */}
       <div className="flex items-center gap-2 mb-1.5">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight">

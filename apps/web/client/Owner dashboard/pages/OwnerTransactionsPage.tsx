@@ -1,9 +1,14 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { VantagedSelect } from "../components/VantagedSelect";
+import { DownloadPaymentSummaryModal } from "../components/DownloadPaymentSummaryModal";
+import { openPrintStatementWindow } from "../components/paymentSummaryGenerator";
 
 export interface TransactionItem {
   id: string;
@@ -340,20 +345,31 @@ function formatNaira(num: number): string {
 }
 
 export function OwnerTransactionsPage() {
+  const searchParams = useSearchParams();
+  const searchParam = searchParams?.get("search");
+  const scrollRef = useScrollRestoration<HTMLElement>("owner_transactions");
+
   const [transactions, setTransactions] = useState<TransactionItem[]>(INITIAL_TRANSACTIONS);
   const [projectSummaries, setProjectSummaries] = useState<ProjectFinancialSummary[]>(INITIAL_PROJECT_SUMMARIES);
   
   // Filter & Search states
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParam || "");
   const [selectedProjectFilter, setSelectedProjectFilter] = useState<string>("All Buildings");
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("All Payment Types");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("All Statuses");
+
+  useEffect(() => {
+    if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+  }, [searchParam]);
 
   // Selected Transaction Modal
   const [inspectedTx, setInspectedTx] = useState<TransactionItem | null>(null);
   const [isExportNoticeOpen, setIsExportNoticeOpen] = useState(false);
   const [copiedBankCode, setCopiedBankCode] = useState(false);
   const [isReceiptDownloading, setIsReceiptDownloading] = useState(false);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
   // Deposit Funds Modal State
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
@@ -488,7 +504,7 @@ export function OwnerTransactionsPage() {
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative"
     >
       {/* Decorative subtle background lines */}
@@ -515,7 +531,8 @@ export function OwnerTransactionsPage() {
 
       {/* ── Main Workspace ── */}
       <main
-        style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+        ref={scrollRef}
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5 sm:gap-6"
       >
         {/* Top Header Navigation Bar */}
@@ -549,7 +566,7 @@ export function OwnerTransactionsPage() {
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               type="button"
-              onClick={handleExportStatement}
+              onClick={() => setIsDownloadModalOpen(true)}
               className="h-9 px-3.5 rounded-md bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] flex items-center gap-2 transition-all shadow-2xs cursor-pointer active:scale-98"
             >
               <svg className="w-3.5 h-3.5 text-[var(--vt-color-neutral-500,#7C7894)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -572,7 +589,7 @@ export function OwnerTransactionsPage() {
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              <span>+ Deposit Funds</span>
+              <span>Deposit Funds</span>
             </button>
           </div>
         </div>
@@ -596,175 +613,133 @@ export function OwnerTransactionsPage() {
           </div>
         )}
 
-        {/* ── 5 Plain-Language Summary Cards ── */}
+        {/* ── 5 Simplified Summary Cards (Extra clutter removed) ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-              {/* Card 1: Total Agreed Budget */}
-              <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs flex flex-col justify-between group hover:border-[var(--vt-color-orange-300,#FBA674)] transition-all">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                      Total Agreed Budget
-                    </span>
-                    <div className="relative group/tip flex items-center">
-                      <button
-                        type="button"
-                        aria-label="More information"
-                        className="w-4 h-4 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
-                      >
-                        ?
-                      </button>
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
-                        The full cost agreed with builders to finish all 6 buildings, plus any extra work you approved.
-                        <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-1 tracking-tight">
-                    {formatNaira(totalCommittedBudget)}
-                  </div>
-                </div>
-                <div className="pt-2.5 mt-2 border-t border-[var(--vt-color-border-default,#E2E0EC)]/70 flex items-center justify-between text-[11px]">
-                  <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium">Original cost</span>
-                  <span className="font-bold text-[var(--vt-color-orange-600,#D84C0B)]">+₦29.2M in changes</span>
-                </div>
-              </div>
-
-              {/* Card 2: Money Paid Out */}
-              <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs flex flex-col justify-between group hover:border-[var(--vt-color-green-300,#A3D9B1)] transition-all">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                      Money Paid Out
-                    </span>
-                    <div className="relative group/tip flex items-center">
-                      <button
-                        type="button"
-                        aria-label="More information"
-                        className="w-4 h-4 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
-                      >
-                        ?
-                      </button>
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
-                        Total money already paid to builders for work that was checked and finished on site.
-                        <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-1 tracking-tight">
-                    {formatNaira(totalDisbursed)}
-                  </div>
-                </div>
-                <div className="pt-2.5 mt-2 border-t border-[var(--vt-color-border-default,#E2E0EC)]/70 flex items-center justify-between text-[11px]">
-                  <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium">Building progress</span>
-                  <span className="font-bold text-[var(--vt-color-green-700,#1F6B3E)]">{disbursedPercentage}% completed</span>
-                </div>
-              </div>
-
-              {/* Card 3: Money Deposited on Vantaged */}
-              <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs flex flex-col justify-between group hover:border-[var(--vt-color-orange-300,#FBA674)] transition-all">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                      Money Deposited on Vantaged
-                    </span>
-                    <div className="relative group/tip flex items-center">
-                      <button
-                        type="button"
-                        aria-label="More information"
-                        className="w-4 h-4 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
-                      >
-                        ?
-                      </button>
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
-                        Money you have deposited into your secure project escrow on Vantaged. Builders cannot touch this until your engineer inspects the site and you approve release.
-                        <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-orange-600,#D84C0B)] mt-1 tracking-tight">
-                    {formatNaira(totalInEscrow)}
-                  </div>
-                </div>
-                <div className="pt-2.5 mt-2 border-t border-[var(--vt-color-border-default,#E2E0EC)]/70 flex items-center justify-between text-[11px]">
-                  <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium">Safe in escrow</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDepositStep("form");
-                      setIsDepositModalOpen(true);
-                    }}
-                    className="font-extrabold text-[var(--vt-color-orange-600,#D84C0B)] hover:text-[var(--vt-color-orange-700,#B33C08)] hover:underline flex items-center gap-0.5 cursor-pointer transition-colors"
-                  >
-                    <span>+ Deposit</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Card 4: Final Security Hold (5%) */}
-              <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs flex flex-col justify-between group hover:border-[var(--vt-color-indigo-300,#ADA5DE)] transition-all">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                      Final Security Hold (5%)
-                    </span>
-                    <div className="relative group/tip flex items-center">
-                      <button
-                        type="button"
-                        aria-label="More information"
-                        className="w-4 h-4 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
-                      >
-                        ?
-                      </button>
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
-                        5% of every payment is held back until the house is 100% finished. This guarantees that if there are any faults or leaks, the builder will fix them before getting this final money.
-                        <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-1 tracking-tight">
-                    {formatNaira(totalRetainage)}
-                  </div>
-                </div>
-                <div className="pt-2.5 mt-2 border-t border-[var(--vt-color-border-default,#E2E0EC)]/70 flex items-center justify-between text-[11px]">
-                  <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium">Guarantees quality</span>
-                  <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">Paid at final handover</span>
-                </div>
-              </div>
-
-              {/* Card 5: Waiting on Builder (3-Day Clock) */}
-              <div className="bg-[var(--vt-color-orange-50,#FFF4EE)] p-4.5 rounded-2xl border border-[var(--vt-color-orange-200,#FDCAA9)] shadow-2xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-700,#B33C08)]">
-                      Waiting on Builder
-                    </span>
-                    <div className="relative group/tip flex items-center">
-                      <button
-                        type="button"
-                        aria-label="More information"
-                        className="w-4 h-4 rounded-full bg-[var(--vt-color-orange-200,#FDCAA9)]/70 hover:bg-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-orange-800,#8F320D)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
-                      >
-                        ?
-                      </button>
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
-                        Money you approved and sent to a builder. Builders have 3 days to click 'Confirm' on their phone to verify it arrived safely in their bank.
-                        <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-orange-900,#722306)] mt-1 tracking-tight">
-                    {formatNaira(totalPendingAction)}
-                  </div>
-                </div>
-                <div className="pt-2.5 mt-2 border-t border-[var(--vt-color-orange-200,#FDCAA9)]/80 flex items-center justify-between text-[11px]">
-                  <span className="text-[var(--vt-color-orange-800,#8F320D)] font-semibold flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] animate-pulse" />
-                    <span>1 payment sent</span>
-                  </span>
-                  <span className="font-extrabold text-[var(--vt-color-orange-600,#D84C0B)]">3 days to confirm</span>
+          {/* Card 1: Total Agreed Budget */}
+          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs group hover:border-[var(--vt-color-orange-300,#FBA674)] transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Total Agreed Budget
+              </span>
+              <div className="relative group/tip flex items-center">
+                <button
+                  type="button"
+                  aria-label="More information"
+                  className="w-4 h-4 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
+                >
+                  ?
+                </button>
+                <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
+                  The full cost agreed with builders to finish all 6 buildings, plus any extra work you approved.
+                  <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
                 </div>
               </div>
             </div>
+            <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-2 tracking-tight">
+              {formatNaira(totalCommittedBudget)}
+            </div>
+          </div>
+
+          {/* Card 2: Money Paid Out */}
+          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs group hover:border-[var(--vt-color-green-300,#A3D9B1)] transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Money Paid Out
+              </span>
+              <div className="relative group/tip flex items-center">
+                <button
+                  type="button"
+                  aria-label="More information"
+                  className="w-4 h-4 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
+                >
+                  ?
+                </button>
+                <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
+                  Total money already paid to builders for work that was checked and finished on site.
+                  <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
+                </div>
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-2 tracking-tight">
+              {formatNaira(totalDisbursed)}
+            </div>
+          </div>
+
+          {/* Card 3: Money Deposited on Vantaged */}
+          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs group hover:border-[var(--vt-color-orange-300,#FBA674)] transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Money Deposited on Vantaged
+              </span>
+              <div className="relative group/tip flex items-center">
+                <button
+                  type="button"
+                  aria-label="More information"
+                  className="w-4 h-4 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
+                >
+                  ?
+                </button>
+                <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
+                  Money you have deposited into your secure project escrow on Vantaged. Builders cannot touch this until your engineer inspects the site and you approve release.
+                  <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
+                </div>
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-orange-600,#D84C0B)] mt-2 tracking-tight">
+              {formatNaira(totalInEscrow)}
+            </div>
+          </div>
+
+          {/* Card 4: Final Security Hold (5%) */}
+          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs group hover:border-[var(--vt-color-indigo-300,#ADA5DE)] transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Final Security Hold (5%)
+              </span>
+              <div className="relative group/tip flex items-center">
+                <button
+                  type="button"
+                  aria-label="More information"
+                  className="w-4 h-4 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
+                >
+                  ?
+                </button>
+                <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
+                  5% of every payment is held back until the house is 100% finished. This guarantees that if there are any faults or leaks, the builder will fix them before getting this final money.
+                  <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
+                </div>
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-2 tracking-tight">
+              {formatNaira(totalRetainage)}
+            </div>
+          </div>
+
+          {/* Card 5: Waiting on Builder (3-Day Clock) */}
+          <div className="bg-[var(--vt-color-orange-50,#FFF4EE)] p-4.5 rounded-2xl border border-[var(--vt-color-orange-200,#FDCAA9)] shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-700,#B33C08)]">
+                Waiting on Builder
+              </span>
+              <div className="relative group/tip flex items-center">
+                <button
+                  type="button"
+                  aria-label="More information"
+                  className="w-4 h-4 rounded-full bg-[var(--vt-color-orange-200,#FDCAA9)]/70 hover:bg-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-orange-800,#8F320D)] text-[10px] font-bold flex items-center justify-center cursor-help transition-colors leading-none select-none shrink-0"
+                >
+                  ?
+                </button>
+                <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block z-40 w-56 p-2.5 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-[11px] font-normal leading-relaxed shadow-lg border border-[var(--vt-color-indigo-800,#362680)] pointer-events-none animate-in fade-in duration-150">
+                  Money you approved and sent to a builder. Builders have 3 days to click 'Confirm' on their phone to verify it arrived safely in their bank.
+                  <span className="absolute right-1.5 top-full border-4 border-transparent border-t-[var(--vt-color-indigo-900,#261A66)]" />
+                </div>
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-orange-900,#722306)] mt-2 tracking-tight">
+              {formatNaira(totalPendingAction)}
+            </div>
+          </div>
+        </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Left 2 Cols: Monthly Spending & Future Costs Graph */}
             <div className="lg:col-span-2 bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col gap-4">
@@ -975,43 +950,51 @@ export function OwnerTransactionsPage() {
                 {/* Filter Dropdowns */}
                 <div className="flex flex-wrap items-center gap-2 text-xs font-sans">
                   {/* Project Filter */}
-                  <select
+                  <VantagedSelect
                     value={selectedProjectFilter}
-                    onChange={(e) => setSelectedProjectFilter(e.target.value)}
-                    className="h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] font-bold text-xs cursor-pointer focus:outline-hidden"
-                  >
-                    <option value="All Buildings">All Buildings (4)</option>
-                    <option value="The Enclave Waterfront Resort">The Enclave Waterfront</option>
-                    <option value="Guzape Hills Residence">Guzape Hills Residence</option>
-                    <option value="Eko Atlantic Sky Tower">Eko Atlantic Sky Tower</option>
-                    <option value="Banana Island Horizon Penthouse">Banana Island Penthouse</option>
-                  </select>
+                    onChange={(val) => setSelectedProjectFilter(val)}
+                    containerClassName="w-auto min-w-[170px]"
+                    className="h-9 px-3 rounded-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] font-bold text-xs"
+                    options={[
+                      { value: "All Buildings", label: "All Buildings (6)" },
+                      { value: "Lekki Phase 1 Luxury Villa", label: "Lekki Phase 1 Luxury Villa" },
+                      { value: "The Enclave Waterfront Resort", label: "The Enclave Waterfront" },
+                      { value: "Guzape Hills Residence", label: "Guzape Hills Residence" },
+                      { value: "Eko Atlantic Sky Tower", label: "Eko Atlantic Sky Tower" },
+                      { value: "Banana Island Horizon Penthouse", label: "Banana Island Penthouse" },
+                      { value: "Victoria Island Commercial Plaza", label: "Victoria Island Plaza" },
+                    ]}
+                  />
 
                   {/* Type Filter */}
-                  <select
+                  <VantagedSelect
                     value={selectedTypeFilter}
-                    onChange={(e) => setSelectedTypeFilter(e.target.value)}
-                    className="h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] font-bold text-xs cursor-pointer focus:outline-hidden"
-                  >
-                    <option value="All Payment Types">All Payment Types</option>
-                    <option value="Work Payment">Payment for Work Done</option>
-                    <option value="Deposited on Vantaged">Deposited on Vantaged</option>
-                    <option value="Extra Work Added">Extra Work Added</option>
-                    <option value="Final Holdback Released">Final 5% Holdback</option>
-                  </select>
+                    onChange={(val) => setSelectedTypeFilter(val)}
+                    containerClassName="w-auto min-w-[160px]"
+                    className="h-9 px-3 rounded-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] font-bold text-xs"
+                    options={[
+                      { value: "All Payment Types", label: "All Payment Types" },
+                      { value: "Work Payment", label: "Payment for Work Done" },
+                      { value: "Deposited on Vantaged", label: "Deposited on Vantaged" },
+                      { value: "Extra Work Added", label: "Extra Work Added" },
+                      { value: "Final Holdback Released", label: "Final 5% Holdback" },
+                    ]}
+                  />
 
                   {/* Status Filter */}
-                  <select
+                  <VantagedSelect
                     value={selectedStatusFilter}
-                    onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                    className="h-9 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] font-bold text-xs cursor-pointer focus:outline-hidden"
-                  >
-                    <option value="All Statuses">All Statuses</option>
-                    <option value="Received by Builder">Received by Builder</option>
-                    <option value="Sent – Builder to Confirm">Sent (Builder to Confirm)</option>
-                    <option value="Deposited on Vantaged">Deposited on Vantaged</option>
-                    <option value="Issue Reported">Issue Reported</option>
-                  </select>
+                    onChange={(val) => setSelectedStatusFilter(val)}
+                    containerClassName="w-auto min-w-[155px]"
+                    className="h-9 px-3 rounded-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] font-bold text-xs"
+                    options={[
+                      { value: "All Statuses", label: "All Statuses" },
+                      { value: "Received by Builder", label: "Received by Builder" },
+                      { value: "Sent – Builder to Confirm", label: "Sent (Builder to Confirm)" },
+                      { value: "Deposited on Vantaged", label: "Deposited on Vantaged" },
+                      { value: "Issue Reported", label: "Issue Reported" },
+                    ]}
+                  />
 
                   {(selectedProjectFilter !== "All Buildings" ||
                     selectedTypeFilter !== "All Payment Types" ||
@@ -1033,24 +1016,22 @@ export function OwnerTransactionsPage() {
                 </div>
               </div>
 
-              {/* Clean Ledger Table */}
-              <div className="overflow-x-auto w-full">
-                <table className="w-full min-w-[1080px] text-left border-collapse text-xs">
+              {/* Clean Responsive Ledger Table (No Horizontal Scroll) */}
+              <div className="w-full overflow-hidden rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)]/70">
+                <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)]/80 text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-500,#7C7894)]">
-                      <th className="py-3.5 px-4.5 whitespace-nowrap min-w-[140px]">Receipt & Date</th>
-                      <th className="py-3.5 px-4.5 min-w-[240px]">Building & Work Done</th>
-                      <th className="py-3.5 px-4.5 min-w-[180px]">Builder</th>
-                      <th className="py-3.5 px-4.5 whitespace-nowrap min-w-[160px]">How It Was Paid</th>
-                      <th className="py-3.5 px-4.5 text-right whitespace-nowrap min-w-[130px]">Amount</th>
-                      <th className="py-3.5 px-4.5 text-center whitespace-nowrap min-w-[170px]">Status</th>
-                      <th className="py-3.5 px-4.5 text-right whitespace-nowrap min-w-[110px]">Action</th>
+                      <th className="py-3 px-4">Building & Milestone</th>
+                      <th className="py-3 px-3">Date</th>
+                      <th className="py-3 px-3 text-right">Amount</th>
+                      <th className="py-3 px-3 text-center">Status</th>
+                      <th className="py-3 px-4 text-right">Details</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--vt-color-border-default,#E2E0EC)]/70">
                     {filteredTransactions.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-16 text-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                        <td colSpan={5} className="py-16 text-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
                           <svg className="w-10 h-10 mx-auto mb-2.5 text-[var(--vt-color-neutral-300,#CBC8DA)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <circle cx="11" cy="11" r="8" />
                             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -1068,88 +1049,67 @@ export function OwnerTransactionsPage() {
                             tx.id.startsWith("tx-dep-") ? "bg-[var(--vt-color-orange-50,#FFF4EE)]/40" : ""
                           }`}
                         >
-                          {/* Col 1: Reference & Date */}
-                          <td className="py-4 px-4.5 whitespace-nowrap">
-                            <div className="font-mono font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors">
-                              {tx.reference}
-                            </div>
-                            <div className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                              {tx.date}
-                            </div>
-                          </td>
-
-                          {/* Col 2: Building & What was built */}
-                          <td className="py-4 px-4.5">
-                            <div className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)]">
+                          {/* Col 1: Building & Milestone */}
+                          <td className="py-3.5 px-4 min-w-[180px]">
+                            <div className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors">
                               {tx.projectTitle}
                             </div>
-                            <div className="text-[11px] text-[var(--vt-color-neutral-600,#5E5A7D)] mt-0.5">
+                            <div className="text-[11px] text-[var(--vt-color-neutral-600,#5E5A7D)] mt-0.5 line-clamp-1">
                               {tx.stageTitle}
                             </div>
-                            <span className="inline-block px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1">
+                            <span className="inline-block px-1.5 py-0.2 rounded-md text-[10px] font-bold bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1">
                               {tx.type}
                             </span>
                           </td>
 
-                          {/* Col 3: Builder */}
-                          <td className="py-4 px-4.5">
-                            <div className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)] whitespace-nowrap">
-                              {tx.contractorName}
+                          {/* Col 2: Date & Ref */}
+                          <td className="py-3.5 px-3 whitespace-nowrap">
+                            <div className="text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]">
+                              {tx.date}
                             </div>
-                            {tx.verifiedBy && (
-                              <div className="text-[10.5px] text-[var(--vt-color-green-700,#1F6B3E)] flex items-center gap-1 mt-0.5 font-medium whitespace-nowrap">
-                                <span>✓ Inspected by</span>
-                                <span className="font-semibold">{tx.verifiedBy}</span>
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Col 4: How It Was Paid */}
-                          <td className="py-4 px-4.5 whitespace-nowrap">
-                            <div className="font-semibold text-xs text-[var(--vt-color-neutral-700,#484564)] flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] shrink-0" />
-                              <span>{tx.paymentMethod}</span>
+                            <div className="text-[10px] font-mono text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5">
+                              {tx.reference}
                             </div>
                           </td>
 
-                          {/* Col 5: Amount */}
-                          <td className="py-4 px-4.5 text-right whitespace-nowrap">
+                          {/* Col 3: Amount */}
+                          <td className="py-3.5 px-3 text-right whitespace-nowrap">
                             <div className="font-black text-sm text-[var(--vt-color-indigo-900,#261A66)]">
                               {formatNaira(tx.amount)}
                             </div>
                           </td>
 
-                          {/* Col 6: Status Badge */}
-                          <td className="py-4 px-4.5 text-center whitespace-nowrap">
+                          {/* Col 4: Status Badge */}
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap">
                             {tx.status === "Received by Builder" && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)] whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)]">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-green-600,#248246)] shrink-0" />
-                                <span>Received by Builder</span>
+                                <span>Received</span>
                               </span>
                             )}
 
                             {tx.status === "Sent – Builder to Confirm" && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] animate-pulse shrink-0" />
-                                <span>Sent – {tx.daysRemaining} Days to Confirm</span>
+                                <span>Sent ({tx.daysRemaining}d to confirm)</span>
                               </span>
                             )}
 
                             {tx.status === "Deposited on Vantaged" && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[var(--vt-color-indigo-50,#F0EFFB)] text-[var(--vt-color-indigo-700,#362680)] border border-[var(--vt-color-indigo-200,#D5D2EF)] whitespace-nowrap">
-                                <span>Deposited on Vantaged</span>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[var(--vt-color-indigo-50,#F0EFFB)] text-[var(--vt-color-indigo-700,#362680)] border border-[var(--vt-color-indigo-200,#D5D2EF)]">
+                                <span>In Escrow</span>
                               </span>
                             )}
 
                             {tx.status === "Issue Reported" && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
                                 <span>Issue Reported</span>
                               </span>
                             )}
                           </td>
 
-                          {/* Col 7: View Details */}
-                          <td className="py-4 px-4.5 text-right whitespace-nowrap">
+                          {/* Col 5: View Details */}
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1158,7 +1118,7 @@ export function OwnerTransactionsPage() {
                               }}
                               className="h-8 px-3 rounded-md bg-white hover:bg-[var(--vt-color-orange-500,#EF5F18)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-500,#EF5F18)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-white text-xs font-bold transition-all shadow-2xs cursor-pointer whitespace-nowrap"
                             >
-                              View Receipt →
+                              Details & Receipt →
                             </button>
                           </td>
                         </tr>
@@ -1171,7 +1131,7 @@ export function OwnerTransactionsPage() {
               {/* Ledger Footer */}
               <div className="p-4 border-t border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)]/40 flex items-center justify-between text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
                 <span>Showing {filteredTransactions.length} of {transactions.length} payments</span>
-                <span className="font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)]">Verified Payment History</span>
+                <span className="font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)]">Click any payment to see full bank code, builder & inspection sign-off</span>
               </div>
             </div>
 
@@ -1186,8 +1146,8 @@ export function OwnerTransactionsPage() {
                 </p>
               </div>
 
-              <div className="overflow-x-auto flex-1 w-full">
-                <table className="w-full min-w-[1050px] text-left border-collapse text-xs">
+              <div className="w-full overflow-hidden rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)]/70">
+                <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-500,#7C7894)]">
                       <th className="py-3 px-3.5">Building Site</th>
@@ -1196,9 +1156,9 @@ export function OwnerTransactionsPage() {
                       <th className="py-3 px-3.5 text-right">Added Work</th>
                       <th className="py-3 px-3.5 text-right">Total Price</th>
                       <th className="py-3 px-3.5 text-right">Money Paid</th>
-                      <th className="py-3 px-3.5 text-right">Deposited on Vantaged</th>
-                      <th className="py-3 px-3.5 text-right">Final Holdback (5%)</th>
-                      <th className="py-3 px-3.5 text-center">Condition</th>
+                      <th className="py-3 px-3.5 text-right">In Escrow</th>
+                      <th className="py-3 px-3.5 text-right">Final Hold (5%)</th>
+                      <th className="py-3 px-3.5 text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--vt-color-border-default,#E2E0EC)]/70">
@@ -1405,13 +1365,20 @@ export function OwnerTransactionsPage() {
                   type="button"
                   onClick={() => {
                     setIsReceiptDownloading(true);
+                    openPrintStatementWindow([inspectedTx], {
+                      projectFilter: inspectedTx.projectTitle,
+                      timePeriod: "all",
+                      typeFilter: "all",
+                      statusFilter: "all",
+                      format: "pdf",
+                    });
                     setTimeout(() => setIsReceiptDownloading(false), 2000);
                   }}
                   className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs font-sans flex items-center gap-1.5"
                 >
                   {isReceiptDownloading ? (
                     <>
-                      <span className="text-white font-bold">✓ Receipt Downloaded!</span>
+                      <span className="text-white font-bold">✓ Opening Statement...</span>
                     </>
                   ) : (
                     <span>Download Receipt (PDF)</span>
@@ -1459,17 +1426,15 @@ export function OwnerTransactionsPage() {
                   <label className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-500,#7C7894)] block mb-1.5">
                     Which building are you funding?
                   </label>
-                  <select
+                  <VantagedSelect
                     value={selectedBuildingForDeposit}
-                    onChange={(e) => setSelectedBuildingForDeposit(e.target.value)}
-                    className="w-full h-10 px-3.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-hidden focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer"
-                  >
-                    {projectSummaries.map((p) => (
-                      <option key={p.id} value={p.title}>
-                        {p.title} ({p.contractor})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setSelectedBuildingForDeposit(val)}
+                    className="w-full h-10 px-3.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)]"
+                    options={projectSummaries.map((p) => ({
+                      value: p.title,
+                      label: `${p.title} (${p.contractor})`,
+                    }))}
+                  />
                 </div>
 
                 {/* 2. Enter Deposit Amount */}
@@ -1734,6 +1699,13 @@ export function OwnerTransactionsPage() {
           </div>
         </div>
       )}
+      {/* ── DOWNLOAD PAYMENT SUMMARY FILTER MODAL ── */}
+      <DownloadPaymentSummaryModal
+        isOpen={isDownloadModalOpen}
+        onClose={() => setIsDownloadModalOpen(false)}
+        transactions={transactions}
+        projectSummaries={projectSummaries}
+      />
     </div>
   );
 }

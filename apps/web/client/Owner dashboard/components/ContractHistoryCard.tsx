@@ -51,7 +51,10 @@ export function ContractHistoryCard() {
   const displayedContracts = pastContracts.slice(0, 4);
 
   return (
-    <div className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none min-h-[360px]">
+    <div
+      className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none min-h-[360px]"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+    >
       {/* 1. Header Bar: Title (without completed count badge) */}
       <div className="shrink-0 mb-3">
         <div className="flex items-center gap-2.5">

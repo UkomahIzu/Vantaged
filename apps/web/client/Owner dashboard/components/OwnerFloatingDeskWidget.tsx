@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { VantagedSelect } from "./VantagedSelect";
 
 interface DeskMessage {
   id: string;
@@ -219,7 +220,7 @@ export function OwnerFloatingDeskWidget() {
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="fixed bottom-5 right-5 z-50 flex flex-col items-end select-none"
     >
       {/* ── EXPANDED WIDGET CARD ── */}
@@ -324,17 +325,16 @@ export function OwnerFloatingDeskWidget() {
                 <span className="text-[11px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] uppercase shrink-0">
                   Project:
                 </span>
-                <select
+                <VantagedSelect
                   value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-lg py-1 px-2 focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] truncate cursor-pointer"
-                >
-                  {DESK_PROJECTS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSelectedProjectId(val)}
+                  containerClassName="w-auto min-w-[170px]"
+                  className="h-7.5 px-2.5 rounded-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)]"
+                  options={DESK_PROJECTS.map((p) => ({
+                    value: p.id,
+                    label: p.title,
+                  }))}
+                />
               </div>
 
               <span className="text-[10.5px] font-bold text-[var(--vt-color-orange-600,#D84C0B)] shrink-0">

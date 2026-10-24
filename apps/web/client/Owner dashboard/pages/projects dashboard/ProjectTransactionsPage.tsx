@@ -19,12 +19,14 @@ import {
   IconArrowRight,
   IconClock,
 } from "./ProjectIcons";
+import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 
 interface ProjectTransactionsPageProps {
   projectId?: string;
 }
 
 export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTransactionsPageProps) {
+  const scrollRef = useScrollRestoration<HTMLElement>(`proj_tx_${projectId}`);
   const project = getProjectDetail(projectId);
 
   // Dynamic transactions list (allows interactive deposit simulation)
@@ -78,6 +80,11 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
   const percentDisbursed = Math.min(100, Math.round((totalPaid / project.contractValue) * 100));
   const percentEscrow = Math.min(100, Math.round((totalInEscrow / project.contractValue) * 100));
   const percentRetainage = 5;
+  const isCompleted =
+    project.status === "Completed" ||
+    project.verifiedProgress >= 100 ||
+    projectId.startsWith("hist-") ||
+    (transactions.length > 0 && transactions.every((t) => t.status === "Paid to Builder"));
 
   // Filtered transactions list
   const filteredTransactions = useMemo(() => {
@@ -136,12 +143,12 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), var(--font-sans), sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       <ProjectSidebarNav projectId={project.id} activeTab="transactions" />
 
-      <main className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
         <HeaderBar
           leftSlot={
             <ProjectBreadcrumb
@@ -173,19 +180,48 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
               <span>Statement</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setDepositStep("form");
-                setIsDepositModalOpen(true);
-              }}
-              className="h-10 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
-            >
-              <IconPlus className="w-4 h-4" />
-              <span>Deposit to Escrow</span>
-            </button>
+            {isCompleted ? (
+              <span className="h-10 px-3.5 rounded-lg bg-[var(--vt-color-green-50,#E9F6EC)] border border-[var(--vt-color-green-300,#81C792)] text-[var(--vt-color-green-800,#17512F)] text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs">
+                <IconCheck className="w-4 h-4 text-[var(--vt-color-green-600,#248246)] stroke-[2.5]" />
+                <span>100% Fully Settled</span>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setDepositStep("form");
+                  setIsDepositModalOpen(true);
+                }}
+                className="h-10 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <IconPlus className="w-4 h-4" />
+                <span>Deposit to Escrow</span>
+              </button>
+            )}
           </div>
         </section>
+
+        {/* ── 100% Fully Settled Banner for Contract History ── */}
+        {isCompleted && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-[var(--vt-color-green-50,#E9F6EC)] border border-[var(--vt-color-green-200,#A3D9B1)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[var(--vt-color-green-900,#0F331E)] shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[var(--vt-color-green-600,#248246)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <IconCheck className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <span className="font-black text-sm text-[var(--vt-color-green-950,#061F10)] block">
+                  Contract Completed & 100% Disbursed
+                </span>
+                <span className="text-[11.5px] text-[var(--vt-color-green-800,#17512F)]">
+                  All payment tranches have been inspected, approved, and disbursed to the contractor through secure bank escrow. No outstanding liabilities remain.
+                </span>
+              </div>
+            </div>
+            <span className="px-3 py-1.5 rounded-lg bg-white border border-[var(--vt-color-green-300,#81C792)] font-black text-xs text-[var(--vt-color-green-800,#17512F)] shrink-0 shadow-2xs">
+              Zero Balance in Escrow
+            </span>
+          </div>
+        )}
 
         {/* Live Statement Download Toast */}
         {isExportNoticeOpen && (

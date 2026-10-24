@@ -52,20 +52,18 @@ export function Navbar({
   return (
     <header className="relative z-30 w-full max-w-6xl mx-auto shrink-0">
       <div className="flex items-center justify-between w-full py-2">
-        {/* ── Brand Logo (10% Indigo anchor + 30% Orange dot) ── */}
+        {/* ── Brand Logo with approved measurement lines ── */}
         <a
           id="nav-brand-logo"
           href="/"
-          className="group flex items-baseline font-bold text-xl sm:text-2xl tracking-tight text-[var(--vt-color-indigo-900,#261A66)] transition-opacity hover:opacity-90"
+          className="group flex items-center transition-opacity hover:opacity-90"
           aria-label="Vantaged Homepage"
         >
-          <span>vantaged</span>
-          <span className="text-[var(--vt-color-orange-500,#EF5F18)] text-xl sm:text-2xl font-black transition-transform duration-300 group-hover:scale-125">
-            .
-          </span>
-          <span className="text-[9px] font-normal align-top ml-0.5 text-[var(--vt-color-text-muted,#7C7894)]">
-            ®
-          </span>
+          <img
+            src="/brand/vantaged-measurement-logo.svg"
+            alt="Vantaged"
+            className="h-7 sm:h-8 w-auto max-w-[180px] object-contain"
+          />
         </a>
 
         {/* ── Center Navigation Links (Plain on the page, with dropdown support) ── */}

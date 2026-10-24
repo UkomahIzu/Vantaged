@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -27,6 +27,55 @@ export function ProjectSidebarNav({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   const project = getProjectDetail(projectId);
+
+  const [stagesBadge, setStagesBadge] = useState<string>(
+    `${project.stages.filter((s) => s.status === "Approved").length}/${project.stages.length}`
+  );
+  const [disputesBadge, setDisputesBadge] = useState<number | undefined>(
+    project.disputes.filter((d) => d.status === "Active Dispute").length || undefined
+  );
+  const [crBadge, setCrBadge] = useState<number | undefined>(
+    project.changeRequests.filter((c) => c.status === "Waiting for Your Approval").length || undefined
+  );
+
+  useEffect(() => {
+    const syncBadges = () => {
+      try {
+        const savedStages = localStorage.getItem(`vantaged_stages_${projectId}`);
+        if (savedStages) {
+          const parsed = JSON.parse(savedStages);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const approved = parsed.filter((s: any) => s.status === "Approved").length;
+            setStagesBadge(`${approved}/${parsed.length}`);
+          }
+        }
+        const savedDisputes = localStorage.getItem(`vantaged_disputes_${projectId}`);
+        if (savedDisputes) {
+          const parsed = JSON.parse(savedDisputes);
+          if (Array.isArray(parsed)) {
+            const active = parsed.filter((d: any) => d.status === "Active Dispute").length;
+            setDisputesBadge(active || undefined);
+          }
+        }
+        const savedCR = localStorage.getItem(`vantaged_cr_${projectId}`);
+        if (savedCR) {
+          const parsed = JSON.parse(savedCR);
+          if (Array.isArray(parsed)) {
+            const pending = parsed.filter((c: any) => c.status === "Waiting for Your Approval").length;
+            setCrBadge(pending || undefined);
+          }
+        }
+      } catch {}
+    };
+
+    syncBadges();
+    window.addEventListener("vantaged_storage_update", syncBadges);
+    window.addEventListener("storage", syncBadges);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", syncBadges);
+      window.removeEventListener("storage", syncBadges);
+    };
+  }, [projectId]);
 
   const handleNavClick = (tabId: "overview" | "stages" | "transactions" | "disputes" | "change-requests" | "team") => {
     const subpath = tabId === "overview" ? "" : `/${tabId}`;
@@ -57,7 +106,7 @@ export function ProjectSidebarNav({
     {
       id: "stages",
       label: "Stages",
-      badge: `${project.stages.filter((s) => s.status === "Approved").length}/${project.stages.length}`,
+      badge: stagesBadge,
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${
@@ -99,7 +148,7 @@ export function ProjectSidebarNav({
     {
       id: "disputes",
       label: "Disputes",
-      badge: project.disputes.filter((d) => d.status === "Active Dispute").length || undefined,
+      badge: disputesBadge,
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${
@@ -121,7 +170,7 @@ export function ProjectSidebarNav({
     {
       id: "change-requests",
       label: "Extra Work",
-      badge: project.changeRequests.filter((c) => c.status === "Waiting for Your Approval").length || undefined,
+      badge: crBadge,
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${
@@ -166,19 +215,25 @@ export function ProjectSidebarNav({
   ];
 
   return (
-    <aside className="w-60 lg:w-64 h-full shrink-0 bg-white border-r border-[var(--vt-color-border-default,#E2E0EC)] flex flex-col justify-between py-5 px-3 z-20 select-none font-sans shadow-[2px_0_12px_rgba(38,26,102,0.03)]">
+    <aside
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+      className="w-60 lg:w-64 h-full shrink-0 bg-white border-r border-[var(--vt-color-border-default,#E2E0EC)] flex flex-col justify-between py-5 px-3 z-20 select-none font-sans shadow-[2px_0_12px_rgba(38,26,102,0.03)]"
+    >
       {/* Top Group */}
       <div className="flex flex-col gap-4 w-full">
-        {/* Brand Logo & Back to Main Dashboard button */}
+        {/* Brand Logo with approved measurement lines */}
         <div className="px-3 pt-1 pb-2 flex items-center justify-between border-b border-[var(--vt-color-neutral-100,#EFEEF5)]/60">
-          <div className="flex items-center gap-1">
-            <span className="text-xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight font-sans">
-              vantaged
-            </span>
-            <span className="text-xl font-extrabold text-[var(--vt-color-orange-500,#EF5F18)] -ml-0.5">
-              .
-            </span>
-          </div>
+          <Link
+            href="/owner/dashboard"
+            aria-label="Vantaged home"
+            className="flex items-center group"
+          >
+            <img
+              src="/brand/vantaged-measurement-logo.svg"
+              alt="Vantaged"
+              className="h-6 w-auto max-w-[130px] object-contain transition-opacity group-hover:opacity-90"
+            />
+          </Link>
 
           <Link
             href="/owner/projects"
@@ -261,7 +316,10 @@ export function ProjectSidebarNav({
               className="fixed inset-0 z-30"
               onClick={() => setIsProfileMenuOpen(false)}
             />
-            <div className="absolute bottom-16 left-1 right-1 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl shadow-xl p-1.5 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div
+              style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+              className="absolute bottom-16 left-1 right-1 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl shadow-xl p-1.5 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150"
+            >
               <Link
                 href="/owner/dashboard"
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] cursor-pointer text-left"

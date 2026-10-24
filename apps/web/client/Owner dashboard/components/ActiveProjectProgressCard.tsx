@@ -40,9 +40,9 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
     specs: "4-Bedroom Detached + Penthouse",
     status: "In progress",
     scope: {
-      title: "First Floor Slab Casting + Structural Column Reinforcement",
+      title: "First Floor Concrete Slab & Supporting Pillars",
       description:
-        "Includes: High-tensile 16mm rebar tying · C30 ready-mix concrete pour · Core test cylinder collection · On-site Representative inspection",
+        "Includes: Heavy-duty steel reinforcement · Ready-mix concrete pour · Concrete strength testing · On-site Representative inspection",
     },
     contractor: {
       name: "Julius B. Consortium",
@@ -51,9 +51,9 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
       assignedRep: "Engr. Chidi O.",
     },
     steps: [
-      { title: "Site setting out", timeOrDate: "Mon, 08:30", status: "completed" },
-      { title: "Substructure & DPC", timeOrDate: "Mon, 09:20", status: "completed" },
-      { title: "Quote approved & paid", timeOrDate: "Today, 09:12", status: "completed" },
+      { title: "Site boundary mapping", timeOrDate: "Mon, 08:30", status: "completed" },
+      { title: "Foundation & ground floor", timeOrDate: "Mon, 09:20", status: "completed" },
+      { title: "Stage budget approved & funded", timeOrDate: "Today, 09:12", status: "completed" },
       {
         title: "Work in progress",
         timeOrDate: "Started 09:40 · ~1h 10m left",
@@ -72,9 +72,9 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
     specs: "Boutique Eco-Resort & Spa Villa",
     status: "In progress",
     scope: {
-      title: "Substructure & Deep Foundation Piling Reinforcement",
+      title: "Deep Ground Pillars & Foundation Piling",
       description:
-        "Includes: 24 cast-in-situ concrete piles · Steel cage vibratory driving · Marine-grade waterproof concrete mix · Geotechnical probe review",
+        "Includes: 24 reinforced concrete foundation pillars · Strong steel cage placement · Water-resistant concrete mix · Soil strength test review",
     },
     contractor: {
       name: "Crane & Stone Structural",
@@ -83,15 +83,15 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
       assignedRep: "Engr. Folake Ade",
     },
     steps: [
-      { title: "Geotechnical soil probe", timeOrDate: "Oct 02, 10:00", status: "completed" },
-      { title: "Piling layout survey", timeOrDate: "Oct 05, 08:30", status: "completed" },
-      { title: "Escrow tranche released", timeOrDate: "Oct 08, 14:15", status: "completed" },
+      { title: "Soil strength ground test", timeOrDate: "Oct 02, 10:00", status: "completed" },
+      { title: "Foundation layout mapping", timeOrDate: "Oct 05, 08:30", status: "completed" },
+      { title: "Stage funds released", timeOrDate: "Oct 08, 14:15", status: "completed" },
       {
-        title: "Piling cage installation",
+        title: "Foundation steel cage setup",
         timeOrDate: "Started 08:15 · ~2h 45m left",
         status: "active",
       },
-      { title: "Ultrasonic integrity test", timeOrDate: "Expected Thu 12:00", status: "pending" },
+      { title: "Foundation strength check", timeOrDate: "Expected Thu 12:00", status: "pending" },
     ],
     milestoneFunded: "₦32,800,000",
   },
@@ -104,9 +104,9 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
     specs: "6-Bedroom Contemporary Mansion",
     status: "In progress",
     scope: {
-      title: "Roof Truss Structural Assembly & Parapet Concrete Casting",
+      title: "Roof Steel Frame & Parapet Concrete Casting",
       description:
-        "Includes: Hot-rolled galvanized C-channel rafters · High-grade waterproof roof membrane · Rainwater drainage conduit layout · Rep load deflection test",
+        "Includes: Durable galvanized steel roof framing · High-grade waterproof roof cover · Rain gutters and drainage pipes · Representative roof strength test",
     },
     contractor: {
       name: "SolidGround Engineering",
@@ -115,15 +115,15 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
       assignedRep: "Arc. Bello K.",
     },
     steps: [
-      { title: "First floor slab curing", timeOrDate: "Sep 28, 09:00", status: "completed" },
-      { title: "Upper floor blockwork", timeOrDate: "Oct 03, 11:30", status: "completed" },
-      { title: "Roofing tranche funded", timeOrDate: "Oct 07, 16:40", status: "completed" },
+      { title: "First floor concrete drying", timeOrDate: "Sep 28, 09:00", status: "completed" },
+      { title: "Upper floor brick walling", timeOrDate: "Oct 03, 11:30", status: "completed" },
+      { title: "Roofing budget funded", timeOrDate: "Oct 07, 16:40", status: "completed" },
       {
-        title: "Steel truss hoisting",
+        title: "Lifting roof steel beams",
         timeOrDate: "Started 10:00 · ~3h 20m left",
         status: "active",
       },
-      { title: "Parapet screed sign-off", timeOrDate: "Expected Fri 16:00", status: "pending" },
+      { title: "Roof edge finishing sign-off", timeOrDate: "Expected Fri 16:00", status: "pending" },
     ],
     milestoneFunded: "₦26,200,000",
   },
@@ -136,9 +136,9 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
     specs: "14-Storey Mixed-Use Commercial",
     status: "In progress",
     scope: {
-      title: "Level 4 Core Slip-Forming & High-Tensile Post-Tensioning",
+      title: "Level 4 Concrete Walls & High-Strength Floor Cables",
       description:
-        "Includes: Hydraulic climbing slip-form active · Post-tensioned cable anchoring · Concrete slump pressure monitoring · Laser verticality check",
+        "Includes: Continuous concrete wall pouring · Steel floor cables tightening · Concrete quality and moisture monitoring · Laser wall alignment check",
     },
     contractor: {
       name: "Cappa & D'Alberto",
@@ -147,15 +147,15 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
       assignedRep: "Engr. Tunde Coker",
     },
     steps: [
-      { title: "Level 3 slab curing", timeOrDate: "Sep 22, 10:00", status: "completed" },
-      { title: "Hydraulic rig assembly", timeOrDate: "Sep 28, 08:30", status: "completed" },
-      { title: "Cable tension test", timeOrDate: "Oct 02, 14:15", status: "completed" },
+      { title: "Level 3 floor concrete drying", timeOrDate: "Sep 22, 10:00", status: "completed" },
+      { title: "Wall lifting equipment setup", timeOrDate: "Sep 28, 08:30", status: "completed" },
+      { title: "Floor cable strength test", timeOrDate: "Oct 02, 14:15", status: "completed" },
       {
-        title: "Core concrete pouring",
+        title: "Central core concrete pouring",
         timeOrDate: "Started 07:30 · ~4h 15m left",
         status: "active",
       },
-      { title: "Level 4 core sign-off", timeOrDate: "Expected Sat 17:00", status: "pending" },
+      { title: "Level 4 walls inspection sign-off", timeOrDate: "Expected Sat 17:00", status: "pending" },
     ],
     milestoneFunded: "₦65,000,000",
   },
@@ -168,9 +168,9 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
     specs: "Ultra-Luxury Triplex Penthouse",
     status: "In progress",
     scope: {
-      title: "Italian Marble Tiling & Smart Building Automation (BMS)",
+      title: "Italian Marble Flooring & Smart Home Wiring",
       description:
-        "Includes: Calacatta marble slab laying · KNX automation bus wiring · Central AC duct acoustic insulation · Master bathroom jacuzzi waterproofing",
+        "Includes: Premium marble floor tiling · Smart home automation cabling · Quiet AC vent insulation · Master bathroom jacuzzi waterproofing",
     },
     contractor: {
       name: "Hitech Construction",
@@ -179,15 +179,15 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
       assignedRep: "Engr. Amina Lawal",
     },
     steps: [
-      { title: "Ceiling frame inspection", timeOrDate: "Sep 18, 11:00", status: "completed" },
-      { title: "Smart automation rough-in", timeOrDate: "Sep 25, 14:00", status: "completed" },
-      { title: "Marble delivery logged", timeOrDate: "Sep 30, 09:30", status: "completed" },
+      { title: "Ceiling frame check", timeOrDate: "Sep 18, 11:00", status: "completed" },
+      { title: "Smart lighting & cable wiring", timeOrDate: "Sep 25, 14:00", status: "completed" },
+      { title: "Marble tiles delivered to site", timeOrDate: "Sep 30, 09:30", status: "completed" },
       {
         title: "Marble floor installation",
         timeOrDate: "Started 09:00 · ~1h 45m left",
         status: "active",
       },
-      { title: "Snag list inspection", timeOrDate: "Expected Mon 14:00", status: "pending" },
+      { title: "Quality punch-list check", timeOrDate: "Expected Mon 14:00", status: "pending" },
     ],
     milestoneFunded: "₦28,500,000",
   },
@@ -200,9 +200,9 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
     specs: "Premium Office & Retail Complex",
     status: "In progress",
     scope: {
-      title: "Subgrade Earthworks Compaction & Dewatering Operations",
+      title: "Ground Leveling, Soil Rolling & Water Drainage",
       description:
-        "Includes: Deep wellpoint dewatering pumps · Vibratory roller subgrade compaction · 98% Modified AASHTO density verification · Boundary survey",
+        "Includes: Site water drainage pumps · Heavy roller ground compaction · Soil compactness strength check · Property boundary survey",
     },
     contractor: {
       name: "Costain West Africa",
@@ -211,15 +211,15 @@ export const OWNER_ACTIVE_PROJECTS: ActiveProject[] = [
       assignedRep: "Engr. Emeka Obi",
     },
     steps: [
-      { title: "Site perimeter clearing", timeOrDate: "Sep 12, 08:00", status: "completed" },
-      { title: "Sheet piling installation", timeOrDate: "Sep 20, 11:30", status: "completed" },
-      { title: "Dewatering pumps active", timeOrDate: "Sep 28, 10:15", status: "completed" },
+      { title: "Site boundary clearing", timeOrDate: "Sep 12, 08:00", status: "completed" },
+      { title: "Steel ground support wall installation", timeOrDate: "Sep 20, 11:30", status: "completed" },
+      { title: "Water drainage pumps active", timeOrDate: "Sep 28, 10:15", status: "completed" },
       {
-        title: "Subgrade soil compaction",
+        title: "Heavy ground soil rolling",
         timeOrDate: "Started 08:30 · ~2h 00m left",
         status: "active",
       },
-      { title: "Density certification sign-off", timeOrDate: "Expected Wed 16:30", status: "pending" },
+      { title: "Soil firmness sign-off", timeOrDate: "Expected Wed 16:30", status: "pending" },
     ],
     milestoneFunded: "₦15,000,000",
   },
@@ -273,7 +273,10 @@ export function ActiveProjectProgressCard({
   };
 
   return (
-    <div className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_6px_20px_rgba(38,26,102,0.06)] flex flex-col font-sans select-none w-full transition-all relative">
+    <div
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+      className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_6px_20px_rgba(38,26,102,0.06)] flex flex-col font-sans select-none w-full transition-all relative"
+    >
       {/* ── Carousel Controls Header (Only if owner has more than one active project) ── */}
       {hasMultipleProjects && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-[var(--vt-color-neutral-100,#EFEEF5)]">

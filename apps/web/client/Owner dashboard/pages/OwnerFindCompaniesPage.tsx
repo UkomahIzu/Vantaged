@@ -4,6 +4,8 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { VantagedSelect } from "../components/VantagedSelect";
 
 export interface CompanyItem {
   id: string;
@@ -327,6 +329,7 @@ const INITIAL_BRIEFS: ProjectBrief[] = [
 ];
 
 export function OwnerFindCompaniesPage() {
+  const scrollRef = useScrollRestoration<HTMLElement>("owner_find_companies");
   const [companies, setCompanies] = useState<CompanyItem[]>(INITIAL_COMPANIES);
   const [projectBriefs, setProjectBriefs] = useState<ProjectBrief[]>(INITIAL_BRIEFS);
   const [activeTab, setActiveTab] = useState<"directory" | "my-briefs">("directory");
@@ -436,7 +439,7 @@ export function OwnerFindCompaniesPage() {
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative"
     >
       {/* Decorative vector background lines */}
@@ -463,7 +466,8 @@ export function OwnerFindCompaniesPage() {
 
       {/* ── Main Workspace ── */}
       <main
-        style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+        ref={scrollRef}
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-4 sm:gap-5"
       >
         {/* Top Header Navigation Bar (Identical to Home and Projects Page) */}
@@ -490,8 +494,8 @@ export function OwnerFindCompaniesPage() {
             </h1>
             <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] font-medium mt-0.5">
               {activeTab === "directory"
-                ? "Connect with COREN-registered contractors, structural engineers & architects with verified escrow delivery"
-                : "Contractors scoping your project briefs. All scopes, budgets and locations aligned for comparison."}
+                ? "Find verified construction companies, architects, and builders with proven track records."
+                : "Builders currently reviewing your project requests. Compare offers, prices, and timelines."}
             </p>
           </div>
 
@@ -577,18 +581,19 @@ export function OwnerFindCompaniesPage() {
                         <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] mb-1.5">
                           Specialty
                         </label>
-                        <select
+                        <VantagedSelect
                           value={selectedCategory}
-                          onChange={(e) => setSelectedCategory(e.target.value)}
-                          className="w-full h-8 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer"
-                        >
-                          <option value="All">All Specialties</option>
-                          <option value="General Contractor">General Contractor</option>
-                          <option value="Structural & Civil">Structural & Civil</option>
-                          <option value="Marine & Geotech">Marine & Geotechnical</option>
-                          <option value="Architecture">Architecture & Design</option>
-                          <option value="MEP Engineering">MEP Engineering</option>
-                        </select>
+                          onChange={(val) => setSelectedCategory(val)}
+                          className="w-full h-8 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]"
+                          options={[
+                            { value: "All", label: "All Specialties" },
+                            { value: "General Contractor", label: "General Contractor" },
+                            { value: "Structural & Civil", label: "Structural & Civil" },
+                            { value: "Marine & Geotech", label: "Marine & Geotechnical" },
+                            { value: "Architecture", label: "Architecture & Design" },
+                            { value: "MEP Engineering", label: "MEP Engineering" },
+                          ]}
+                        />
                       </div>
 
                       {/* Region Filter */}
@@ -596,16 +601,17 @@ export function OwnerFindCompaniesPage() {
                         <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] mb-1.5">
                           Region / State
                         </label>
-                        <select
+                        <VantagedSelect
                           value={selectedState}
-                          onChange={(e) => setSelectedState(e.target.value)}
-                          className="w-full h-8 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] cursor-pointer"
-                        >
-                          <option value="All States">All Regions</option>
-                          <option value="Lagos">Lagos State</option>
-                          <option value="Abuja FCT">Abuja FCT</option>
-                          <option value="Rivers / PH">Rivers / Port Harcourt</option>
-                        </select>
+                          onChange={(val) => setSelectedState(val)}
+                          className="w-full h-8 px-2.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]"
+                          options={[
+                            { value: "All States", label: "All Regions" },
+                            { value: "Lagos", label: "Lagos State" },
+                            { value: "Abuja FCT", label: "Abuja FCT" },
+                            { value: "Rivers / PH", label: "Rivers / Port Harcourt" },
+                          ]}
+                        />
                       </div>
 
                       {/* COREN Verification Checkbox */}
@@ -825,7 +831,7 @@ export function OwnerFindCompaniesPage() {
                             isFeatured ? "text-white/85" : "text-[var(--vt-color-neutral-500,#7C7894)]"
                           }`}
                         >
-                          {company.category} • {company.location.split(",")[0]}
+                          {company.category} • {company.location ? company.location.split(",")[0] : company.state || "Nigeria"}
                         </p>
                       </div>
 
@@ -876,7 +882,7 @@ export function OwnerFindCompaniesPage() {
                               : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
                           }`}
                         >
-                          {company.state.split(" ")[0]}
+                          {company.state ? company.state.split(" ")[0] : "Nigeria"}
                         </span>
                       </div>
                     </div>
@@ -1177,33 +1183,35 @@ export function OwnerFindCompaniesPage() {
                   <label className="block text-xs font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
                     Category
                   </label>
-                  <select
+                  <VantagedSelect
                     value={briefForm.category}
-                    onChange={(e) => setBriefForm({ ...briefForm, category: e.target.value })}
-                    className="w-full h-9 px-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                  >
-                    <option value="Residential">Residential</option>
-                    <option value="Commercial">Commercial</option>
-                    <option value="Industrial">Industrial</option>
-                    <option value="Marine & Waterfront">Marine & Waterfront</option>
-                    <option value="Architecture & Design">Architecture & Design</option>
-                  </select>
+                    onChange={(val) => setBriefForm({ ...briefForm, category: val })}
+                    className="w-full h-9 px-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs text-[var(--vt-color-indigo-900,#261A66)]"
+                    options={[
+                      { value: "Residential", label: "Residential" },
+                      { value: "Commercial", label: "Commercial" },
+                      { value: "Industrial", label: "Industrial" },
+                      { value: "Marine & Waterfront", label: "Marine & Waterfront" },
+                      { value: "Architecture & Design", label: "Architecture & Design" },
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
                     Estimated Budget
                   </label>
-                  <select
+                  <VantagedSelect
                     value={briefForm.estimatedBudget}
-                    onChange={(e) => setBriefForm({ ...briefForm, estimatedBudget: e.target.value })}
-                    className="w-full h-9 px-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs text-[var(--vt-color-indigo-900,#261A66)] focus:outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                  >
-                    <option value="₦50M - ₦100M">₦50M - ₦100M</option>
-                    <option value="₦100M - ₦250M">₦100M - ₦250M</option>
-                    <option value="₦250M - ₦500M">₦250M - ₦500M</option>
-                    <option value="₦500M+">₦500M+</option>
-                  </select>
+                    onChange={(val) => setBriefForm({ ...briefForm, estimatedBudget: val })}
+                    className="w-full h-9 px-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs text-[var(--vt-color-indigo-900,#261A66)]"
+                    options={[
+                      { value: "₦50M - ₦100M", label: "₦50M - ₦100M" },
+                      { value: "₦100M - ₦250M", label: "₦100M - ₦250M" },
+                      { value: "₦250M - ₦500M", label: "₦250M - ₦500M" },
+                      { value: "₦500M+", label: "₦500M+" },
+                    ]}
+                  />
                 </div>
               </div>
 

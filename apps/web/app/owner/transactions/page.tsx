@@ -1,3 +1,4 @@
+import React, { Suspense } from "react";
 import type { Metadata } from "next";
 import { OwnerTransactionsPage } from "../../../client/Owner dashboard";
 
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <main className="h-screen w-screen max-h-screen max-w-screen overflow-hidden">
-      <OwnerTransactionsPage />
+      <Suspense fallback={<div className="h-full w-full bg-[var(--vt-color-background-subtle,#F7F7FA)]" />}>
+        <OwnerTransactionsPage />
+      </Suspense>
     </main>
   );
 }

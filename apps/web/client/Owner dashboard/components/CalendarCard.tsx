@@ -7,7 +7,10 @@ export function CalendarCard() {
   const [selectedDay, setSelectedDay] = useState<number>(18);
 
   return (
-    <div className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 shadow-[0_4px_12px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none min-h-[300px]">
+    <div
+      className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 shadow-[0_4px_12px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none min-h-[300px]"
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+    >
       {/* Month Header with Chevrons */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base sm:text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight">

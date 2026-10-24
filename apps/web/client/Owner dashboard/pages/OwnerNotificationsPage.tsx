@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
+import { useScrollRestoration } from "../hooks/useScrollRestoration";
 
 export interface OwnerNotification {
   id: string;
@@ -20,8 +21,8 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     id: "notif-1",
     category: "inspection",
     projectTitle: "Lekki Phase 1 Luxury Villa",
-    title: "Stage 2 suspended slab is ready for review",
-    description: "Julius B. Consortium submitted Level 2 slab reinforcement proof. Engr. Adeleke verified break logs (38.5 MPa).",
+    title: "Stage 2 first floor decking is ready for review",
+    description: "Julius B. Consortium submitted photos for the first floor decking. Engr. Adeleke confirmed concrete strength test passed.",
     timestamp: "Today, 08:40",
     isUnread: true,
   },
@@ -29,8 +30,8 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     id: "notif-2",
     category: "escrow",
     projectTitle: "The Enclave Waterfront Resort",
-    title: "Escrow vault deposit confirmed for Shoreline Piling",
-    description: "₦48,500,000 secured in Vantaged Escrow Vault for Tranche 2. Funds protected until inspection sign-off.",
+    title: "Escrow deposit confirmed for Shoreline Piling",
+    description: "₦48,500,000 safely deposited in escrow for Stage 2. Your money stays protected until you approve the inspection.",
     timestamp: "Today, 09:12",
     isUnread: true,
   },
@@ -38,8 +39,8 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     id: "notif-3",
     category: "site",
     projectTitle: "Banana Island Horizon Penthouse",
-    title: "4K Drone aerial survey uploaded for Banana Island",
-    description: "Automated site camera recorded week 14 facade telemetry and high-resolution orthomosaic scan.",
+    title: "Drone photos & site walkthrough uploaded",
+    description: "Site cameras and drone uploaded clear new photos and a video walkthrough of your building.",
     timestamp: "Today, 09:40",
     isUnread: true,
   },
@@ -47,8 +48,8 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     id: "notif-4",
     category: "inspection",
     projectTitle: "Guzape Hills Residence",
-    title: "Plumbing hydrostatic pressure test passed",
-    description: "Engr. Emeka Uche confirmed underfloor PEX pipes held 8-bar pressure for 24 hours with zero leakage.",
+    title: "Plumbing pipes water test passed",
+    description: "Engr. Emeka Uche tested all underfloor plumbing pipes for 24 hours with zero leaks.",
     timestamp: "Yesterday, 16:40",
     isUnread: false,
   },
@@ -56,8 +57,8 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     id: "notif-5",
     category: "site",
     projectTitle: "Lekki Phase 1 Luxury Villa",
-    title: "Gate waybill verified: 600 Bags of Dangote Cement",
-    description: "Security gate pass #WP-2092 verified. Digital manifest and supplier weight scale ticket uploaded.",
+    title: "Site delivery confirmed: 600 Bags of Dangote Cement",
+    description: "Gate pass #WP-2092 confirmed. Delivery slip and receipt signed on site.",
     timestamp: "Oct 10, 14:15",
     isUnread: false,
   },
@@ -65,8 +66,8 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     id: "notif-6",
     category: "escrow",
     projectTitle: "Lekki Phase 1 Luxury Villa",
-    title: "Substructure milestone payout disbursed to contractor",
-    description: "₦32,800,000 released from escrow vault following verified foundation sign-off. VAT tax invoice generated.",
+    title: "Foundation milestone payment sent to builder",
+    description: "₦32,800,000 released to builder after you approved the foundation inspection. Receipt generated.",
     timestamp: "Oct 09, 11:30",
     isUnread: false,
   },
@@ -74,8 +75,8 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     id: "notif-7",
     category: "inspection",
     projectTitle: "Banana Island Horizon Penthouse",
-    title: "Terrace acoustic insulation clearance issued",
-    description: "Arc. Amina Yusuf validated soundproofing membrane installation across upper bedroom terraces.",
+    title: "Terrace soundproofing inspection passed",
+    description: "Arc. Amina Yusuf inspected soundproofing insulation across upper bedroom terraces.",
     timestamp: "Oct 07, 15:20",
     isUnread: false,
   },
@@ -83,15 +84,39 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     id: "notif-8",
     category: "escrow",
     projectTitle: "Guzape Hills Residence",
-    title: "BOQ Line item variation reviewed by QS",
-    description: "QS Femi Oladipo approved contractor variation VR-03 for upgraded anti-crack mesh (+₦1.2M).",
+    title: "Building plan adjustment reviewed",
+    description: "Quantity surveyor Femi Oladipo approved builder request for upgraded anti-crack wall mesh (+₦1.2M).",
     timestamp: "Oct 05, 13:10",
     isUnread: false,
   },
 ];
 
 export function OwnerNotificationsPage() {
+  const scrollRef = useScrollRestoration<HTMLElement>("owner_notifications");
+  const storageKey = "vantaged_owner_notifications";
   const [notifications, setNotifications] = useState<OwnerNotification[]>(INITIAL_NOTIFICATIONS);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setNotifications(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const persistNotifications = (updated: OwnerNotification[]) => {
+    setNotifications(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      } catch {}
+    }
+  };
+
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [selectedProofPreview, setSelectedProofPreview] = useState<OwnerNotification | null>(null);
 
@@ -113,25 +138,32 @@ export function OwnerNotificationsPage() {
 
   // Mark all as read
   const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));
+    persistNotifications(notifications.map((n) => ({ ...n, isUnread: false })));
+  };
+
+  // Mark single notification as read
+  const handleMarkSingleAsRead = (id: string) => {
+    persistNotifications(
+      notifications.map((n) => (n.id === id ? { ...n, isUnread: false } : n))
+    );
   };
 
   // Delete / dismiss notification
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    persistNotifications(notifications.filter((n) => n.id !== id));
   };
 
   return (
     <div
-      style={{ fontFamily: "var(--vt-font-sans), 'Outfit', sans-serif" }}
+      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none"
     >
       {/* ── Left Sidebar Navigation ── */}
       <SidebarNav currentActiveItem="notifications" />
 
       {/* ── Main Workspace ── */}
-      <main className="flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-5 flex flex-col gap-5">
         {/* Top Header Bar */}
         <HeaderBar
           leftSlot={
@@ -197,9 +229,7 @@ export function OwnerNotificationsPage() {
                       setSelectedProofPreview(item);
                     }
                     if (item.isUnread) {
-                      setNotifications((prev) =>
-                        prev.map((n) => (n.id === item.id ? { ...n, isUnread: false } : n))
-                      );
+                      handleMarkSingleAsRead(item.id);
                     }
                   }}
                   className={`px-6 py-5 flex items-start justify-between gap-4 transition-colors cursor-pointer group ${
