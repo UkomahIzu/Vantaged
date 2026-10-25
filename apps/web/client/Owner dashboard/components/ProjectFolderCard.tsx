@@ -24,6 +24,9 @@ export interface ProjectItem {
   stageSubtitle: string;
   snippetLines: string[];
   lastUpdated: string;
+  briefId?: string;
+  briefTitle?: string;
+  originatingBriefSubmittedDate?: string;
 }
 
 interface ProjectFolderCardProps {

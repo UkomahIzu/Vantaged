@@ -5,6 +5,79 @@ import { ProjectItem } from "../../components/ProjectFolderCard";
 export const STORAGE_KEY_ACTIVE = "vantaged_active_projects";
 export const STORAGE_KEY_PLANS = "vantaged_proposed_plans";
 export const STORAGE_KEY_HISTORY = "vantaged_contract_history";
+export const STORAGE_KEY_BRIEFS = "vantaged_project_briefs";
+
+export interface ProjectBrief {
+  id: string;
+  companyId: string;
+  companyName: string;
+  title: string;
+  category: string;
+  estimatedBudget: string;
+  location: string;
+  status: "Under Contractor Review" | "Drafting Milestone Plan" | "Proposal Ready" | "Plan Accepted & Active" | "Revisions Requested";
+  dateSubmitted: string;
+  description: string;
+  planId?: string;
+  proposedBudget?: string;
+  milestonesCount?: number;
+  contractorNotes?: string;
+  contractorResponseDate?: string;
+}
+
+export const INITIAL_BRIEFS: ProjectBrief[] = [
+  {
+    id: "brf-1",
+    companyId: "comp-solidground",
+    companyName: "SolidGround Engineering",
+    title: "5-Bedroom Luxury Smart Duplex in Guzape",
+    category: "Residential",
+    estimatedBudget: "₦180.0M - ₦220.0M",
+    location: "Guzape District, Abuja",
+    status: "Proposal Ready",
+    dateSubmitted: "Oct 08, 2026",
+    description: "Full architectural execution including cantilever suspended slab, concealed rooftop chiller ducting, and private swimming pool foundation.",
+    planId: "prop-guzape-plan",
+    proposedBudget: "₦210.0M Proposed",
+    milestonesCount: 8,
+    contractorNotes: "We have reviewed your architectural brief for Guzape Residence and structured an 8-stage milestone plan with 10% mobilization and 5% defect retention.",
+    contractorResponseDate: "Oct 12, 2026",
+  },
+  {
+    id: "brf-2",
+    companyId: "comp-crane",
+    companyName: "Crane & Stone Structural",
+    title: "Marine Piling for Private Boat Jetty",
+    category: "Waterfront",
+    estimatedBudget: "₦65.0M - ₦80.0M",
+    location: "Lekki Phase 1 Waterfront, Lagos",
+    status: "Revisions Requested",
+    dateSubmitted: "Oct 10, 2026",
+    description: "16 marine grade concrete driven piles into bedrock refusal depth with corrosion-resistant sheet reinforcement.",
+    planId: "prop-enclave-plan",
+    proposedBudget: "₦188.5M Proposed",
+    milestonesCount: 7,
+    contractorNotes: "Contractor is revising Stage 2 piling timelines per owner feedback sent on Oct 11.",
+    contractorResponseDate: "Yesterday",
+  },
+  {
+    id: "brf-3",
+    companyId: "comp-julius",
+    companyName: "Julius B. Consortium",
+    title: "Lekki Phase 1 Luxury Villa - Turnkey Construction",
+    category: "Residential",
+    estimatedBudget: "₦220.0M - ₦250.0M",
+    location: "Plot 14, Admiralty Way, Lekki",
+    status: "Proposal Ready",
+    dateSubmitted: "Jan 12, 2026",
+    description: "Turnkey residential villa construction with 4 en-suite bedrooms, penthouse terrace, and private infinity pool.",
+    planId: "prop-lekki-plan",
+    proposedBudget: "₦245.0M Proposed",
+    milestonesCount: 6,
+    contractorNotes: "Milestone plan drafted for 6 construction stages matching your turnkey specifications. Ready for your review and contract agreement.",
+    contractorResponseDate: "Jan 15, 2026",
+  },
+];
 
 export const INITIAL_ACTIVE_PROJECTS: ProjectItem[] = [
   {
@@ -337,6 +410,9 @@ export const INITIAL_PROPOSED_PLANS: ProjectItem[] = [
     milestonesTotal: 6,
     progressPercent: 0,
     escrowAmount: "₦245.0M Proposed",
+    briefId: "brf-3",
+    briefTitle: "Lekki Phase 1 Luxury Villa - Turnkey Construction",
+    originatingBriefSubmittedDate: "Jan 12, 2026",
     contractor: {
       name: "Julius B. Consortium",
       rating: "4.8 ★",
@@ -363,6 +439,9 @@ export const INITIAL_PROPOSED_PLANS: ProjectItem[] = [
     milestonesTotal: 8,
     progressPercent: 0,
     escrowAmount: "₦210.0M Proposed",
+    briefId: "brf-1",
+    briefTitle: "5-Bedroom Luxury Smart Duplex in Guzape",
+    originatingBriefSubmittedDate: "Oct 08, 2026",
     contractor: {
       name: "SolidGround Engineering",
       rating: "4.8 ★",
@@ -389,6 +468,9 @@ export const INITIAL_PROPOSED_PLANS: ProjectItem[] = [
     milestonesTotal: 7,
     progressPercent: 0,
     escrowAmount: "₦188.5M Proposed",
+    briefId: "brf-2",
+    briefTitle: "Marine Piling for Private Boat Jetty",
+    originatingBriefSubmittedDate: "Oct 10, 2026",
     contractor: {
       name: "Crane & Stone Structural",
       rating: "4.9 ★",
@@ -573,9 +655,107 @@ export function acceptProposedPlan(planId: string): void {
     }
 
     localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(updatedActive));
+
+    // Also update any linked project brief status to "Plan Accepted & Active"
+    try {
+      const briefs = getProjectBriefs();
+      const cleanPlan = planId.replace("prop-", "").replace("proj-", "").replace("-plan", "");
+      const updatedBriefs = briefs.map((b) => {
+        const bClean = (b.planId || "").replace("prop-", "").replace("proj-", "").replace("-plan", "");
+        if (b.planId === planId || (bClean && bClean === cleanPlan) || b.id === planToAccept?.briefId) {
+          return {
+            ...b,
+            status: "Plan Accepted & Active" as const,
+          };
+        }
+        return b;
+      });
+      localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(updatedBriefs));
+    } catch {}
+
     window.dispatchEvent(new Event("vantaged_storage_update"));
   } catch (err) {
     console.error("Error accepting proposed plan:", err);
+  }
+}
+
+/**
+ * Retrieve all project briefs.
+ */
+export function getProjectBriefs(): ProjectBrief[] {
+  if (typeof window === "undefined") {
+    return INITIAL_BRIEFS;
+  }
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_BRIEFS);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    return INITIAL_BRIEFS;
+  } catch {
+    return INITIAL_BRIEFS;
+  }
+}
+
+/**
+ * Save or update a project brief in localStorage.
+ */
+export function saveProjectBrief(brief: ProjectBrief): void {
+  if (typeof window === "undefined") return;
+  try {
+    const list = getProjectBriefs();
+    const existingIndex = list.findIndex((b) => b.id === brief.id);
+    let updated: ProjectBrief[];
+    if (existingIndex >= 0) {
+      updated = [...list];
+      updated[existingIndex] = brief;
+    } else {
+      updated = [brief, ...list];
+    }
+    localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(updated));
+    window.dispatchEvent(new Event("vantaged_storage_update"));
+  } catch (err) {
+    console.error("Error saving project brief:", err);
+  }
+}
+
+/**
+ * Find a project brief by its unique ID.
+ */
+export function getBriefById(id: string): ProjectBrief | undefined {
+  const list = getProjectBriefs();
+  return list.find((b) => b.id === id);
+}
+
+/**
+ * Find the brief linked to a given proposed plan ID.
+ */
+export function getBriefForPlan(planId: string): ProjectBrief | undefined {
+  const list = getProjectBriefs();
+  const direct = list.find((b) => b.planId === planId);
+  if (direct) return direct;
+
+  const clean = planId.replace("prop-", "").replace("proj-", "").replace("-plan", "");
+  return list.find((b) => {
+    if (!b.planId) return false;
+    const bClean = b.planId.replace("prop-", "").replace("proj-", "").replace("-plan", "");
+    return clean === bClean;
+  });
+}
+
+/**
+ * Update the status of a project brief.
+ */
+export function updateBriefStatus(briefId: string, status: ProjectBrief["status"]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const list = getProjectBriefs();
+    const updated = list.map((b) => (b.id === briefId ? { ...b, status } : b));
+    localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(updated));
+    window.dispatchEvent(new Event("vantaged_storage_update"));
+  } catch (err) {
+    console.error("Error updating brief status:", err);
   }
 }
 

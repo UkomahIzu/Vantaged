@@ -28,7 +28,6 @@ import {
   IconCompare,
   IconMaximize,
   IconSend,
-  IconHistory,
   IconAlertTriangle,
   IconPrinter,
   IconEye,
@@ -49,7 +48,7 @@ export function ProjectStageDetailPage({
 
   const [stage, setStage] = useState<ProjectStage>(initialStage);
   const [activeTab, setActiveTab] = useState<
-    "checklist" | "proof" | "beforeAfter" | "comments" | "activity"
+    "checklist" | "proof" | "beforeAfter" | "comments"
   >("proof");
   const [mediaFilter, setMediaFilter] = useState<"all" | "photo" | "video" | "voice">("all");
   const [selectedMedia, setSelectedMedia] = useState<StageProofMedia | null>(null);
@@ -226,7 +225,7 @@ export function ProjectStageDetailPage({
   return (
     <div
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-      className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
+      className="flex flex-col md:flex-row h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       {/* Decorative background grid subtle */}
       <div className="absolute inset-0 pointer-events-none opacity-20 z-0 overflow-hidden">
@@ -240,7 +239,7 @@ export function ProjectStageDetailPage({
       <ProjectSidebarNav projectId={project.id} activeTab="stages" />
 
       {/* Main Workspace */}
-      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5 pb-24 md:pb-5">
         {/* Header Bar */}
         <HeaderBar
           leftSlot={
@@ -419,11 +418,6 @@ export function ProjectStageDetailPage({
               id: "comments",
               label: `Comments & Notes (${commentsList.length})`,
               icon: IconMic,
-            },
-            {
-              id: "activity",
-              label: `Activity Log (${stage.activityLog?.length || 0})`,
-              icon: IconHistory,
             },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -805,45 +799,7 @@ export function ProjectStageDetailPage({
           </section>
         )}
 
-        {/* ── TAB 5: ACTIVITY TIMELINE (PRD FR-PRF-07) ── */}
-        {activeTab === "activity" && (
-          <section className="flex flex-col gap-4 pb-8">
-            <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col gap-4">
-              <div className="border-b border-[var(--vt-color-border-default,#E2E0EC)] pb-3">
-                <h3 className="text-sm font-black text-[var(--vt-color-indigo-900,#261A66)]">
-                  Complete Stage Audit History
-                </h3>
-                <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                  Immutable timeline of all field updates, checklist completions, and reviews (PRD FR-PRF-07)
-                </p>
-              </div>
 
-              <div className="flex flex-col gap-3 relative pl-6 before:content-[''] before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--vt-color-border-default,#E2E0EC)]">
-                {stage.activityLog?.map((act) => (
-                  <div key={act.id} className="relative flex flex-col gap-0.5 text-xs">
-                    <span className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] ring-4 ring-white" />
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-                        {act.action}
-                      </span>
-                      <span className="text-[10px] text-[var(--vt-color-neutral-400,#A3A0B8)] font-mono">
-                        {act.timestamp}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
-                      By {act.user} ({act.role})
-                    </span>
-                    {act.details && (
-                      <p className="text-[11.5px] text-[var(--vt-color-neutral-600,#5E5A7D)] bg-[var(--vt-color-neutral-50,#F7F7FA)] p-2 rounded-md mt-1 border border-[var(--vt-color-border-default,#E2E0EC)]/60">
-                        {act.details}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
       </main>
 
       {/* ── LIGHTBOX MODAL (Full Photo / Video Viewer) ── */}

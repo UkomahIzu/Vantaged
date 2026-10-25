@@ -320,15 +320,17 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
   return (
     <header
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-      className="w-full flex flex-col md:flex-row items-center justify-between gap-3 pt-1 pb-2 font-sans select-none"
+      className="w-full flex items-center justify-between gap-2.5 pt-1 pb-2 font-sans select-none"
     >
       {/* Left: Custom left action (e.g. Back arrow on Projects page, breadcrumbs) or spacer */}
-      <div className="w-full md:w-auto md:max-w-md lg:max-w-lg shrink-0 flex items-center justify-start min-w-0">
-        {leftSlot}
-      </div>
+      {leftSlot ? (
+        <div className="shrink-0 flex items-center justify-start min-w-0 max-w-[45%] md:max-w-md lg:max-w-lg">
+          {leftSlot}
+        </div>
+      ) : null}
 
       {/* Center: Always-Working Global Search Bar */}
-      <div ref={containerRef} className="relative flex-1 max-w-lg w-full mx-auto">
+      <div ref={containerRef} className="relative flex-1 max-w-lg min-w-0">
         <svg
           className="w-4 h-4 text-[var(--vt-color-neutral-400,#A3A0B8)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"
           viewBox="0 0 24 24"
@@ -351,7 +353,7 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
             setIsDropdownOpen(true);
           }}
           onKeyDown={handleSearchKeyDown}
-          placeholder="Search projects, milestones, payments, representatives..."
+          placeholder="Search projects, milestones, payments..."
           className="w-full h-9 pl-9 pr-8 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] focus:border-[var(--vt-color-orange-500,#EF5F18)] focus:ring-2 focus:ring-[var(--vt-color-orange-500,#EF5F18)]/15 rounded-md text-xs sm:text-sm text-[var(--vt-color-text-default,#261A66)] placeholder:text-[var(--vt-color-neutral-400,#A3A0B8)] outline-none transition-all shadow-2xs font-sans"
         />
 
@@ -425,8 +427,8 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
         )}
       </div>
 
-      {/* Right: Single Toggle Button, Notifications, and Start Project Button */}
-      <div className="flex items-center justify-end gap-2.5 shrink-0 w-full md:w-auto">
+      {/* Right: Single Toggle Button, Notifications, and Start Project Button (hidden on mobile, visible on desktop md+) */}
+      <div className="hidden md:flex items-center justify-end gap-2.5 shrink-0 md:w-auto">
         {/* Single Light/Dark Mode Toggle Button */}
         <button
           type="button"

@@ -215,151 +215,441 @@ export function ProjectSidebarNav({
   ];
 
   return (
-    <aside
-      style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-      className="w-60 lg:w-64 h-full shrink-0 bg-white border-r border-[var(--vt-color-border-default,#E2E0EC)] flex flex-col justify-between py-5 px-3 z-20 select-none font-sans shadow-[2px_0_12px_rgba(38,26,102,0.03)]"
-    >
-      {/* Top Group */}
-      <div className="flex flex-col gap-4 w-full">
-        {/* Brand Logo with approved measurement lines */}
-        <div className="px-3 pt-1 pb-2 flex items-center justify-between border-b border-[var(--vt-color-neutral-100,#EFEEF5)]/60">
-          <Link
-            href="/owner/dashboard"
-            aria-label="Vantaged home"
-            className="flex items-center group"
-          >
-            <img
-              src="/brand/vantaged-measurement-logo.svg"
-              alt="Vantaged"
-              className="h-6 w-auto max-w-[130px] object-contain transition-opacity group-hover:opacity-90"
-            />
-          </Link>
+    <>
+      {/* ── Mobile Top App Bar (< md only) ── */}
+      <header
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+        className="md:hidden w-full h-14 bg-white/95 backdrop-blur-md border-b border-[var(--vt-color-border-default,#E2E0EC)] px-3 flex items-center justify-between shrink-0 z-30 select-none shadow-2xs"
+      >
+        {/* Left: Back to all projects link */}
+        <Link
+          href="/owner/projects"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] transition-colors cursor-pointer"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span className="hidden xs:inline">Projects</span>
+        </Link>
 
-          <Link
-            href="/owner/projects"
-            title="Leave project and go back to all buildings"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] transition-colors cursor-pointer"
-          >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12" />
-              <polyline points="12 19 5 12 12 5" />
-            </svg>
-            <span>Back</span>
-          </Link>
-        </div>
-
-        {/* Current Project Card (Simple, clean, unobtrusive) */}
-        <div className="mx-1 p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
+        {/* Center: Truncated Project Title & Verified Progress */}
+        <div className="flex flex-col items-center max-w-[50%] min-w-0">
+          <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] truncate w-full text-center">
+            {project.title}
+          </span>
+          <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-600,#D84C0B)]">
               {project.category}
             </span>
-            <span className="text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-              {project.verifiedProgress}% done
+            <span className="text-[10px] font-bold text-[var(--vt-color-neutral-500,#7C7894)]">
+              · {project.verifiedProgress}% done
             </span>
           </div>
-
-          <h3 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-snug line-clamp-1">
-            {project.title}
-          </h3>
-
-          <div className="w-full h-1.5 rounded-full bg-[var(--vt-color-neutral-200,#E2E0EC)] overflow-hidden mt-0.5">
-            <div
-              style={{ width: `${project.verifiedProgress}%` }}
-              className="h-full bg-[var(--vt-color-orange-500,#EF5F18)] rounded-full"
-            />
-          </div>
         </div>
 
-        {/* Navigation Items */}
-        <nav className="flex flex-col gap-1 w-full px-1">
-          {navItems.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                  isActive
-                    ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] font-bold border border-[var(--vt-color-orange-200,#FDCAA9)]/70 shadow-2xs"
-                    : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-transparent"
-                }`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  {item.icon(isActive)}
-                  <span className="truncate">{item.label}</span>
-                </div>
+        {/* Right: Hamburger button to open Project Drawer */}
+        <button
+          type="button"
+          onClick={() => {
+            const drawer = document.getElementById("mobile-project-drawer");
+            if (drawer) drawer.classList.remove("hidden");
+          }}
+          className="w-9 h-9 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center cursor-pointer transition-colors active:scale-95 shadow-2xs"
+          aria-label="Open project menu"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+      </header>
 
-                {item.badge !== undefined && (
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-sans transition-colors ${
+      {/* ── Mobile Project Slide-Out Drawer (< md only) ── */}
+      <div
+        id="mobile-project-drawer"
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+        className="hidden md:hidden fixed inset-0 z-50 animate-in fade-in duration-200"
+      >
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+          onClick={() => {
+            const drawer = document.getElementById("mobile-project-drawer");
+            if (drawer) drawer.classList.add("hidden");
+          }}
+        />
+
+        {/* Drawer Panel */}
+        <div className="fixed inset-y-0 left-0 w-[82%] max-w-xs bg-white shadow-2xl flex flex-col justify-between p-4 z-10 animate-in slide-in-from-left duration-250 border-r border-[var(--vt-color-border-default,#E2E0EC)]">
+          <div className="flex flex-col gap-4">
+            {/* Header: Brand & Close */}
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--vt-color-neutral-100,#EFEEF5)]">
+              <Link href="/owner/dashboard" className="flex items-center">
+                <img
+                  src="/brand/vantaged-measurement-logo.svg"
+                  alt="Vantaged"
+                  className="h-7.5 w-auto max-w-[160px] object-contain"
+                />
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  const drawer = document.getElementById("mobile-project-drawer");
+                  if (drawer) drawer.classList.add("hidden");
+                }}
+                className="w-8 h-8 rounded-lg bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center cursor-pointer transition-colors"
+                aria-label="Close menu"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Current Project Info Card */}
+            <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-600,#D84C0B)]">
+                  {project.category}
+                </span>
+                <span className="text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                  {project.verifiedProgress}% done
+                </span>
+              </div>
+              <h3 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-snug line-clamp-2">
+                {project.title}
+              </h3>
+              <div className="w-full h-1.5 rounded-full bg-[var(--vt-color-neutral-200,#E2E0EC)] overflow-hidden mt-0.5">
+                <div
+                  style={{ width: `${project.verifiedProgress}%` }}
+                  className="h-full bg-[var(--vt-color-orange-500,#EF5F18)] rounded-full"
+                />
+              </div>
+            </div>
+
+            {/* Project Navigation Links */}
+            <nav className="flex flex-col gap-1">
+              {navItems.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      const drawer = document.getElementById("mobile-project-drawer");
+                      if (drawer) drawer.classList.add("hidden");
+                      handleNavClick(item.id);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       isActive
-                        ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white"
-                        : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
+                        ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] font-bold border border-[var(--vt-color-orange-200,#FDCAA9)]/70 shadow-2xs"
+                        : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
                     }`}
                   >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {item.icon(isActive)}
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                    {item.badge !== undefined && (
+                      <span
+                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                          isActive
+                            ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white"
+                            : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
 
-      {/* Base: Profile Card identical to SidebarNav */}
-      <div className="pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] px-1 relative">
-        {isProfileMenuOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-30"
-              onClick={() => setIsProfileMenuOpen(false)}
-            />
-            <div
-              style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-              className="absolute bottom-16 left-1 right-1 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl shadow-xl p-1.5 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150"
-            >
+            {/* Quick Link back to all projects & main dashboard */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-[var(--vt-color-neutral-100,#EFEEF5)]">
+              <Link
+                href="/owner/projects"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] transition-colors"
+              >
+                <svg className="w-3.5 h-3.5 text-[var(--vt-color-neutral-500,#7C7894)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect width="20" height="14" x="2" y="7" rx="2" />
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                </svg>
+                <span>All Projects</span>
+              </Link>
               <Link
                 href="/owner/dashboard"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] cursor-pointer text-left"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] transition-colors"
               >
-                <span>Main Dashboard</span>
+                <svg className="w-3.5 h-3.5 text-[var(--vt-color-neutral-500,#7C7894)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                <span>Owner Dashboard</span>
               </Link>
-              <Link
-                href="/owner/settings"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] cursor-pointer text-left"
-              >
-                <span>Account Settings</span>
-              </Link>
-            </div>
-          </>
-        )}
-
-        <div
-          onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-          className="p-2.5 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-white transition-all cursor-pointer flex items-center justify-between shadow-2xs"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
-              alt={fullName}
-              className="w-9 h-9 rounded-full object-cover border border-white shrink-0"
-            />
-            <div className="min-w-0">
-              <h4 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-tight truncate">
-                {fullName}
-              </h4>
-              <p className="text-[10px] font-bold text-[var(--vt-color-orange-600,#D84C0B)] uppercase tracking-wider truncate">
-                {role}
-              </p>
             </div>
           </div>
-          <svg className="w-3.5 h-3.5 text-[var(--vt-color-neutral-400,#A3A0B8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
+
+          {/* User profile snippet at base */}
+          <div className="pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <img
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
+                alt={fullName}
+                className="w-8 h-8 rounded-full object-cover border border-white shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] truncate">{fullName}</p>
+                <p className="text-[10px] text-[var(--vt-color-orange-600,#D84C0B)] font-bold uppercase">{role}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </aside>
+
+      {/* ── Desktop Left Sidebar Navigation Bar (Drive Storage reference style) ── */}
+      <aside
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+        className="hidden md:flex md:w-60 lg:w-64 h-full shrink-0 bg-white border-r border-[var(--vt-color-border-default,#E2E0EC)] flex-col justify-between py-5 px-3 z-20 select-none font-sans shadow-[2px_0_12px_rgba(38,26,102,0.03)]"
+      >
+        {/* Top Group */}
+        <div className="flex flex-col gap-4 w-full">
+          {/* Brand Logo with approved measurement lines */}
+          <div className="px-3 pt-1 pb-2 flex items-center justify-between border-b border-[var(--vt-color-neutral-100,#EFEEF5)]/60">
+            <Link
+              href="/owner/dashboard"
+              aria-label="Vantaged home"
+              className="flex items-center group"
+            >
+              <img
+                src="/brand/vantaged-measurement-logo.svg"
+                alt="Vantaged"
+                className="h-8 w-auto max-w-[165px] object-contain transition-opacity group-hover:opacity-90"
+              />
+            </Link>
+
+            <Link
+              href="/owner/projects"
+              title="Leave project and go back to all buildings"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--vt-color-neutral-100,#EFEEF5)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] transition-colors cursor-pointer"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              <span>Back</span>
+            </Link>
+          </div>
+
+          {/* Current Project Card (Simple, clean, unobtrusive) */}
+          <div className="mx-1 p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-600,#D84C0B)]">
+                {project.category}
+              </span>
+              <span className="text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                {project.verifiedProgress}% done
+              </span>
+            </div>
+
+            <h3 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-snug line-clamp-1">
+              {project.title}
+            </h3>
+
+            <div className="w-full h-1.5 rounded-full bg-[var(--vt-color-neutral-200,#E2E0EC)] overflow-hidden mt-0.5">
+              <div
+                style={{ width: `${project.verifiedProgress}%` }}
+                className="h-full bg-[var(--vt-color-orange-500,#EF5F18)] rounded-full"
+              />
+            </div>
+          </div>
+
+          {/* Navigation Items */}
+          <nav className="flex flex-col gap-1 w-full px-1">
+            {navItems.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleNavClick(item.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] font-bold border border-[var(--vt-color-orange-200,#FDCAA9)]/70 shadow-2xs"
+                      : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-transparent"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {item.icon(isActive)}
+                    <span className="truncate">{item.label}</span>
+                  </div>
+
+                  {item.badge !== undefined && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-sans transition-colors ${
+                        isActive
+                          ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white"
+                          : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Base: Profile Card identical to SidebarNav */}
+        <div className="pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] px-1 relative">
+          {isProfileMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setIsProfileMenuOpen(false)}
+              />
+              <div
+                style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+                className="absolute bottom-16 left-1 right-1 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl shadow-xl p-1.5 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150"
+              >
+                <Link
+                  href="/owner/dashboard"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] cursor-pointer text-left"
+                >
+                  <span>Main Dashboard</span>
+                </Link>
+                <Link
+                  href="/owner/settings"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] cursor-pointer text-left"
+                >
+                  <span>Account Settings</span>
+                </Link>
+              </div>
+            </>
+          )}
+
+          <div
+            onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+            className="p-2.5 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-white transition-all cursor-pointer flex items-center justify-between shadow-2xs"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
+                alt={fullName}
+                className="w-9 h-9 rounded-full object-cover border border-white shrink-0"
+              />
+              <div className="min-w-0">
+                <h4 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-tight truncate">
+                  {fullName}
+                </h4>
+                <p className="text-[10px] font-bold text-[var(--vt-color-orange-600,#D84C0B)] uppercase tracking-wider truncate">
+                  {role}
+                </p>
+              </div>
+            </div>
+            <svg className="w-3.5 h-3.5 text-[var(--vt-color-neutral-400,#A3A0B8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Mobile Project Bottom Navigation Dock Bar (< md only) ── */}
+      <nav
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+        aria-label="Project Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[var(--vt-color-border-default,#E2E0EC)] px-2 py-1 flex items-center justify-around shadow-[0_-4px_20px_rgba(38,26,102,0.06)]"
+      >
+        <button
+          type="button"
+          onClick={() => handleNavClick("overview")}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-lg transition-colors cursor-pointer ${
+            activeTab === "overview"
+              ? "text-[var(--vt-color-orange-600,#D84C0B)] font-bold"
+              : "text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
+          }`}
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={activeTab === "overview" ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
+            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          <span className="text-[10px] tracking-tight">Overview</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleNavClick("stages")}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-lg transition-colors cursor-pointer relative ${
+            activeTab === "stages"
+              ? "text-[var(--vt-color-orange-600,#D84C0B)] font-bold"
+              : "text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
+          }`}
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={activeTab === "stages" ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
+            <rect width="20" height="14" x="2" y="7" rx="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+          </svg>
+          <span className="text-[10px] tracking-tight">Stages</span>
+          {stagesBadge && (
+            <span className="absolute top-1 right-2.5 w-1.5 h-1.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)]" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleNavClick("transactions")}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-lg transition-colors cursor-pointer ${
+            activeTab === "transactions"
+              ? "text-[var(--vt-color-orange-600,#D84C0B)] font-bold"
+              : "text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
+          }`}
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={activeTab === "transactions" ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
+            <rect width="20" height="14" x="2" y="5" rx="2" />
+            <line x1="2" x2="22" y1="10" y2="10" />
+          </svg>
+          <span className="text-[10px] tracking-tight">Payments</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleNavClick("change-requests")}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-lg transition-colors cursor-pointer relative ${
+            activeTab === "change-requests"
+              ? "text-[var(--vt-color-orange-600,#D84C0B)] font-bold"
+              : "text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
+          }`}
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={activeTab === "change-requests" ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          <span className="text-[10px] tracking-tight">Extra Work</span>
+          {crBadge !== undefined && (
+            <span className="absolute top-1 right-2.5 w-1.5 h-1.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)]" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            const drawer = document.getElementById("mobile-project-drawer");
+            if (drawer) drawer.classList.remove("hidden");
+          }}
+          className="flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-lg text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors cursor-pointer"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="18" x2="20" y2="18" />
+          </svg>
+          <span className="text-[10px] tracking-tight">More</span>
+        </button>
+      </nav>
+    </>
   );
 }

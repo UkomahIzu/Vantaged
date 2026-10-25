@@ -109,6 +109,63 @@ export interface ProjectTransactionTranche {
   notes?: string;
 }
 
+export type DisputeEscalationTier =
+  | "Tier 1: Direct Contractor Rectification"
+  | "Tier 2: Independent QS & Structural Inspection"
+  | "Tier 3: Formal Vantaged Escrow Arbitration";
+
+export interface DisputeTimelineEvent {
+  id: string;
+  timestamp: string;
+  author: string;
+  role: "Owner" | "Contractor" | "Client Representative" | "Vantaged Arbitrator";
+  tier: DisputeEscalationTier;
+  action: string;
+  notes?: string;
+  attachmentName?: string;
+}
+
+export interface DisputeSettlementTerms {
+  settlementType: "Full Rectification & Release" | "Partial Release with Holdback" | "Full Tranche Refund to Owner";
+  agreedRefundAmount?: number;
+  agreedPayoutAmount?: number;
+  rectificationDeadline?: string;
+  arbitrationVerdictNote?: string;
+  settledDate?: string;
+  delayFineDeducted?: number;
+  ownerDelayCompensation?: number; // 80% to owner
+  platformDelayFee?: number; // 20% to platform
+  delayFineWaived?: boolean;
+  backchargeDeducted?: number; // Third-party replacement cost
+}
+
+export interface BackchargeOrder {
+  id: string;
+  createdAt: string;
+  source: "Off-Platform Artisan" | "Vantaged Verified Specialist";
+  artisanName: string;
+  artisanContact: string;
+  trade: string; // e.g., "Certified MEP & Electrical Specialist"
+  scopeOfWork: string;
+  invoiceAmount: number;
+  status: "Quotation Approved - Funds Reserved" | "Work in Progress" | "Completed & Verified";
+  invoiceRef?: string;
+  viewLinkToken?: string;
+  completedAt?: string;
+  notes?: string;
+}
+
+export interface ProposedCurePlan {
+  methodStatement: string;
+  proposedCompletionDate: string;
+  proposedDurationDays: number;
+  severityMaxAllowedDays: number;
+  status: "Awaiting Owner Approval" | "Accepted" | "Rejected" | "Pending Builder Submission";
+  builderNote?: string;
+  ownerCounterDate?: string;
+  acceptedAt?: string;
+}
+
 export interface ProjectDisputeItem {
   id: string;
   disputeCode: string;
@@ -116,13 +173,48 @@ export interface ProjectDisputeItem {
   category: "Quality of Work" | "Payment Issue" | "Change in Plan";
   linkedStage: string;
   linkedTrancheAmount: number;
-  status: "Active Dispute" | "Resolved";
+  status: "Active Dispute" | "Under Independent Inspection" | "In Formal Arbitration" | "Resolved";
+  escalationTier: DisputeEscalationTier;
   openedDate: string;
   daysRemaining: number;
+  overdueDays?: number;
+  dailyDelayFineRate?: number; // standard liquidated damages rate in Naira per day
+  delayFineAccrued?: number;
+  isDelayFineWaived?: boolean;
+  backchargeOrder?: BackchargeOrder;
   raisedBy: string;
   whatHappened: string;
   builderReply: string;
-  howItWasFixed: string;
+  howItWasFixed?: string;
+  escrowQuarantineAmount?: number;
+  cureNoticeDeadline?: string;
+  inspectorName?: string;
+  inspectionReportSummary?: string;
+  defectSeverity?: "Minor Snag" | "Moderate Defect" | "Critical Structural Risk";
+  cureStatus?: "Awaiting Builder Response" | "Cure Plan Pending Approval" | "Cure in Progress" | "Cure Complete - Ready for Review" | "Cure Defaulted";
+  responseWindowHoursRemaining?: number;
+  proposedCurePlan?: ProposedCurePlan;
+  timelineEvents?: DisputeTimelineEvent[];
+  settlement?: DisputeSettlementTerms;
+  isDlpClaim?: boolean; // Post-handover Defects Liability Period warranty snag
+  retentionClaimAmount?: number; // Estimated cost backed by 5% retention escrow fund
+  dlpWarrantyMonth?: number; // Month within the 6 or 12 month DLP window
+}
+
+export interface RetentionDlpConfig {
+  retentionRatePercent: number; // e.g. 5% standard retention holdback
+  totalRetentionAmount: number; // e.g. ₦12,250,000 (5% of contract value)
+  dlpDurationMonths: 6 | 12; // 6 or 12 months (negotiable)
+  dlpStatus: "Pre-Handover Accumulating" | "Active DLP Warranty" | "Final Snag Audit" | "Completed & Released";
+  handoverDate: string; // e.g. "15 Oct 2026"
+  targetReleaseDate: string; // e.g. "15 Oct 2027"
+  daysRemaining: number; // days until retention funds can be released
+  activeSnagsCount: number; // active post-handover snags
+  totalClaimsDeducted: number; // amount deducted from retention for unrectified snags / backcharges
+  escrowBalance: number; // remaining funds in retention trust
+  escrowCustodian: string; // "Vantaged Secure Escrow Trust"
+  coveredTrades: string[];
+  termsSummary: string;
 }
 
 export interface ProjectChangeRequestItem {
@@ -134,9 +226,15 @@ export interface ProjectChangeRequestItem {
   date: string;
   costImpact: number; // added cost
   timeExtensionDays: number;
-  status: "Waiting for Your Approval" | "Approved" | "Declined";
+  status: "Waiting for Your Approval" | "Approved" | "Declined" | "Awaiting Contractor Assessment";
   reason: string;
   breakdown: { item: string; cost: number }[];
+  affectedStage?: string;
+  declineReason?: string;
+  approvedDate?: string;
+  declinedDate?: string;
+  contractorAssessmentNote?: string;
+  paymentFundingMethod?: string;
 }
 
 export interface ProjectDetailData {
@@ -184,6 +282,7 @@ export interface ProjectDetailData {
   transactions: ProjectTransactionTranche[];
   disputes: ProjectDisputeItem[];
   changeRequests: ProjectChangeRequestItem[];
+  retentionDlp?: RetentionDlpConfig;
 }
 
 export const PROJECT_DETAILS_MAP: Record<string, ProjectDetailData> = {
@@ -713,54 +812,342 @@ export const PROJECT_DETAILS_MAP: Record<string, ProjectDetailData> = {
     disputes: [
       {
         id: "dsp-101",
-        disputeCode: "ISSUE-01",
-        title: "Rough concrete surface on ground floor Column C4",
+        disputeCode: "DISP-2026-001",
+        title: "Honeycomb voiding and exposed rebar on First Floor Column C4",
         category: "Quality of Work",
-        linkedStage: "Stage 3: Ground Floor Walls",
-        linkedTrancheAmount: 18500000,
-        status: "Resolved",
-        openedDate: "14 Apr 2026",
+        linkedStage: "Stage 3: First Floor Slab & Columns",
+        linkedTrancheAmount: 18450000,
+        escrowQuarantineAmount: 18450000,
+        status: "Active Dispute",
+        escalationTier: "Tier 1: Direct Contractor Rectification",
+        openedDate: "Yesterday, 09:30",
+        daysRemaining: 2,
+        cureNoticeDeadline: "Tomorrow, 17:00",
+        raisedBy: "Dr. James Arinze (Owner)",
+        defectSeverity: "Moderate Defect",
+        cureStatus: "Cure Plan Pending Approval",
+        responseWindowHoursRemaining: 42,
+        dailyDelayFineRate: 35000,
+        overdueDays: 0,
+        delayFineAccrued: 0,
+        isDelayFineWaived: false,
+        proposedCurePlan: {
+          methodStatement: "Mechanical chipping of unsound concrete, steel anti-corrosion primer application, and pneumatic placement of Sika structural polymer repair mortar.",
+          proposedCompletionDate: "3 Nov 2026",
+          proposedDurationDays: 7,
+          severityMaxAllowedDays: 14,
+          status: "Awaiting Owner Approval",
+          builderNote: "Mortar requires 5 days curing prior to load-bearing checks. Requesting 7 calendar days total to ensure structural compliance.",
+        },
+        whatHappened: "During site walkthrough, formwork stripping revealed extensive concrete honeycombing and exposed 16mm vertical rebar on column C4 near the perimeter staircase. Concreting vibration was clearly deficient during pour.",
+        builderReply: "Site supervisor acknowledges honeycombing due to rebar congestion around the beam-column junction. We have dispatched our structural repair team with polymer-modified repair mortar and bonding agent.",
+        howItWasFixed: "Cure Notice active. Milestone payout of ₦18,450,000 frozen pending owner and engineer approval.",
+        timelineEvents: [
+          {
+            id: "tl-1",
+            timestamp: "Yesterday, 09:30",
+            author: "Dr. James Arinze",
+            role: "Owner",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: "Issue Opened & 3 Photos Uploaded",
+            notes: "Exposed rebar on column C4 inspected during site visit.",
+          },
+          {
+            id: "tl-2",
+            timestamp: "Yesterday, 10:15",
+            author: "Vantaged Automated Escrow Guard",
+            role: "Vantaged Arbitrator",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: "Milestone Payout Frozen",
+            notes: "Tranche 3 funds (₦18,450,000) placed under disbursement freeze. Contractor payout blocked.",
+          },
+          {
+            id: "tl-3",
+            timestamp: "Today, 11:20",
+            author: "Engr. Chidi Okafor (PrimeBuild)",
+            role: "Contractor",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: "Rectification Work Plan Submitted",
+            notes: "Polymer repair mortar to be applied following high-pressure chipping and rust-inhibitor application.",
+          },
+        ],
+      },
+      {
+        id: "dsp-102",
+        disputeCode: "DISP-2026-002",
+        title: "Substandard electrical conduit piping contrary to approved MEP drawings",
+        category: "Change in Plan",
+        linkedStage: "Stage 4: Roof Truss & Covering",
+        linkedTrancheAmount: 14760000,
+        escrowQuarantineAmount: 14760000,
+        status: "Under Independent Inspection",
+        escalationTier: "Tier 2: Independent QS & Structural Inspection",
+        openedDate: "3 days ago",
         daysRemaining: 0,
-        raisedBy: "Engr. Emeka Okonkwo",
-        whatHappened: "Your site rep noticed small holes and rough concrete on Column C4 near the stairs.",
-        builderReply: "Builder agreed to chip away the weak concrete and fill it with high-strength structural grout.",
-        howItWasFixed: "Work was fixed properly at no extra charge. Site rep re-checked and approved it.",
+        overdueDays: 2,
+        dailyDelayFineRate: 35000,
+        delayFineAccrued: 70000,
+        isDelayFineWaived: false,
+        raisedBy: "Engr. Emeka Okonkwo (Client Rep)",
+        defectSeverity: "Critical Structural Risk",
+        cureStatus: "Cure Defaulted",
+        responseWindowHoursRemaining: 0,
+        inspectorName: "Engr. Emeka Okonkwo, MNSE, COREN",
+        inspectionReportSummary: "Certified on-site destructive test confirmed 35% of installed conduits failed fire-retardancy rating BS 4607. Immediate replacement required before plastering.",
+        backchargeOrder: {
+          id: "bc-2026-001",
+          createdAt: "Yesterday, 16:30",
+          source: "Off-Platform Artisan",
+          artisanName: "ArcLine Electrical Services (Engr. Tunde Bakare)",
+          artisanContact: "+234 803 555 4912",
+          trade: "Certified MEP & Conduit Specialist",
+          scopeOfWork: "Complete strip-out of 140m uncertified PVC conduits and replacement with Schneider heavy-gauge BS 4607 conduits before roof plastering.",
+          invoiceAmount: 1450000,
+          status: "Work in Progress",
+          invoiceRef: "INV-ARCLINE-8821",
+          viewLinkToken: "vantaged.ng/inspect/token-8821",
+          notes: "Dispatched under Owner-Controlled Backcharge protocol. Deducted directly from Stage 4 milestone funds.",
+        },
+        whatHappened: "Subcontractor delivered unbranded thin-walled PVC electrical conduits contrary to the Schneider/Clipsal specification in approved architectural MEP documents.",
+        builderReply: "Supplier delivered substitute conduits due to seaport clearing backlog; we offered a ₦1,200,000 cost rebate if owner accepts as-is.",
+        howItWasFixed: "Independent inspection completed by Engr. Emeka Okonkwo. Builder rebate rejected; full replacement mandated under Tier 2 inspection protocol.",
+        timelineEvents: [
+          {
+            id: "tl-201",
+            timestamp: "3 days ago, 14:00",
+            author: "Engr. Emeka Okonkwo",
+            role: "Client Representative",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: "Defect Identified on Site",
+            notes: "Conduits found to be non-certified brittle PVC.",
+          },
+          {
+            id: "tl-202",
+            timestamp: "2 days ago, 16:45",
+            author: "Dr. James Arinze",
+            role: "Owner",
+            tier: "Tier 2: Independent QS & Structural Inspection",
+            action: "Escalated to Independent Inspection",
+            notes: "Contractor rebate rejected. Certified structural inspection requested.",
+          },
+          {
+            id: "tl-203",
+            timestamp: "Yesterday, 15:30",
+            author: "Engr. Emeka Okonkwo",
+            role: "Client Representative",
+            tier: "Tier 2: Independent QS & Structural Inspection",
+            action: "Official Inspection Report Filed",
+            notes: "Failure of BS 4607 fire test documented. Replacement order issued.",
+          },
+          {
+            id: "tl-204",
+            timestamp: "Yesterday, 16:30",
+            author: "Dr. James Arinze",
+            role: "Owner",
+            tier: "Tier 2: Independent QS & Structural Inspection",
+            action: "Third-Party Backcharge Order Issued: ₦1,450,000",
+            notes: "ArcLine Electrical Services engaged to replace sub-standard conduits. ₦1,450,000 deducted directly from PrimeBuild Stage 4 frozen milestone payout.",
+          },
+        ],
+      },
+      {
+        id: "dsp-103",
+        disputeCode: "DISP-2026-003",
+        title: "Foundation trench waterlogged before blinding concrete cast",
+        category: "Quality of Work",
+        linkedStage: "Stage 2: Ground Floor Foundation & Pool",
+        linkedTrancheAmount: 22140000,
+        escrowQuarantineAmount: 0,
+        status: "Resolved",
+        escalationTier: "Tier 1: Direct Contractor Rectification",
+        openedDate: "12 May 2026",
+        daysRemaining: 0,
+        overdueDays: 0,
+        dailyDelayFineRate: 35000,
+        delayFineAccrued: 0,
+        isDelayFineWaived: false,
+        raisedBy: "Dr. James Arinze (Owner)",
+        defectSeverity: "Moderate Defect",
+        cureStatus: "Cure Complete - Ready for Review",
+        responseWindowHoursRemaining: 0,
+        whatHappened: "Flash rainstorm flooded section 4 foundation trenches. Builder attempted to pour blinding concrete over standing muddy lagoon water.",
+        builderReply: "Contractor stopped pour immediately. High-capacity dewatering pumps deployed and mud de-silted.",
+        howItWasFixed: "Contractor pumped out water, replaced sub-base with graded granite stones at zero cost, and re-inspected. Escrow hold cleared.",
+        settlement: {
+          settlementType: "Full Rectification & Release",
+          agreedPayoutAmount: 22140000,
+          agreedRefundAmount: 0,
+          delayFineDeducted: 0,
+          ownerDelayCompensation: 0,
+          platformDelayFee: 0,
+          delayFineWaived: false,
+          settledDate: "15 May 2026",
+          arbitrationVerdictNote: "Site engineer verified sub-base compaction test at 98% Proctor density. Full payment tranche released to builder.",
+        },
+        timelineEvents: [
+          {
+            id: "tl-301",
+            timestamp: "12 May 2026",
+            author: "Dr. James Arinze",
+            role: "Owner",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: "Stop Work Notice Issued",
+            notes: "Foundation trench flooding flagged.",
+          },
+          {
+            id: "tl-302",
+            timestamp: "14 May 2026",
+            author: "PrimeBuild Lead Team",
+            role: "Contractor",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: "Dewatering & Granite Sub-base Completed",
+            notes: "12 truckloads of graded aggregate installed.",
+          },
+          {
+            id: "tl-303",
+            timestamp: "15 May 2026",
+            author: "Engr. Emeka Okonkwo",
+            role: "Client Representative",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: "Verified & Settlement Finalized",
+            notes: "Passed soil compaction test. Issue resolved and escrow released.",
+          },
+        ],
+      },
+      {
+        id: "dsp-104",
+        disputeCode: "DLP-2026-001",
+        title: "Roof parapet flashing debonding causing moisture ingress into master bedroom ceiling",
+        category: "Quality of Work",
+        linkedStage: "Defects Liability Period (12 Months DLP)",
+        linkedTrancheAmount: 12250000,
+        escrowQuarantineAmount: 0,
+        status: "Active Dispute",
+        escalationTier: "Tier 1: Direct Contractor Rectification",
+        openedDate: "Yesterday, 14:15",
+        daysRemaining: 12,
+        overdueDays: 0,
+        dailyDelayFineRate: 25000,
+        delayFineAccrued: 0,
+        isDelayFineWaived: false,
+        raisedBy: "Dr. James Arinze (Owner)",
+        defectSeverity: "Moderate Defect",
+        cureStatus: "Cure in Progress",
+        responseWindowHoursRemaining: 54,
+        isDlpClaim: true,
+        retentionClaimAmount: 850000,
+        dlpWarrantyMonth: 1,
+        proposedCurePlan: {
+          methodStatement: "Torch-on re-application of 4mm SBS elastomeric bitumen membrane along 22m perimeter parapet flashing, water-ponding test for 48 hours, and replacement of affected POP ceiling boards.",
+          proposedCompletionDate: "28 Oct 2026",
+          proposedDurationDays: 5,
+          severityMaxAllowedDays: 14,
+          status: "Accepted",
+          builderNote: "PrimeBuild specialist waterproofing crew mobilized under contractual DLP obligations.",
+        },
+        whatHappened: "Following heavy seasonal rain, water ingress was observed pooling along the master bedroom ceiling cornices. External inspection revealed debonding along the parapet torch-on waterproofing membrane.",
+        builderReply: "PrimeBuild DLP Emergency Team acknowledges notice. Waterproofing subcontractor will re-prime and lay double-layer SBS torch-on membrane this Saturday, then repaint internal ceiling boards.",
+        howItWasFixed: "Backed by ₦12,250,000 Vantaged 5% Retention Escrow Trust. If contractor fails to finish within 14 days, owner can backcharge a third-party waterproofing specialist directly from the retention fund.",
+        timelineEvents: [
+          {
+            id: "tl-401",
+            timestamp: "Yesterday, 14:15",
+            author: "Dr. James Arinze",
+            role: "Owner",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: "Post-Handover DLP Snag Logged",
+            notes: "Parapet wall moisture ingress logged with photos.",
+          },
+          {
+            id: "tl-402",
+            timestamp: "Yesterday, 16:00",
+            author: "PrimeBuild Lead Team",
+            role: "Contractor",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: "DLP Rectification Crew Mobilized",
+            notes: "Repair crew scheduled for Saturday re-torch and sealing.",
+          },
+        ],
       },
     ],
     changeRequests: [
       {
         id: "cr-1",
-        requestCode: "CHANGE-01",
-        title: "Add waterproof mix to swimming pool and decking",
+        requestCode: "VO-2026-001",
+        title: "Add waterproof crystalline additive to swimming pool and decking slab",
         requestedBy: "Owner",
         requesterName: "Dr. James Arinze (Owner)",
         date: "12 May 2026",
         costImpact: 4500000,
         timeExtensionDays: 4,
         status: "Approved",
-        reason: "Requested extra waterproofing seal to protect the pool and decking from moisture leaks.",
+        affectedStage: "Stage 2: Ground Floor Foundation & Pool",
+        approvedDate: "14 May 2026",
+        paymentFundingMethod: "Escrow Reserve Deposit",
+        reason: "Specialized crystalline waterproofing integral admixture specified to resist hydrostatic ground water seepage along Lekki lagoon water table.",
         breakdown: [
-          { item: "Special waterproof seal bags (40 bags)", cost: 2800000 },
-          { item: "Labor and application", cost: 1700000 },
+          { item: "Penetron Admix crystalline waterproofing bags (40 units)", cost: 2800000 },
+          { item: "Specialist application, slump monitoring & joint waterstops", cost: 1700000 },
         ],
       },
       {
         id: "cr-2",
-        requestCode: "CHANGE-02",
-        title: "Raise fence wall by 2 blocks for flood protection",
+        requestCode: "VO-2026-002",
+        title: "Raise perimeter boundary retaining wall by 3 courses with heavy weep holes",
         requestedBy: "Contractor",
-        requesterName: "Engr. Chidi Okafor",
+        requesterName: "Engr. Chidi Okafor (Lead Builder)",
         date: "04 Oct 2026",
         costImpact: 2800000,
         timeExtensionDays: 3,
         status: "Waiting for Your Approval",
-        reason: "Rainwater from the road might spill into the yard during heavy rains. Adding 2 lines of blocks will keep the compound dry.",
+        affectedStage: "Stage 3: First Floor Slab & Columns",
+        reason: "Rainwater from street runoff during heavy downpours risks pooling against compound boundary; raising retaining perimeter prevents yard flooding.",
+        contractorAssessmentNote: "Site surveyor confirmed street runoff level during flash storm. Adding 3 courses of vibrated solid 9-inch blocks with geotextile weep holes will prevent surface water flooding into parking deck.",
         breakdown: [
-          { item: "Blocks, cement and iron rods", cost: 1600000 },
-          { item: "Mason labor and plastering", cost: 1200000 },
+          { item: "Vibrated 9-inch solid sandcrete blocks & high-grade Portland cement", cost: 1600000 },
+          { item: "Steel rebar dowels, coping mortar & mason specialist labor", cost: 1200000 },
+        ],
+      },
+      {
+        id: "cr-3",
+        requestCode: "VO-2026-003",
+        title: "Upgrade master penthouse ensuite to Spanish matte porcelain tiling",
+        requestedBy: "Owner",
+        requesterName: "Dr. James Arinze (Owner)",
+        date: "Yesterday, 14:15",
+        costImpact: 3600000,
+        timeExtensionDays: 2,
+        status: "Awaiting Contractor Assessment",
+        affectedStage: "Stage 5: Interior Finishes & Tiling",
+        reason: "Owner requested replacing standard glazed ceramic tile finish with 1200x600mm anti-slip Spanish matte porcelain and concealed brass drainage strips.",
+        breakdown: [
+          { item: "Estimated imported porcelain tile crates & flexible adhesive", cost: 2400000 },
+          { item: "Precision waterjet cutting & specialized tile setter labor", cost: 1200000 },
         ],
       },
     ],
+    retentionDlp: {
+      retentionRatePercent: 5,
+      totalRetentionAmount: 12250000,
+      dlpDurationMonths: 12,
+      dlpStatus: "Active DLP Warranty",
+      handoverDate: "15 Oct 2026",
+      targetReleaseDate: "15 Oct 2027",
+      daysRemaining: 355,
+      activeSnagsCount: 1,
+      totalClaimsDeducted: 0,
+      escrowBalance: 12250000,
+      escrowCustodian: "Vantaged Secure Escrow Trust",
+      coveredTrades: [
+        "Roof Parapet & Terrace Waterproofing",
+        "Structural Settlement & Plaster Cracks",
+        "MEP, Conduits & Main Distribution Board",
+        "Plumbing Pipework, Drainage & Water Pressure",
+        "Window & Sliding Door Weather Seals",
+        "Solid Timber Joinery & Cabinetry",
+      ],
+      termsSummary: "5% retention (₦12,250,000) held in segregated Vantaged escrow trust for 12 months following practical handover. Contractor is contractually obliged to remediate latent defects within 14 days of notice, failing which owner can authorize backcharge drawdowns from this retention pool.",
+    },
   },
 };
 
@@ -1017,6 +1404,7 @@ export function buildCompletedProjectDetail(
         linkedStage: "Final Handover",
         linkedTrancheAmount: 0,
         status: "Resolved",
+        escalationTier: "Tier 1: Direct Contractor Rectification",
         openedDate: "Before handover",
         daysRemaining: 0,
         raisedBy: "Owner Representative",
@@ -1030,6 +1418,12 @@ export function buildCompletedProjectDetail(
 }
 
 export function getProjectDetail(id: string): ProjectDetailData {
+  // If it's a proposed plan ID (e.g. prop-lekki-plan), map to the base project
+  if (id.startsWith("prop-")) {
+    const cleanId = id.replace("prop-", "proj-").replace("-plan", "");
+    return getProjectDetail(cleanId);
+  }
+
   // 1. If it's a known completed project or id starts with "hist-"
   if (COMPLETED_PROJECTS_META[id] || id.startsWith("hist-")) {
     return buildCompletedProjectDetail(id, COMPLETED_PROJECTS_META[id]);

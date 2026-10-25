@@ -191,7 +191,7 @@ export function OwnerProjectsPage() {
       <main
         ref={scrollRef}
         style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-        className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-4 sm:gap-5"
+        className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-4 sm:gap-5 pb-24 md:pb-5"
       >
         {/* Top Header Navigation Bar with Left Slot Back Arrow (Aligned with Search bar; hidden on dashboard) */}
         <HeaderBar
@@ -233,9 +233,9 @@ export function OwnerProjectsPage() {
           </div>
 
           {/* Right Group: 3-Way Switch (left of filter) + Add Building + Filter Button */}
-          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto flex-wrap sm:flex-nowrap w-full sm:w-auto">
             {/* 3-Way Segmented Switch: 'Active projects' | 'Plan & contract' | 'Contract history' */}
-            <div className="h-9 p-0.5 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-lg flex items-center shadow-2xs shrink-0 font-sans">
+            <div className="h-9 p-0.5 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-lg flex items-center shadow-2xs shrink-0 font-sans max-w-full overflow-x-auto">
               <button
                 type="button"
                 onClick={() => handleViewModeChange("active")}

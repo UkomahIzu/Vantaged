@@ -787,7 +787,7 @@ export function OwnerClientRepsPage() {
       <main
         ref={scrollRef}
         style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-        className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-4 sm:gap-5"
+        className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-4 sm:gap-5 pb-24 md:pb-5"
       >
         {/* Top Header Navigation Bar */}
         <HeaderBar

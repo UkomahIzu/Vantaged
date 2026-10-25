@@ -44,7 +44,7 @@ export function OwnerDashboardHomePage() {
       <SidebarNav />
 
       {/* ── Main Dashboard Workspace (Takes remaining 100% width and height, internal scroll safe) ── */}
-      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5 sm:gap-6">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5 sm:gap-6 pb-24 md:pb-6">
         {/* Top Header Navigation Bar */}
         <HeaderBar />
 

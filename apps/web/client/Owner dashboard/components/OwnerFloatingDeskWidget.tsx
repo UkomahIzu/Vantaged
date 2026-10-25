@@ -221,12 +221,12 @@ export function OwnerFloatingDeskWidget() {
   return (
     <div
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-      className="fixed bottom-5 right-5 z-50 flex flex-col items-end select-none"
+      className="fixed bottom-16 sm:bottom-5 right-3 sm:right-5 z-40 flex flex-col items-end select-none"
     >
       {/* ── EXPANDED WIDGET CARD ── */}
       {isOpen && (
         <div
-          className="w-[370px] sm:w-[410px] h-[550px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-100px)] mb-3 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-3xl shadow-[0_20px_60px_rgba(38,26,102,0.22)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
+          className="w-[370px] sm:w-[410px] h-[520px] max-w-[calc(100vw-24px)] max-h-[calc(100vh-140px)] sm:max-h-[calc(100vh-100px)] mb-2.5 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-3xl shadow-[0_20px_60px_rgba(38,26,102,0.22)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
           {/* Top Header */}
           <div className="bg-[var(--vt-color-indigo-900,#261A66)] text-white p-4 shrink-0 flex items-center justify-between">

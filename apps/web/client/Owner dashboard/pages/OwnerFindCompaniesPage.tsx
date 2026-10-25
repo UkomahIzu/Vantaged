@@ -1,11 +1,19 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { VantagedSelect } from "../components/VantagedSelect";
+import {
+  ProjectBrief,
+  getProjectBriefs,
+  saveProjectBrief,
+  STORAGE_KEY_PLANS,
+} from "./projects dashboard/projectStore";
+import { ProjectItem } from "../components/ProjectFolderCard";
 
 export interface CompanyItem {
   id: string;
@@ -38,19 +46,6 @@ export interface CompanyItem {
     escrowAmount: string;
     year: string;
   }[];
-}
-
-export interface ProjectBrief {
-  id: string;
-  companyId: string;
-  companyName: string;
-  title: string;
-  category: string;
-  estimatedBudget: string;
-  location: string;
-  status: "Under Contractor Review" | "Drafting Milestone Plan" | "Proposal Ready";
-  dateSubmitted: string;
-  description: string;
 }
 
 const INITIAL_COMPANIES: CompanyItem[] = [
@@ -289,49 +284,11 @@ const INITIAL_COMPANIES: CompanyItem[] = [
   },
 ];
 
-const INITIAL_BRIEFS: ProjectBrief[] = [
-  {
-    id: "brf-1",
-    companyId: "comp-julius",
-    companyName: "Julius B. Consortium",
-    title: "5-Bedroom Luxury Smart Duplex in Guzape",
-    category: "Residential",
-    estimatedBudget: "₦180.0M - ₦220.0M",
-    location: "Guzape District, Abuja",
-    status: "Drafting Milestone Plan",
-    dateSubmitted: "Oct 08, 2026",
-    description: "Full architectural execution including cantilever suspended slab, concealed rooftop chiller ducting, and private swimming pool foundation.",
-  },
-  {
-    id: "brf-2",
-    companyId: "comp-crane",
-    companyName: "Crane & Stone Structural",
-    title: "Marine Piling for Private Boat Jetty",
-    category: "Marine & Waterfront",
-    estimatedBudget: "₦65.0M - ₦80.0M",
-    location: "Lekki Phase 1 Waterfront, Lagos",
-    status: "Under Contractor Review",
-    dateSubmitted: "Oct 10, 2026",
-    description: "16 marine grade concrete driven piles into bedrock refusal depth with corrosion-resistant sheet reinforcement.",
-  },
-  {
-    id: "brf-3",
-    companyId: "comp-primeform",
-    companyName: "PrimeForm Architects",
-    title: "Bespoke Modern Villa Architectural Drawings",
-    category: "Architecture & Design",
-    estimatedBudget: "₦35.0M - ₦45.0M",
-    location: "Maitama Ext., Abuja",
-    status: "Proposal Ready",
-    dateSubmitted: "Oct 05, 2026",
-    description: "Complete 3D BIM structural, MEP coordination, and LASPPPA/FCDA statutory approval documentation.",
-  },
-];
-
 export function OwnerFindCompaniesPage() {
+  const router = useRouter();
   const scrollRef = useScrollRestoration<HTMLElement>("owner_find_companies");
   const [companies, setCompanies] = useState<CompanyItem[]>(INITIAL_COMPANIES);
-  const [projectBriefs, setProjectBriefs] = useState<ProjectBrief[]>(INITIAL_BRIEFS);
+  const [projectBriefs, setProjectBriefs] = useState<ProjectBrief[]>([]);
   const [activeTab, setActiveTab] = useState<"directory" | "my-briefs">("directory");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -339,6 +296,20 @@ export function OwnerFindCompaniesPage() {
   const [onlyVerified, setOnlyVerified] = useState<boolean>(false);
   const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
+
+  // Load and listen to project briefs from shared store
+  useEffect(() => {
+    setProjectBriefs(getProjectBriefs());
+    const handleUpdate = () => {
+      setProjectBriefs(getProjectBriefs());
+    };
+    window.addEventListener("vantaged_storage_update", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
 
   // Selected company for detailed dossier modal
   const [selectedCompany, setSelectedCompany] = useState<CompanyItem | null>(null);
@@ -407,6 +378,7 @@ export function OwnerFindCompaniesPage() {
     e.preventDefault();
     if (!briefTargetCompany || !briefForm.title.trim()) return;
 
+    const newPlanId = `prop-${Date.now()}`;
     const newBrief: ProjectBrief = {
       id: `brf-${Date.now()}`,
       companyId: briefTargetCompany.id,
@@ -418,9 +390,11 @@ export function OwnerFindCompaniesPage() {
       status: "Under Contractor Review",
       dateSubmitted: "Just now",
       description: briefForm.description || "Project specifications submitted for milestone scoping.",
+      planId: newPlanId,
     };
 
-    setProjectBriefs((prev) => [newBrief, ...prev]);
+    saveProjectBrief(newBrief);
+    setProjectBriefs(getProjectBriefs());
     setIsBriefModalOpen(false);
     setActiveTab("my-briefs");
   };
@@ -468,7 +442,7 @@ export function OwnerFindCompaniesPage() {
       <main
         ref={scrollRef}
         style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-        className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-4 sm:gap-5"
+        className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-4 sm:gap-5 pb-24 md:pb-5"
       >
         {/* Top Header Navigation Bar (Identical to Home and Projects Page) */}
         <HeaderBar
@@ -965,8 +939,12 @@ export function OwnerFindCompaniesPage() {
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <span
                             className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold ${
-                              brief.status === "Proposal Ready"
+                              brief.status === "Plan Accepted & Active"
+                                ? "bg-[var(--vt-color-green-100,#D5F0DC)] text-[var(--vt-color-green-800,#17512F)] border border-[var(--vt-color-green-300,#81C792)]"
+                                : brief.status === "Proposal Ready"
                                 ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)]"
+                                : brief.status === "Revisions Requested"
+                                ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-800,#8F320D)] border border-[var(--vt-color-orange-200,#FDCAA9)]"
                                 : brief.status === "Drafting Milestone Plan"
                                 ? "bg-[var(--vt-color-indigo-50,#F4F3FC)] text-[var(--vt-color-indigo-900,#261A66)] border border-[var(--vt-color-indigo-100,#EAE8F9)]"
                                 : "bg-amber-50 text-amber-800 border border-amber-200"
@@ -974,8 +952,10 @@ export function OwnerFindCompaniesPage() {
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                                brief.status === "Proposal Ready"
+                                brief.status === "Plan Accepted & Active" || brief.status === "Proposal Ready"
                                   ? "bg-[var(--vt-color-green-500,#2E9E57)]"
+                                  : brief.status === "Revisions Requested"
+                                  ? "bg-[var(--vt-color-orange-500,#EF5F18)]"
                                   : brief.status === "Drafting Milestone Plan"
                                   ? "bg-[var(--vt-color-indigo-600,#5547B0)]"
                                   : "bg-amber-500"
@@ -987,16 +967,57 @@ export function OwnerFindCompaniesPage() {
 
                         {/* Action */}
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewingBrief(brief);
-                            }}
-                            className="h-8 px-3 rounded-md bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] text-xs font-bold transition-all cursor-pointer shadow-2xs font-sans"
-                          >
-                            View Brief
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingBrief(brief);
+                              }}
+                              className="h-8 px-2.5 rounded-md bg-white hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] text-xs font-bold transition-all cursor-pointer shadow-2xs font-sans"
+                            >
+                              Brief Details
+                            </button>
+
+                            {brief.status === "Proposal Ready" && brief.planId ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/owner/projects/${brief.planId}/plan`);
+                                }}
+                                className="h-8 px-3 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 font-sans"
+                              >
+                                <span>Review Plan & Contract</span>
+                                <span>→</span>
+                              </button>
+                            ) : brief.status === "Plan Accepted & Active" ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const targetProjId = brief.planId?.replace("prop-", "proj-").replace("-plan", "") || "proj-lekki";
+                                  router.push(`/owner/projects/${targetProjId}`);
+                                }}
+                                className="h-8 px-3 rounded-md bg-[var(--vt-color-green-600,#248246)] hover:bg-[var(--vt-color-green-700,#1F6B3E)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 font-sans"
+                              >
+                                <span>Open Workspace</span>
+                                <span>→</span>
+                              </button>
+                            ) : brief.status === "Revisions Requested" && brief.planId ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/owner/projects/${brief.planId}/plan`);
+                                }}
+                                className="h-8 px-3 rounded-md bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-orange-800,#8F320D)] text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 font-sans"
+                              >
+                                <span>Inspect Revisions</span>
+                                <span>→</span>
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1416,7 +1437,7 @@ export function OwnerFindCompaniesPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 bg-[var(--vt-color-neutral-50,#F7F7FA)] border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-end font-sans">
+            <div className="p-4 bg-[var(--vt-color-neutral-50,#F7F7FA)] border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-end gap-2.5 font-sans">
               <button
                 type="button"
                 onClick={() => setViewingBrief(null)}
@@ -1424,6 +1445,20 @@ export function OwnerFindCompaniesPage() {
               >
                 Close
               </button>
+              {viewingBrief.status === "Proposal Ready" && viewingBrief.planId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pid = viewingBrief.planId;
+                    setViewingBrief(null);
+                    router.push(`/owner/projects/${pid}/plan`);
+                  }}
+                  className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 font-sans"
+                >
+                  <span>Review Plan & Contract</span>
+                  <span>→</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

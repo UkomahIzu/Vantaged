@@ -1,10 +1,15 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
-import { getProjectDetail, ProjectTransactionTranche } from "./projectData";
+import {
+  getProjectDetail,
+  ProjectTransactionTranche,
+  ProjectChangeRequestItem,
+  ProjectDisputeItem,
+} from "./projectData";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import {
   IconCheck,
@@ -18,6 +23,7 @@ import {
   IconShieldCheck,
   IconArrowRight,
   IconClock,
+  IconAlertTriangle,
 } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 
@@ -45,6 +51,38 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
   const [depositAmountInput, setDepositAmountInput] = useState("25000000");
   const [depositMethod, setDepositMethod] = useState<"transfer" | "card">("transfer");
   const [depositStep, setDepositStep] = useState<"form" | "confirming" | "success">("form");
+
+  // Change Requests sync from local storage with fallback (SSR hydration-safe)
+  const [changeRequests, setChangeRequests] = useState<ProjectChangeRequestItem[]>(() => project.changeRequests || []);
+
+  // Disputes sync from local storage with fallback (SSR hydration-safe)
+  const [disputes, setDisputes] = useState<ProjectDisputeItem[]>(() => project.disputes || []);
+
+  // Cross-tab / cross-page synchronization on client mount
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const crSaved = localStorage.getItem(`vantaged_cr_${projectId}`);
+        if (crSaved) {
+          const parsed = JSON.parse(crSaved);
+          if (Array.isArray(parsed) && parsed.length > 0) setChangeRequests(parsed);
+        }
+        const dispSaved = localStorage.getItem(`vantaged_disputes_${projectId}`);
+        if (dispSaved) {
+          const parsed = JSON.parse(dispSaved);
+          if (Array.isArray(parsed) && parsed.length > 0) setDisputes(parsed);
+        }
+      } catch {}
+    };
+
+    handleSync();
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("focus", handleSync);
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("focus", handleSync);
+    };
+  }, [projectId]);
 
   const formatNaira = (val: number) => {
     if (val >= 1000000000) {
@@ -85,6 +123,88 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
     project.verifiedProgress >= 100 ||
     projectId.startsWith("hist-") ||
     (transactions.length > 0 && transactions.every((t) => t.status === "Paid to Builder"));
+
+  // 1. Next Payment Due Calculation
+  const pendingTranches = useMemo(() => {
+    return transactions
+      .filter((t) => t.status !== "Paid to Builder")
+      .sort((a, b) => a.trancheNumber - b.trancheNumber);
+  }, [transactions]);
+
+  const nextTranche = pendingTranches[0] || null;
+  const nextTrancheAmount = nextTranche ? nextTranche.amount : 0;
+  const nextStage = useMemo(() => {
+    if (!nextTranche) return null;
+    return (
+      project.stages.find(
+        (s) =>
+          s.title.toLowerCase().includes(nextTranche.stageLinked.toLowerCase()) ||
+          nextTranche.title.toLowerCase().includes(s.title.toLowerCase()) ||
+          `Stage ${s.stageNumber}`.toLowerCase() === nextTranche.stageLinked.toLowerCase()
+      ) ||
+      project.stages[3] ||
+      project.stages[0]
+    );
+  }, [nextTranche, project.stages]);
+
+  // 2. Escrow Funding Runway Calculation
+  const escrowCoveragePercent = nextTrancheAmount > 0
+    ? Math.round((totalInEscrow / nextTrancheAmount) * 100)
+    : 100;
+  const escrowSurplusOrShortfall = totalInEscrow - nextTrancheAmount;
+  const isEscrowCovered = totalInEscrow >= nextTrancheAmount;
+
+  // 3. Variations & Budget Drift Calculation
+  const approvedCRs = useMemo(() => {
+    return changeRequests.filter((cr) => cr.status === "Approved");
+  }, [changeRequests]);
+
+  const pendingCRs = useMemo(() => {
+    return changeRequests.filter(
+      (cr) =>
+        cr.status === "Waiting for Your Approval" ||
+        cr.status === "Awaiting Contractor Assessment"
+    );
+  }, [changeRequests]);
+
+  const totalApprovedVariations = useMemo(() => {
+    return approvedCRs.reduce((sum, cr) => sum + (cr.costImpact || 0), 0);
+  }, [approvedCRs]);
+
+  const totalPendingVariationsCost = useMemo(() => {
+    return pendingCRs.reduce((sum, cr) => sum + (cr.costImpact || 0), 0);
+  }, [pendingCRs]);
+
+  const adjustedContractValue = project.contractValue + totalApprovedVariations;
+  const driftPercent =
+    project.contractValue > 0
+      ? ((totalApprovedVariations / project.contractValue) * 100).toFixed(1)
+      : "0.0";
+
+  // 4. Dispute Quarantine Lock Calculation
+  const activeDisputes = useMemo(() => {
+    return disputes.filter((d) => d.status !== "Resolved");
+  }, [disputes]);
+
+  const totalQuarantinedAmount = useMemo(() => {
+    return activeDisputes.reduce((sum, d) => {
+      const amt =
+        typeof d.escrowQuarantineAmount === "number"
+          ? d.escrowQuarantineAmount
+          : d.linkedTrancheAmount || 0;
+      return sum + amt;
+    }, 0);
+  }, [activeDisputes]);
+
+  const quarantinedPercent =
+    project.contractValue > 0
+      ? ((totalQuarantinedAmount / project.contractValue) * 100).toFixed(1)
+      : "0.0";
+
+  const earliestCureDeadline = useMemo(() => {
+    const withDeadline = activeDisputes.find((d) => d.cureNoticeDeadline);
+    return withDeadline?.cureNoticeDeadline || null;
+  }, [activeDisputes]);
 
   // Filtered transactions list
   const filteredTransactions = useMemo(() => {
@@ -144,11 +264,11 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
   return (
     <div
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-      className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
+      className="flex flex-col md:flex-row h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       <ProjectSidebarNav projectId={project.id} activeTab="transactions" />
 
-      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5 pb-24 md:pb-5">
         <HeaderBar
           leftSlot={
             <ProjectBreadcrumb
@@ -356,6 +476,454 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
           <div className="flex items-center justify-between text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] pt-0.5">
             <span>Building Start: {project.startDate}</span>
             <span>Target Handover: {project.targetEndDate}</span>
+          </div>
+        </section>
+
+        {/* ── Live Money & Cash Flow Monitor (4 Spacious Actionable Cards) ── */}
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-black text-[var(--vt-color-indigo-900,#261A66)] uppercase tracking-wider">
+                  Live Money & Cash Flow Monitor
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-indigo-50,#F3F0FC)] text-[var(--vt-color-indigo-700,#382B73)] border border-[var(--vt-color-indigo-200,#D3CEEB)]">
+                  Live Updates
+                </span>
+              </div>
+              <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                Track your upcoming milestone payments, escrow readiness, extra costs, and dispute protections.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
+            {/* Card 1: Next Milestone Payment */}
+            <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col justify-between gap-4 hover:border-[var(--vt-color-neutral-300,#CBC8DA)] transition-all">
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-[var(--vt-color-indigo-50,#F3F0FC)] text-[var(--vt-color-indigo-700,#382B73)] flex items-center justify-center shrink-0">
+                      <IconClock className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-tight">
+                        Next Milestone Payment
+                      </h3>
+                      <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                        Upcoming payout scheduled for site work
+                      </p>
+                    </div>
+                  </div>
+
+                  {isCompleted || !nextTranche ? (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)] shrink-0">
+                      All Settled
+                    </span>
+                  ) : nextTranche.status === "Ready for Your Approval" ? (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] flex items-center gap-1.5 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-orange-600,#D84C0B)] animate-pulse" />
+                      <span>Ready to Approve</span>
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)] shrink-0">
+                      Scheduled
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] tracking-tight">
+                    {nextTranche ? formatNaira(nextTranche.amount) : "₦0"}
+                  </div>
+                  <div className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
+                    {nextTranche
+                      ? `Stage ${nextStage?.stageNumber || nextTranche.trancheNumber || "4"} of ${project.stages.length} • ${nextTranche.title}`
+                      : "All project milestones completed"}
+                  </div>
+                </div>
+
+                <div className="mt-3.5 bg-[var(--vt-color-neutral-50,#F7F7FA)] p-3.5 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)]/70 flex flex-col gap-2">
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Building Stage</span>
+                    <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)] truncate text-right">
+                      {nextTranche ? nextTranche.title : "All stages finished"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Release Condition</span>
+                    <span className="font-bold text-[var(--vt-color-neutral-700,#403D58)] truncate text-right">
+                      {nextTranche?.status === "Ready for Your Approval"
+                        ? "Requires engineer inspection & your signoff"
+                        : nextTranche
+                        ? nextTranche.dueDate
+                        : "Completed and paid"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Vault Status</span>
+                    <span className={`font-bold truncate text-right ${
+                      nextTranche?.status === "Ready for Your Approval"
+                        ? "text-[var(--vt-color-orange-700,#B33C08)]"
+                        : "text-[var(--vt-color-indigo-900,#261A66)]"
+                    }`}>
+                      {nextTranche?.status === "Ready for Your Approval"
+                        ? "Held in escrow • Ready for payout"
+                        : nextTranche
+                        ? "Scheduled in payment plan"
+                        : "Paid in full"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2.5 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-3 text-xs">
+                <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] font-medium truncate">
+                  Funds stay 100% in escrow until you approve.
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {nextTranche?.status === "Ready for Your Approval" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTranche(nextTranche)}
+                        className="h-7.5 px-3 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-neutral-700,#403D58)] text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Details
+                      </button>
+                      <Link
+                        href={`/owner/projects/${project.id}/stages/${nextStage?.id || "stg-4"}`}
+                        className="h-7.5 px-3.5 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer active:scale-98"
+                      >
+                        <span>Inspect & Approve</span>
+                        <IconArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </>
+                  ) : nextTranche ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTranche(nextTranche)}
+                      className="h-7.5 px-3.5 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <span>View Stage Details</span>
+                      <IconArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <span className="text-xs text-[var(--vt-color-green-700,#1F6B3E)] font-bold">
+                      100% Paid Out ✓
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Next Milestone Readiness (Distinct from top card) */}
+            <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col justify-between gap-4 hover:border-[var(--vt-color-neutral-300,#CBC8DA)] transition-all">
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] flex items-center justify-center shrink-0">
+                      <IconShieldCheck className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-tight">
+                        Next Milestone Readiness
+                      </h3>
+                      <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                        Vault readiness for upcoming contractor release
+                      </p>
+                    </div>
+                  </div>
+
+                  {isCompleted ? (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)] shrink-0">
+                      All Settled
+                    </span>
+                  ) : isEscrowCovered ? (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)] shrink-0">
+                      Fully Funded (100%)
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] shrink-0">
+                      Top-Up Required
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3">
+                  <div className={`text-xl sm:text-2xl font-black tracking-tight ${
+                    isCompleted
+                      ? "text-[var(--vt-color-indigo-900,#261A66)]"
+                      : isEscrowCovered
+                      ? "text-[var(--vt-color-green-700,#1F6B3E)]"
+                      : "text-[var(--vt-color-orange-600,#D84C0B)]"
+                  }`}>
+                    {isCompleted
+                      ? "₦0 Needed"
+                      : isEscrowCovered
+                      ? `+${formatNaira(escrowSurplusOrShortfall)} Cushion`
+                      : `-${formatNaira(Math.abs(escrowSurplusOrShortfall))} Shortfall`}
+                  </div>
+                  <div className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
+                    {isCompleted ? (
+                      "All project milestones paid in full"
+                    ) : isEscrowCovered ? (
+                      `Vault has ${formatNaira(totalInEscrow)} covering next stage with ${formatNaira(escrowSurplusOrShortfall)} cushion`
+                    ) : (
+                      `Top up ${formatNaira(Math.abs(escrowSurplusOrShortfall))} before contractor starts next stage`
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3.5 bg-[var(--vt-color-neutral-50,#F7F7FA)] p-3.5 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)]/70 flex flex-col gap-2">
+                  <div>
+                    <div className="flex items-center justify-between text-xs gap-4 mb-1">
+                      <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Stage Coverage</span>
+                      <span className={`font-bold truncate text-right ${isEscrowCovered ? "text-[var(--vt-color-green-700,#1F6B3E)]" : "text-[var(--vt-color-orange-600,#D84C0B)]"}`}>
+                        {nextTrancheAmount > 0 ? `${escrowCoveragePercent}% ready` : "100% ready"}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-[var(--vt-color-neutral-200,#E2E0EC)] overflow-hidden">
+                      <div
+                        style={{ width: `${Math.min(100, escrowCoveragePercent)}%` }}
+                        className={`h-full transition-all duration-500 ${
+                          isEscrowCovered
+                            ? "bg-[var(--vt-color-green-600,#248246)]"
+                            : "bg-[var(--vt-color-orange-500,#EF5F18)]"
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Next Milestone Cost</span>
+                    <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)] truncate text-right">
+                      {nextTrancheAmount > 0 ? formatNaira(nextTrancheAmount) : "₦0"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Available in Vault</span>
+                    <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)] truncate text-right">
+                      {formatNaira(totalInEscrow)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Surplus Cushion</span>
+                    <span className={`font-bold truncate text-right ${isEscrowCovered ? "text-[var(--vt-color-green-700,#1F6B3E)]" : "text-[var(--vt-color-orange-600,#D84C0B)]"}`}>
+                      {isEscrowCovered
+                        ? `+${formatNaira(escrowSurplusOrShortfall)} extra`
+                        : `-${formatNaira(Math.abs(escrowSurplusOrShortfall))} needed`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2.5 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-3 text-xs">
+                <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] font-medium truncate">
+                  Protected Providus / Zenith Escrow Vault
+                </span>
+                {!isCompleted ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (escrowSurplusOrShortfall < 0) {
+                        setDepositAmountInput(String(Math.abs(escrowSurplusOrShortfall)));
+                      }
+                      setDepositStep("form");
+                      setIsDepositModalOpen(true);
+                    }}
+                    className={`h-7.5 px-3.5 rounded-md text-xs font-bold transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-98 ${
+                      escrowSurplusOrShortfall < 0
+                        ? "bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white"
+                        : "bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)]"
+                    }`}
+                  >
+                    <IconPlus className="w-3.5 h-3.5" />
+                    <span>{escrowSurplusOrShortfall < 0 ? "Fund Shortfall Now" : "Add Extra Funds"}</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] font-medium">
+                    Fully Disbursed
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Card 3: Extra Costs & Changes */}
+            <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col justify-between gap-4 hover:border-[var(--vt-color-neutral-300,#CBC8DA)] transition-all">
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-[var(--vt-color-indigo-50,#F3F0FC)] text-[var(--vt-color-indigo-700,#382B73)] flex items-center justify-center shrink-0">
+                      <IconReceipt className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-tight">
+                        Extra Costs & Changes
+                      </h3>
+                      <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                        Approved variation orders & changes added to contract
+                      </p>
+                    </div>
+                  </div>
+
+                  {totalApprovedVariations > 0 ? (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-indigo-50,#F3F0FC)] text-[var(--vt-color-indigo-700,#382B73)] border border-[var(--vt-color-indigo-200,#D3CEEB)] shrink-0">
+                      +{driftPercent}% Extra
+                    </span>
+                  ) : totalApprovedVariations < 0 ? (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)] shrink-0">
+                      {driftPercent}% Saved
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)] shrink-0">
+                      On Budget
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] tracking-tight">
+                    {totalApprovedVariations > 0
+                      ? `+${formatNaira(totalApprovedVariations)}`
+                      : totalApprovedVariations < 0
+                      ? `-${formatNaira(Math.abs(totalApprovedVariations))}`
+                      : "₦0"}
+                  </div>
+                  <div className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
+                    Adjusted: <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{formatNaira(adjustedContractValue)}</strong> (Base: {formatNaira(project.contractValue)})
+                  </div>
+                </div>
+
+                <div className="mt-3.5 bg-[var(--vt-color-neutral-50,#F7F7FA)] p-3.5 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)]/70 flex flex-col gap-2">
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Approved Variations</span>
+                    <strong className="text-[var(--vt-color-indigo-900,#261A66)] truncate text-right">
+                      {approvedCRs.length} approved (+{formatNaira(totalApprovedVariations)})
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Waiting for Review</span>
+                    <span className="font-bold text-[var(--vt-color-orange-700,#B33C08)] truncate text-right">
+                      {pendingCRs.length > 0
+                        ? `${pendingCRs.length} pending (~${formatNaira(totalPendingVariationsCost)})`
+                        : "0 pending review"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Latest Change</span>
+                    <span
+                      title={approvedCRs[0]?.title || pendingCRs[0]?.title || "No changes requested"}
+                      className="font-bold text-[var(--vt-color-neutral-700,#403D58)] truncate text-right"
+                    >
+                      {approvedCRs[0]?.title || pendingCRs[0]?.title || "No changes requested"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2.5 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-3 text-xs">
+                <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] font-medium truncate">
+                  Only owner-approved changes alter the contract.
+                </span>
+                <Link
+                  href={`/owner/projects/${project.id}/change-requests`}
+                  className="h-7.5 px-3 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <span>Manage Changes ({changeRequests.length})</span>
+                  <IconArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Card 4: Money on Hold */}
+            <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col justify-between gap-4 hover:border-[var(--vt-color-neutral-300,#CBC8DA)] transition-all">
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      totalQuarantinedAmount > 0
+                        ? "bg-[var(--vt-color-red-50,#FDEEEE)] text-[var(--vt-color-red-700,#C72E2E)]"
+                        : "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)]"
+                    }`}>
+                      <IconLock className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[var(--vt-color-indigo-900,#261A66)] leading-tight">
+                        Money on Hold for Fixes
+                      </h3>
+                      <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                        Escrow funds locked until reported site defects are corrected
+                      </p>
+                    </div>
+                  </div>
+
+                  {totalQuarantinedAmount > 0 ? (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-red-50,#FDEEEE)] text-[var(--vt-color-red-700,#C72E2E)] border border-[var(--vt-color-red-200,#F9BDBD)] flex items-center gap-1.5 shrink-0">
+                      <IconLock className="w-3 h-3" />
+                      <span>{activeDisputes.length} Held</span>
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)] shrink-0">
+                      All Clear
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3">
+                  <div className={`text-xl sm:text-2xl font-black tracking-tight ${
+                    totalQuarantinedAmount > 0
+                      ? "text-[var(--vt-color-red-700,#C72E2E)]"
+                      : "text-[var(--vt-color-indigo-900,#261A66)]"
+                  }`}>
+                    {formatNaira(totalQuarantinedAmount)}
+                  </div>
+                  <div className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
+                    {totalQuarantinedAmount > 0
+                      ? `${quarantinedPercent}% of total contract locked for site fixes`
+                      : "Zero funds locked • Site work approved without defects"}
+                  </div>
+                </div>
+
+                <div className="mt-3.5 bg-[var(--vt-color-neutral-50,#F7F7FA)] p-3.5 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)]/70 flex flex-col gap-2">
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Active Site Issues</span>
+                    <strong className="text-[var(--vt-color-indigo-900,#261A66)] truncate text-right">
+                      {activeDisputes.length > 0 ? `${activeDisputes.length} active issue${activeDisputes.length === 1 ? "" : "s"} reported` : "0 issues"}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Contractor Payout Status</span>
+                    <span className={`font-bold truncate text-right ${
+                      activeDisputes.length > 0 ? "text-[var(--vt-color-red-700,#C72E2E)]" : "text-[var(--vt-color-green-700,#1F6B3E)]"
+                    }`}>
+                      {activeDisputes.length > 0 ? "Blocked from release until you confirm fix" : "100% unlocked for approved stages"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs gap-4">
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-medium shrink-0">Resolution Deadline</span>
+                    <span className="font-bold text-[var(--vt-color-orange-700,#B33C08)] truncate text-right">
+                      {earliestCureDeadline ? `Due by ${earliestCureDeadline}` : "No pending cure notice"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2.5 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-3 text-xs">
+                <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] font-medium truncate">
+                  Funds cannot be withdrawn until you confirm resolution.
+                </span>
+                <Link
+                  href={`/owner/projects/${project.id}/disputes`}
+                  className="h-7.5 px-3 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <span>{activeDisputes.length > 0 ? `View Issues (${activeDisputes.length})` : "View Disputes"}</span>
+                  <IconArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -604,14 +1172,16 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
         </section>
       </main>
 
-      {/* ── Official Payment Receipt Modal ── */}
+      {/* ── Official Payment Receipt & Tranche Deliverable Inspection Modal ── */}
       {selectedTranche && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="w-full max-w-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl p-6 flex flex-col gap-4 font-sans">
             <div className="flex items-center justify-between border-b pb-3 border-[var(--vt-color-border-default,#E2E0EC)]">
               <div>
                 <span className="text-[10px] font-bold uppercase text-[var(--vt-color-orange-600,#D84C0B)]">
-                  Official Payment Receipt
+                  {selectedTranche.status === "Paid to Builder"
+                    ? "Official Payment Receipt"
+                    : "Stage Payment Details & Protection"}
                 </span>
                 <h3 className="text-base font-black text-[var(--vt-color-indigo-900,#261A66)]">
                   {selectedTranche.title}
@@ -627,49 +1197,92 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
               </button>
             </div>
 
-            {/* Receipt Highlight */}
+            {/* Tranche / Receipt Highlight */}
             <div className="p-4 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] uppercase">
-                  Amount Disbursed
+                  {selectedTranche.status === "Paid to Builder" ? "Amount Disbursed" : "Stage Amount"}
                 </span>
                 <div className="text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)]">
                   {formatNaira(selectedTranche.amount)}
                 </div>
+                <div className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                  ₦{selectedTranche.amount.toLocaleString("en-NG")}
+                </div>
               </div>
-              <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)]">
-                Confirmed Paid
+              <span
+                className={`px-2.5 py-1 rounded-md text-xs font-bold ${
+                  selectedTranche.status === "Paid to Builder"
+                    ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)]"
+                    : selectedTranche.status === "Ready for Your Approval"
+                    ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]"
+                    : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
+                }`}
+              >
+                {selectedTranche.status}
               </span>
             </div>
 
             {/* Metadata Lines */}
             <div className="flex flex-col gap-2 text-xs text-[var(--vt-color-neutral-600,#5E5A7D)]">
               <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span>Beneficiary:</span>
+                <span>Beneficiary Contractor:</span>
                 <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{project.contractor.name}</strong>
               </div>
               <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span>Bank & Account:</span>
+                <span>Contractor Payout Account:</span>
                 <span className="font-mono">{project.contractor.bankName} ({project.contractor.bankAccountNumber})</span>
               </div>
               <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span>NIBSS / Bank Session Ref:</span>
-                <strong className="font-mono text-[10.5px] text-[var(--vt-color-indigo-900,#261A66)]">{selectedTranche.bankSessionId}</strong>
+                <span>Safe Escrow Account:</span>
+                <strong className="font-mono text-[11px] text-[var(--vt-color-indigo-900,#261A66)]">Providus / Zenith (9910482109)</strong>
               </div>
-              <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span>Date & Time Paid:</span>
-                <strong>{selectedTranche.paidDate}</strong>
-              </div>
-              <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span>Inspection Verified By:</span>
-                <strong>{selectedTranche.verifiedBy || "Arc. Folake Davies"} ({selectedTranche.verifiedRole || "Quality Inspector"})</strong>
-              </div>
-              <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span>Contractor Receipt Status:</span>
-                <span className="text-[var(--vt-color-green-700,#1F6B3E)] font-bold">
-                  {selectedTranche.contractorConfirmed ? "Acknowledged by Contractor" : "Pending confirmation"}
-                </span>
-              </div>
+
+              {selectedTranche.status === "Paid to Builder" ? (
+                <>
+                  <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
+                    <span>NIBSS / Bank Session Ref:</span>
+                    <strong className="font-mono text-[10.5px] text-[var(--vt-color-indigo-900,#261A66)]">
+                      {selectedTranche.bankSessionId || "NIBSS/000014261016091422"}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
+                    <span>Date & Time Paid:</span>
+                    <strong>{selectedTranche.paidDate}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
+                    <span>Inspection Verified By:</span>
+                    <strong>{selectedTranche.verifiedBy || "Arc. Folake Davies"} ({selectedTranche.verifiedRole || "Quality Inspector"})</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
+                    <span>Contractor Receipt Status:</span>
+                    <span className="text-[var(--vt-color-green-700,#1F6B3E)] font-bold">
+                      {selectedTranche.contractorConfirmed ? "Acknowledged by Contractor" : "Pending confirmation"}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between py-1 border-b border-[var(--vt-color-border-default,#E2E0EC)]">
+                    <span>Condition to Pay:</span>
+                    <strong className="text-[var(--vt-color-indigo-900,#261A66)] text-right max-w-[280px]">
+                      {selectedTranche.dueDate}
+                    </strong>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[var(--vt-color-indigo-50,#F3F0FC)] border border-[var(--vt-color-indigo-200,#D3CEEB)] flex items-start gap-2.5 text-[11.5px] text-[var(--vt-color-indigo-950,#191147)]">
+                    <IconShieldCheck className="w-4 h-4 text-[var(--vt-color-indigo-700,#382B73)] shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="font-bold block text-[var(--vt-color-indigo-900,#261A66)]">
+                        Safe Escrow Protection
+                      </strong>
+                      <span>
+                        Funds will not be paid to the contractor until you inspect site photos and sign off the stage checklist.
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {selectedTranche.notes && (
                 <div className="p-2.5 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
                   {selectedTranche.notes}
@@ -685,14 +1298,31 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
               >
                 Close
               </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
-              >
-                <IconDownload className="w-3.5 h-3.5" />
-                <span>Download PDF Receipt</span>
-              </button>
+              {selectedTranche.status === "Paid to Builder" ? (
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <IconDownload className="w-3.5 h-3.5" />
+                  <span>Download PDF Receipt</span>
+                </button>
+              ) : selectedTranche.status === "Ready for Your Approval" ? (
+                <Link
+                  href={`/owner/projects/${project.id}/stages/${
+                    project.stages.find(
+                      (s) =>
+                        s.title.toLowerCase().includes(selectedTranche.stageLinked.toLowerCase()) ||
+                        selectedTranche.title.toLowerCase().includes(s.title.toLowerCase()) ||
+                        `Stage ${s.stageNumber}`.toLowerCase() === selectedTranche.stageLinked.toLowerCase()
+                    )?.id || "stg-4"
+                  }`}
+                  className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <span>Go to Stage Inspection & Signoff</span>
+                  <IconArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              ) : null}
             </div>
           </div>
         </div>

@@ -93,11 +93,11 @@ export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPag
   return (
     <div
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-      className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
+      className="flex flex-col md:flex-row h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       <ProjectSidebarNav projectId={project.id} activeTab="stages" />
 
-      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5 pb-24 md:pb-5">
         <HeaderBar
           leftSlot={
             <ProjectBreadcrumb

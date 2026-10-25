@@ -18,7 +18,7 @@ import {
 } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 
-import { acceptProposedPlan } from "./projectStore";
+import { acceptProposedPlan, getBriefForPlan, updateBriefStatus, ProjectBrief } from "./projectStore";
 
 interface ProjectPlanReviewPageProps {
   projectId?: string;
@@ -28,6 +28,7 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
   const scrollRef = useScrollRestoration<HTMLElement>(`proj_plan_review_${projectId}`);
   const router = useRouter();
   const project = getProjectDetail(projectId);
+  const linkedBrief = getBriefForPlan(projectId);
 
   const storageKey = `vantaged_plan_status_${projectId}`;
   const feedbackKey = `vantaged_plan_feedback_${projectId}`;
@@ -50,6 +51,7 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
 
   const [isAcceptModalOpen, setIsAcceptModalOpen] = useState(false);
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
+  const [isOriginatingBriefModalOpen, setIsOriginatingBriefModalOpen] = useState(false);
   const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
 
   const formatNaira = (val: number) => {
@@ -69,11 +71,17 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
   const handleAcceptPlan = () => {
     setPlanStatus("ACCEPTED");
     acceptProposedPlan(projectId);
+    if (linkedBrief) {
+      updateBriefStatus(linkedBrief.id, "Plan Accepted & Active");
+    }
   };
 
   const handleRequestChanges = () => {
     if (!changeFeedback.trim()) return;
     setPlanStatus("CHANGES_REQUESTED");
+    if (linkedBrief) {
+      updateBriefStatus(linkedBrief.id, "Revisions Requested");
+    }
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(storageKey, "CHANGES_REQUESTED");
@@ -85,11 +93,11 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
   return (
     <div
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-      className="flex h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
+      className="flex flex-col md:flex-row h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none relative font-sans"
     >
       <SidebarNav currentActiveItem="projects" />
 
-      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5">
+      <main ref={scrollRef} className="relative z-10 flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex flex-col gap-5 pb-24 md:pb-5">
         <HeaderBar
           leftSlot={
             <div className="flex items-center gap-2.5">
@@ -230,6 +238,80 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
               <span className="font-bold text-[var(--vt-color-orange-700,#B33C08)]">Awaiting Your Acceptance</span>
             </div>
           </div>
+        )}
+
+        {/* ── Originating Project Brief Card ── */}
+        {linkedBrief && (
+          <section className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 shadow-2xs flex flex-col gap-3 font-sans">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--vt-color-neutral-100,#EFEEF5)] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] border border-[var(--vt-color-orange-200,#FDCAA9)] flex items-center justify-center font-black text-xs shrink-0">
+                  📋
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-[var(--vt-color-indigo-900,#261A66)]">
+                      Originating Project Brief
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]">
+                      Ref: {linkedBrief.id.toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                    Submitted by you on {linkedBrief.dateSubmitted} to {linkedBrief.companyName}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsOriginatingBriefModalOpen(true)}
+                className="h-8 px-3 rounded-md bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] transition-colors self-start sm:self-auto cursor-pointer shadow-2xs font-sans inline-flex items-center gap-1.5"
+              >
+                <span>View Full Brief</span>
+                <svg className="w-3.5 h-3.5 text-[var(--vt-color-neutral-400,#A3A0B8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-neutral-100,#EFEEF5)]">
+                <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block">
+                  Your Requested Budget
+                </span>
+                <span className="text-sm font-black text-[var(--vt-color-indigo-900,#261A66)] mt-0.5 block">
+                  {linkedBrief.estimatedBudget}
+                </span>
+                <span className="text-[10.5px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 block">
+                  Contractor proposed: <strong className="text-[var(--vt-color-orange-600,#D84C0B)]">{formatNaira(project.contractValue)}</strong>
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-neutral-100,#EFEEF5)]">
+                <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block">
+                  Project Title & Category
+                </span>
+                <span className="text-xs font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5 block truncate">
+                  {linkedBrief.title}
+                </span>
+                <span className="text-[10.5px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 block">
+                  {linkedBrief.category} • {linkedBrief.location}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-neutral-100,#EFEEF5)]">
+                <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block">
+                  Contractor Scoping Note
+                </span>
+                <span className="text-[11.5px] text-[var(--vt-color-neutral-600,#5E5A7D)] mt-0.5 line-clamp-2 block leading-relaxed">
+                  {linkedBrief.contractorNotes || "Proposal formulated based on owner's original architectural requirements."}
+                </span>
+              </div>
+            </div>
+          </section>
         )}
 
         {/* ── Key Contract Numbers ── */}
@@ -573,6 +655,100 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
                 className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] disabled:opacity-50 text-white text-xs font-bold cursor-pointer shadow-2xs transition-colors"
               >
                 Send Feedback to Builder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ORIGINATING BRIEF FULL DETAILS MODAL ── */}
+      {isOriginatingBriefModalOpen && linkedBrief && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl overflow-hidden font-sans flex flex-col">
+            <div className="p-5 bg-[var(--vt-color-indigo-900,#261A66)] text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-white truncate max-w-sm">
+                  {linkedBrief.title}
+                </h3>
+                <p className="text-xs text-[var(--vt-color-indigo-200,#D5D2EF)] font-medium mt-0.5">
+                  Originating Brief Ref: {linkedBrief.id.toUpperCase()} • Submitted {linkedBrief.dateSubmitted}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOriginatingBriefModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 flex flex-col gap-4 text-xs font-sans max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block">
+                    Owner Requested Budget
+                  </span>
+                  <p className="text-sm font-extrabold text-[var(--vt-color-orange-600,#D84C0B)] mt-0.5">
+                    {linkedBrief.estimatedBudget}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block">
+                    Proposed Contract Price
+                  </span>
+                  <p className="text-sm font-extrabold text-[var(--vt-color-green-700,#1F6B3E)] mt-0.5">
+                    {formatNaira(project.contractValue)}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block mb-1">
+                  Recipient Contractor
+                </span>
+                <p className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                  {linkedBrief.companyName}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block mb-1">
+                  Site Location
+                </span>
+                <p className="text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)]">
+                  {linkedBrief.location}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block mb-1">
+                  Owner Requested Scope
+                </span>
+                <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] leading-relaxed bg-[var(--vt-color-neutral-50,#F7F7FA)] p-3 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)]">
+                  {linkedBrief.description}
+                </p>
+              </div>
+
+              {linkedBrief.contractorNotes && (
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[var(--vt-color-orange-600,#D84C0B)] block mb-1">
+                    Contractor Scoping Note
+                  </span>
+                  <p className="text-xs text-[var(--vt-color-orange-950,#421202)] leading-relaxed bg-[var(--vt-color-orange-50,#FFF4EE)] p-3 rounded-xl border border-[var(--vt-color-orange-200,#FDCAA9)]">
+                    {linkedBrief.contractorNotes}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-[var(--vt-color-neutral-50,#F7F7FA)] border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-end font-sans">
+              <button
+                type="button"
+                onClick={() => setIsOriginatingBriefModalOpen(false)}
+                className="h-9 px-4 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>
