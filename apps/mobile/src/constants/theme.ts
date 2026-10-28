@@ -1,6 +1,5 @@
 /**
  * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
 import '@/global.css';
@@ -31,25 +30,24 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
+export const Radius = vt.radius;
+export const Tokens = vt;
+
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
+    sans: 'Outfit',
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
-    sans: 'normal',
+    sans: 'Outfit',
     serif: 'serif',
     rounded: 'normal',
     mono: 'monospace',
   },
   web: {
-    sans: 'var(--font-display)',
+    sans: 'var(--font-display, Outfit, sans-serif)',
     serif: 'var(--font-serif)',
     rounded: 'var(--font-rounded)',
     mono: 'var(--font-mono)',
@@ -64,6 +62,7 @@ export const Spacing = {
   four: 24,
   five: 32,
   six: 64,
+  ...vt.space,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

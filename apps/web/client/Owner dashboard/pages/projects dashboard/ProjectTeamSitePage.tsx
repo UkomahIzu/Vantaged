@@ -177,10 +177,13 @@ export function ProjectTeamSitePage({ projectId = "proj-lekki" }: ProjectTeamSit
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[var(--vt-color-border-default,#E2E0EC)] text-right">
+            <div className="pt-3 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between text-xs">
+              <Link href="/owner/inspectors" className="text-xs font-bold text-[var(--vt-color-orange-600,#D84C0B)] hover:underline inline-flex items-center gap-1">
+                <span>Browse Verified Inspectors ↗</span>
+              </Link>
               <Link href="/owner/client-reps" className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:underline inline-flex items-center gap-1">
                 <IconPlus className="w-3.5 h-3.5 text-[var(--vt-color-orange-500,#EF5F18)]" />
-                <span>Add another representative</span>
+                <span>Add representative</span>
               </Link>
             </div>
           </div>

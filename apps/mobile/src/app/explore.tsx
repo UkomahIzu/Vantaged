@@ -1,180 +1,163 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import React from 'react';
+import { StyleSheet, View, Text, Pressable, Platform } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Radius, Tokens, Spacing } from '@/constants/theme';
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
-
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+export default function ExploreScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top + Spacing[4],
+          paddingBottom: Math.max(insets.bottom, Spacing[4]),
+        },
+      ]}>
+      <StatusBar style="dark" />
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Vantaged Workspace</Text>
+        <Text style={styles.subtitle}>Active projects and site intelligence</Text>
+      </View>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      {/* Content Card */}
+      <View style={styles.card}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>Real-Time Oversight</Text>
+        </View>
+        <Text style={styles.cardTitle}>Verified Engineering Portal</Text>
+        <Text style={styles.cardBody}>
+          Connect with registered COREN engineers, oversee construction milestones, and manage escrow disbursements.
+        </Text>
+      </View>
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
-
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+      <View style={styles.footer}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && styles.backButtonPressed,
+          ]}
+          onPress={() => router.push('/')}>
+          <Text style={styles.backButtonText}>← Back to Welcome Page</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
   container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
+    flex: 1,
+    backgroundColor: '#F7F7FA',
+    paddingHorizontal: Spacing[6],
+    justifyContent: 'space-between',
   },
-  titleContainer: {
-    gap: Spacing.three,
+  header: {
+    paddingTop: Spacing[4],
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#261A66',
+    fontFamily: Platform.select({
+      ios: 'Outfit-Bold',
+      android: 'Outfit-Bold',
+      default: 'Outfit, sans-serif',
+    }),
+  },
+  subtitle: {
+    fontSize: 13,
+    color: '#7C7894',
+    marginTop: 4,
+    fontFamily: Platform.select({
+      ios: 'Outfit',
+      android: 'Outfit',
+      default: 'Outfit, sans-serif',
+    }),
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.lg, // 14px
+    padding: Spacing[5],
+    borderWidth: 1,
+    borderColor: '#E2E0EC',
+    shadowColor: '#261A66',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF4EE',
+    borderColor: '#FDCAA9',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+    marginBottom: 12,
+  },
+  badgeText: {
+    color: '#B33C08',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: Platform.select({
+      ios: 'Outfit-Bold',
+      android: 'Outfit-Bold',
+      default: 'Outfit, sans-serif',
+    }),
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#261A66',
+    marginBottom: 8,
+    fontFamily: Platform.select({
+      ios: 'Outfit-Bold',
+      android: 'Outfit-Bold',
+      default: 'Outfit, sans-serif',
+    }),
+  },
+  cardBody: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#5E5A7D',
+    fontFamily: Platform.select({
+      ios: 'Outfit',
+      android: 'Outfit',
+      default: 'Outfit, sans-serif',
+    }),
+  },
+  footer: {
+    paddingBottom: Spacing[4],
+  },
+  backButton: {
+    height: 48,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E0EC',
+    borderRadius: Radius.md, // 10px
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
-  },
-  centerText: {
-    textAlign: 'center',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
     justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
   },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+  backButtonPressed: {
+    backgroundColor: '#EFEEF5',
   },
-  collapsibleContent: {
-    alignItems: 'center',
-  },
-  imageTutorial: {
-    width: '100%' as any,
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+  backButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#261A66',
+    fontFamily: Platform.select({
+      ios: 'Outfit-Bold',
+      android: 'Outfit-Bold',
+      default: 'Outfit, sans-serif',
+    }),
   },
 });
