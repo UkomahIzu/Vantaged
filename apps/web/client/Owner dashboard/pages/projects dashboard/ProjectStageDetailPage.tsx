@@ -993,7 +993,7 @@ export function ProjectStageDetailPage({
                       Request Work Fixes (Reject Stage)
                     </h3>
                     <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                      Select which items failed inspection (PRD FR-REV-03)
+                      Select which items failed inspection
                     </p>
                   </div>
                   <button

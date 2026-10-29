@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { openCompanySignupModal } from "../components/CompanySignupModal";
 
 export type OwnerRoleType = "OWNER_ADMIN" | "ORGANIZATION" | "OWNER_REP";
 
@@ -175,13 +174,13 @@ function CustomSelect({ label, value, options, onChange, icon }: CustomSelectPro
 export function OwnerSignupPage() {
   const [selectedRole, setSelectedRole] = useState<OwnerRoleType>("OWNER_ADMIN");
   const [countryCode, setCountryCode] = useState("+234");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("08031234567");
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const countryDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("Adaeze Okonkwo");
+  const [email, setEmail] = useState("adaeze.okonkwo@gmail.com");
+  const [password, setPassword] = useState("Vantaged2026!");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -189,21 +188,21 @@ export function OwnerSignupPage() {
   // Role-specific fields
   // Owner Admin specific (ID verification only):
   const [idMethod, setIdMethod] = useState<"NIN" | "PASSPORT">("NIN");
-  const [idNumber, setIdNumber] = useState("");
+  const [idNumber, setIdNumber] = useState("19283746501");
 
   const handleIdMethodChange = (method: "NIN" | "PASSPORT") => {
     setIdMethod(method);
-    setIdNumber("");
+    setIdNumber(method === "NIN" ? "19283746501" : "A10492814");
   };
 
   // Organization specific:
-  const [orgName, setOrgName] = useState("");
-  const [rcNumber, setRcNumber] = useState("");
+  const [orgName, setOrgName] = useState("Greenfield Urban Developers Ltd");
+  const [rcNumber, setRcNumber] = useState("RC-1928374");
   const [orgType, setOrgType] = useState("Private Real Estate Developer");
   const [projectVolume, setProjectVolume] = useState("1 - 3 Active Projects");
 
   // Owner Representative specific (Link Code only):
-  const [ownerInviteCode, setOwnerInviteCode] = useState("");
+  const [ownerInviteCode, setOwnerInviteCode] = useState("VTG-REP-9042");
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -248,18 +247,15 @@ export function OwnerSignupPage() {
         <div className="relative z-10 flex items-center justify-between mb-6">
           <a
             href="/"
-            className="group flex items-center gap-2.5 transition-opacity hover:opacity-90 font-sans"
+            className="group flex items-center transition-opacity hover:opacity-90 font-sans"
             title="Return to Vantaged Home"
             aria-label="Vantaged home"
           >
             <img
-              src="/brand/vantaged-v-white.svg"
-              alt=""
-              className="h-7 w-auto object-contain"
+              src="/brand/vantaged-measurement-logo.svg"
+              alt="Vantaged"
+              className="h-7 sm:h-8 w-auto max-w-[180px] object-contain brightness-0 invert"
             />
-            <span className="font-extrabold text-2xl tracking-tight text-white font-sans">
-              Vantaged
-            </span>
           </a>
         </div>
 
@@ -384,22 +380,6 @@ export function OwnerSignupPage() {
                   <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-500,#7C7894)] font-sans leading-relaxed">
                     Enter your credentials and specific role parameters to initialize project access.
                   </p>
-                </div>
-
-                {/* Contractor Switch Banner */}
-                <div className="flex items-center justify-between p-3 rounded-md bg-[#FFF5EB] border border-[#FBA674]/40 text-xs text-[var(--vt-color-indigo-900,#261A66)] font-sans">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[var(--vt-color-orange-600,#D84C0B)]">Are you a Contractor?</span>
-                    <span className="hidden sm:inline text-[var(--vt-color-neutral-600,#5E5A7D)]">Register your construction company</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => openCompanySignupModal("starter")}
-                    className="px-3 py-1.5 bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white font-bold rounded-md transition-all cursor-pointer text-xs flex items-center gap-1 shadow-xs"
-                  >
-                    <span>Company Sign Up</span>
-                    <span>&rarr;</span>
-                  </button>
                 </div>
 
                 {/* 1. Full Name Input Bar (Swapped to Top Full-Width Position) */}

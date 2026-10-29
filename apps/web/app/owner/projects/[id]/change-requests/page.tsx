@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { id } = await params;
   return {
     title: `Change Requests & Variations (${id}) | Vantaged`,
-    description: "PRD 7.8 scope modifications, cost adjustments, and timeline extensions.",
+    description: "Manage project scope modifications, cost adjustments, and timeline extensions with milestone protection.",
   };
 }
 

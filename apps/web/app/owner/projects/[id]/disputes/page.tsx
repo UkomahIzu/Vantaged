@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { id } = await params;
   return {
     title: `Disputes & Impasses (${id}) | Vantaged`,
-    description: "PRD 7.15 dispute dossiers, 14-day mutual resolution clock, and escrow protection.",
+    description: "Formal dispute dossiers, 14-day mutual resolution timeline, and escrow fund protection.",
   };
 }
 

@@ -248,11 +248,11 @@ export function PricingPage() {
       faqs: [
         {
           q: "How does the Contractor First-Project Free trial work?",
-          a: "Under PRD rule FR-BIL-04, a contractor's first project on Vantaged is completely free until finished, up to 12 months. This allows you to experience guaranteed stage payouts, mobile proof tools, and build a verified reputation score with zero platform cost.",
+          a: "A contractor's first project on Vantaged is completely free until finished (up to 12 months). This allows you to experience guaranteed stage payouts, mobile proof tools, and build a verified reputation score with zero platform cost.",
         },
         {
           q: "Why does Vantaged charge by job slots instead of per user?",
-          a: "Under PRD rule FR-BIL-02, every tier includes unlimited users. Per-seat pricing discourages adding site workers, managers, and subcontractors — who are the exact people capturing daily proof on site. By charging by active concurrent job slots, your whole company can collaborate freely.",
+          a: "Every tier includes unlimited users. Per-seat pricing discourages adding site workers, managers, and subcontractors — who are the exact people capturing daily proof on site. By charging by active concurrent job slots, your whole company can collaborate freely.",
         },
         {
           q: "What if I need one more project slot without jumping to the next tier?",
@@ -649,7 +649,7 @@ export function PricingPage() {
               <div className="mt-12 p-6 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] dark:bg-[var(--vt-color-surface-sunken,#0C0824)] border border-[var(--vt-color-border-default,#E2E0EC)] dark:border-[var(--vt-color-border-default,#2C2460)] flex flex-col sm:flex-row items-center justify-between gap-6">
                 <div>
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--vt-color-orange-600,#D84C0B)] block mb-1">
-                    À La Carte Capacity Flexibility · Section 3.4
+                    À La Carte Capacity Flexibility
                   </span>
                   <h4 className="text-base font-bold text-[var(--vt-color-indigo-900,#261A66)] dark:text-[var(--vt-color-text-default,#F4F3FC)] mb-1">
                     Need just one extra temporary construction slot?
@@ -679,7 +679,7 @@ export function PricingPage() {
           <div className="max-w-6xl mx-auto">
             <div className="max-w-3xl mb-12">
               <span className="font-mono text-xs font-bold uppercase tracking-wider text-[var(--vt-color-orange-600,#D84C0B)] mb-2 block">
-                Primary Revenue Engine · Section 2
+                Escrow Fee Protection
               </span>
               <h2 className="text-2xl sm:text-4xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] dark:text-[var(--vt-color-text-default,#F4F3FC)] mb-3">
                 Escrow Take-Rate &amp; Tranche Protection Schedule
@@ -739,7 +739,7 @@ export function PricingPage() {
             <div className="mt-8 p-4 rounded-lg bg-[var(--vt-color-neutral-100,#EDEBF5)] dark:bg-[var(--vt-color-surface-sunken,#0C0824)] text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] dark:text-[var(--vt-color-text-muted,#B8B1E9)] flex items-start gap-2.5">
               <span className="text-[var(--vt-color-orange-600,#D84C0B)] font-bold">ℹ</span>
               <span>
-                <strong>Fee Allocation (Who Pays):</strong> Under Section 2.3 of our architecture, the milestone protection surcharge is paid by the property owner on tranche deposit, ensuring contractors receive 100% of their agreed Bill of Quantities (BOQ) contract value without settlement deductions.
+                <strong>Fee Allocation (Who Pays):</strong> The milestone protection surcharge is paid by the property owner on tranche deposit, ensuring contractors receive 100% of their agreed Bill of Quantities (BOQ) contract value without settlement deductions.
               </span>
             </div>
           </div>

@@ -87,28 +87,29 @@ export function CompanySignupModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState<any | null>(null);
 
+  // Pre-filled with realistic development test data for quick step testing
   const [formData, setFormData] = useState<FormData>({
-    companyName: "",
-    rcNumber: "",
-    tin: "",
+    companyName: "Crane & Stone Engineering Limited",
+    rcNumber: "RC-1849202",
+    tin: "24910294-0001",
     category: CONTRACTOR_CATEGORIES[0],
-    email: "",
-    phone: "",
-    officeAddress: "",
+    email: "info@craneandstone.com",
+    phone: "+234 803 123 4567",
+    officeAddress: "Plot 14, Commercial Avenue, Victoria Island",
     state: "Lagos",
-    directorName: "",
+    directorName: "Engr. Babatunde Julius Adeleke",
     directorRole: "Managing Director",
-    directorEmail: "",
-    directorPhone: "",
+    directorEmail: "b.adeleke@craneandstone.com",
+    directorPhone: "+234 802 319 8421",
     idType: "NIN",
-    idNumber: "",
+    idNumber: "19283746501",
     bankName: NIGERIAN_BANKS[0],
-    accountNumber: "",
-    accountName: "",
-    corenNumber: "",
-    bppCategory: "",
+    accountNumber: "1012345678",
+    accountName: "Crane & Stone Engineering Limited",
+    corenNumber: "COREN/R/49201",
+    bppCategory: "Category B - Federal Works",
     selectedPlan: initialPlan,
-    yearsInBusiness: "3–5 years",
+    yearsInBusiness: "6–10 years",
   });
 
   // Listen to global open event only if uncontrolled (global host)
@@ -275,7 +276,7 @@ export function CompanySignupModal({
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="h-0.5 w-4 bg-[#EF5F18]" />
               <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#EF5F18]">
-                PRD Sec 7.2 · Contractor Verification
+                Contractor Verification
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-extrabold text-[#261A66] dark:text-[#F4F3FC] leading-tight">
@@ -347,7 +348,7 @@ export function CompanySignupModal({
             {/* Next Steps Checklist */}
             <div className="space-y-1.5 text-[11px] text-[#5E5A7D] dark:text-[#B8B1E9]">
               <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7C7894] dark:text-[#918ADA] block">
-                What Happens Next (Section 8.2)
+                What Happens Next
               </span>
               <div className="flex items-start gap-1.5">
                 <span className="text-[#1F6B3E] font-bold">1.</span>
@@ -527,7 +528,7 @@ export function CompanySignupModal({
               {step === 2 && (
                 <div className="space-y-3">
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7C7894] dark:text-[#918ADA] block">
-                    Step 2 of 4 · Principal Director (PRD FR-VER-01)
+                    Step 2 of 4 · Principal Director &amp; Executive Identity
                   </span>
 
                   <div>
@@ -603,7 +604,7 @@ export function CompanySignupModal({
                   </div>
 
                   <div className="p-2.5 rounded-md bg-[#EDEBF5] dark:bg-[#211A4D] text-[11px] text-[#5E5A7D] dark:text-[#B8B1E9] leading-relaxed">
-                    ℹ Verified via automated registry lookup with liveness check per PRD Section 7.2.
+                    ℹ Verified via automated national registry lookup with biometric liveness check to confirm authentic identity.
                   </div>
                 </div>
               )}
@@ -612,7 +613,7 @@ export function CompanySignupModal({
               {step === 3 && (
                 <div className="space-y-3">
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7C7894] dark:text-[#918ADA] block">
-                    Step 3 of 4 · Settlement Bank (PRD FR-VER-03)
+                    Step 3 of 4 · Settlement Bank Account
                   </span>
 
                   <div>
@@ -662,7 +663,7 @@ export function CompanySignupModal({
                   </div>
 
                   <div className="p-2.5 rounded-md bg-[#FFF4EE] dark:bg-[#3A1A0E] border border-[#FDCAA9] dark:border-[#5E2B15] text-[11px] text-[#D84C0B] dark:text-[#F17C42] leading-relaxed">
-                    <strong>Rule FR-VER-03:</strong> The NUBAN name must match your verified CAC registered name to prevent diversion fraud.
+                    <strong>Security Verification:</strong> The bank account name resolved automatically from your NUBAN must match your verified CAC registered name to ensure secure milestone payouts.
                   </div>
                 </div>
               )}

@@ -852,7 +852,7 @@ export function OwnerClientRepsPage() {
                     Representative permissions
                   </h2>
                   <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-600,#5E5A7D)] leading-relaxed mt-1">
-                    Permissions defined in PRD §5.2 and authorized on your behalf. Turn any module off and the representative dashboard hides it entirely across assigned projects.
+                    Granular project permissions authorized on your behalf. Turn any module off and the representative dashboard hides it entirely across assigned projects.
                   </p>
                 </div>
 
@@ -1042,7 +1042,7 @@ export function OwnerClientRepsPage() {
                     {activePercentage}%
                   </span>
                   <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-600,#5E5A7D)] leading-relaxed mt-2.5">
-                    {activePermissionsCount} of 7 PRD governance modules authorized. {managingPermissionsRep.stagesVerifiedCount ?? 0} milestone sign-offs verified this month, backed by cryptographic audit logs.
+                    {activePermissionsCount} of 7 governance modules authorized. {managingPermissionsRep.stagesVerifiedCount ?? 0} milestone sign-offs verified this month, backed by cryptographic audit logs.
                   </p>
                 </div>
 
@@ -1539,7 +1539,7 @@ export function OwnerClientRepsPage() {
               {/* Active Permissions (Clean Badges) */}
               <div>
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] block mb-1.5">
-                  Active Delegated Permissions (PRD §5.2)
+                  Active Delegated Permissions
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {selectedRep.permissions?.viewProgress && (

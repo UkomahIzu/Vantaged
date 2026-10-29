@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Required fields check per PRD Section 7.2
+    // Required verification fields check
     if (!body.companyName || !body.rcNumber || !body.tin || !body.email || !body.directorName || !body.accountNumber) {
       return NextResponse.json(
         {

@@ -111,7 +111,7 @@ export function HeroSection() {
             </span>
           </h1>
 
-          {/* Value proposition based directly on the PRD (High-level, anti-scalping) */}
+          {/* Value proposition */}
           <p className="text-sm sm:text-base text-[var(--vt-color-neutral-600,#5E5A7D)] dark:text-[var(--vt-color-text-muted,#B8B1E9)] leading-relaxed max-w-xl mb-8">
             The trust-first construction management and verification platform for property owners, diaspora investors, and registered builders. Milestone approvals, transparent progress, and guaranteed escrow peace of mind.
           </p>

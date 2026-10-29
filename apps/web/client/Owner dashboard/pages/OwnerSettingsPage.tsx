@@ -530,7 +530,7 @@ export function OwnerSettingsPage() {
                     Notification Channels
                   </h2>
                   <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                    Select your preferred alert channels per PRD §7.18.
+                    Select your preferred alert channels and notification frequency.
                   </p>
                 </div>
 
