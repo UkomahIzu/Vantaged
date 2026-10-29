@@ -1,5 +1,736 @@
 [
   {
+    "id": "sub_1793301771377_72373",
+    "referenceNumber": "VTG-TRD-72373",
+    "submittedAt": "2026-10-29T19:22:51.377Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_72373",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:51.377Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301771150_63748",
+    "referenceNumber": "VTG-TRD-63748",
+    "submittedAt": "2026-10-29T19:22:51.150Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_63748",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:51.150Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301770945_49935",
+    "referenceNumber": "VTG-TRD-49935",
+    "submittedAt": "2026-10-29T19:22:50.945Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_49935",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:50.945Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301770808_90385",
+    "referenceNumber": "VTG-TRD-90385",
+    "submittedAt": "2026-10-29T19:22:50.808Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_90385",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:50.808Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301770521_17918",
+    "referenceNumber": "VTG-TRD-17918",
+    "submittedAt": "2026-10-29T19:22:50.521Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_17918",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:50.521Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301770313_83686",
+    "referenceNumber": "VTG-TRD-83686",
+    "submittedAt": "2026-10-29T19:22:50.313Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_83686",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:50.313Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301770176_77534",
+    "referenceNumber": "VTG-TRD-77534",
+    "submittedAt": "2026-10-29T19:22:50.176Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_77534",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:50.176Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301769953_49922",
+    "referenceNumber": "VTG-TRD-49922",
+    "submittedAt": "2026-10-29T19:22:49.953Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_49922",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:49.953Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301769801_38000",
+    "referenceNumber": "VTG-TRD-38000",
+    "submittedAt": "2026-10-29T19:22:49.801Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_38000",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:49.801Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301769629_48893",
+    "referenceNumber": "VTG-TRD-48893",
+    "submittedAt": "2026-10-29T19:22:49.629Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_48893",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:49.630Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301769327_14553",
+    "referenceNumber": "VTG-TRD-14553",
+    "submittedAt": "2026-10-29T19:22:49.327Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_14553",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:49.327Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301768771_66133",
+    "referenceNumber": "VTG-TRD-66133",
+    "submittedAt": "2026-10-29T19:22:48.771Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_66133",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:48.771Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301767844_78644",
+    "referenceNumber": "VTG-TRD-78644",
+    "submittedAt": "2026-10-29T19:22:47.844Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_78644",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:47.844Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301763373_99991",
+    "referenceNumber": "VTG-TRD-99991",
+    "submittedAt": "2026-10-29T19:22:43.373Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_99991",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:43.373Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301762683_51529",
+    "referenceNumber": "VTG-TRD-51529",
+    "submittedAt": "2026-10-29T19:22:42.683Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_51529",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:42.683Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301761206_45520",
+    "referenceNumber": "VTG-TRD-45520",
+    "submittedAt": "2026-10-29T19:22:41.206Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "hgg",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "rr@gdghg",
+    "phone": "ukt6u",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "mjhh",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "rr@gdghg",
+    "directorPhone": "ukt6u",
+    "idType": "NIN",
+    "idNumber": "8888888888888888888888888888",
+    "bankName": "Zenith Bank",
+    "accountNumber": "yjuojjjjjj",
+    "accountName": "08-08777",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_45520",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "mjhh_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:22:41.206Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
+    "id": "sub_1793301596703_20792",
+    "referenceNumber": "VTG-TRD-20792",
+    "submittedAt": "2026-10-29T19:19:56.703Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "Olawale Plumbing Works",
+    "rcNumber": "TRADE-INDIVIDUAL",
+    "tin": "N/A",
+    "category": "Plumbing & Pipefitting",
+    "email": "olawale.plumb@example.com",
+    "phone": "+234 803 111 2233",
+    "officeAddress": "Operating Workshop / Site Based",
+    "state": "Lagos",
+    "directorName": "Adebayo Emmanuel Olawale",
+    "directorRole": "Lead Artisan / Trade Specialist",
+    "directorEmail": "olawale.plumb@example.com",
+    "directorPhone": "+234 803 111 2233",
+    "idType": "NIN",
+    "idNumber": "19283746501",
+    "bankName": "Zenith Bank",
+    "accountNumber": "1012345678",
+    "accountName": "Adebayo Emmanuel Olawale",
+    "selectedPlan": "trade",
+    "yearsInBusiness": "2+ years trade experience",
+    "documents": [
+      {
+        "id": "doc_id_20792",
+        "type": "DIRECTOR_ID",
+        "title": "Artisan NIN Verification",
+        "fileName": "Adebayo_Emmanuel_Olawale_ID_Slip.pdf",
+        "fileSize": "520 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T19:19:56.703Z",
+        "verified": false
+      }
+    ],
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    }
+  },
+  {
     "id": "sub_1793236783276_83337",
     "referenceNumber": "VTG-CAC-83337",
     "submittedAt": "2026-10-29T01:19:43.276Z",
@@ -30,7 +761,49 @@
       "tinVerified": true,
       "bankNameMatched": true,
       "identityCheck": "VERIFIED"
-    }
+    },
+    "documents": [
+      {
+        "id": "doc_cac_83337",
+        "type": "CAC_CERTIFICATE",
+        "title": "CAC Certificate of Incorporation",
+        "fileName": "Crane_Stone_CAC_RC1849202.pdf",
+        "fileSize": "1.4 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T01:19:43.276Z",
+        "verified": false
+      },
+      {
+        "id": "doc_tin_83337",
+        "type": "TIN_CERTIFICATE",
+        "title": "FIRS Tax Clearance Certificate",
+        "fileName": "FIRS_TaxClearance_24910294.pdf",
+        "fileSize": "840 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T01:19:43.276Z",
+        "verified": false
+      },
+      {
+        "id": "doc_id_83337",
+        "type": "DIRECTOR_ID",
+        "title": "Managing Director NIN Slip",
+        "fileName": "Babatunde_Adeleke_NIN_Slip.pdf",
+        "fileSize": "620 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T01:19:43.276Z",
+        "verified": false
+      },
+      {
+        "id": "doc_coren_83337",
+        "type": "COREN_LICENSE",
+        "title": "COREN Practicing License",
+        "fileName": "COREN_R49201_License_2026.pdf",
+        "fileSize": "1.1 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T01:19:43.276Z",
+        "verified": false
+      }
+    ]
   },
   {
     "id": "cs_01hzyq89m1b4v9",
@@ -63,7 +836,39 @@
       "tinVerified": true,
       "bankNameMatched": true,
       "identityCheck": "VERIFIED"
-    }
+    },
+    "documents": [
+      {
+        "id": "doc_cac_749102",
+        "type": "CAC_CERTIFICATE",
+        "title": "CAC Certificate of Incorporation",
+        "fileName": "Apex_Structure_CAC_RC1849204.pdf",
+        "fileSize": "1.2 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T14:32:00.000Z",
+        "verified": false
+      },
+      {
+        "id": "doc_tin_749102",
+        "type": "TIN_CERTIFICATE",
+        "title": "FIRS Tax Clearance Certificate",
+        "fileName": "FIRS_TaxClearance_Apex.pdf",
+        "fileSize": "790 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T14:32:00.000Z",
+        "verified": false
+      },
+      {
+        "id": "doc_id_749102",
+        "type": "DIRECTOR_ID",
+        "title": "Director NIN Verification Document",
+        "fileName": "Director_NIN_74928104829.pdf",
+        "fileSize": "540 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T14:32:00.000Z",
+        "verified": false
+      }
+    ]
   },
   {
     "id": "cs_01hzyq92a9x2m4",
@@ -96,7 +901,39 @@
       "tinVerified": true,
       "bankNameMatched": true,
       "identityCheck": "VERIFIED"
-    }
+    },
+    "documents": [
+      {
+        "id": "doc_cac_382910",
+        "type": "CAC_CERTIFICATE",
+        "title": "CAC Certificate of Incorporation",
+        "fileName": "Kano_Skyline_CAC_Certificate.pdf",
+        "fileSize": "1.6 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T18:15:30.000Z",
+        "verified": false
+      },
+      {
+        "id": "doc_tin_382910",
+        "type": "TIN_CERTIFICATE",
+        "title": "FIRS Tax Clearance Certificate",
+        "fileName": "FIRS_TaxClearance_19402914.pdf",
+        "fileSize": "680 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T18:15:30.000Z",
+        "verified": false
+      },
+      {
+        "id": "doc_id_382910",
+        "type": "DIRECTOR_ID",
+        "title": "Managing Director Passport Photo Page",
+        "fileName": "Ibrahim_Danjuma_Passport_A09482194.jpg",
+        "fileSize": "910 KB",
+        "fileType": "image/jpeg",
+        "uploadedAt": "2026-10-28T18:15:30.000Z",
+        "verified": false
+      }
+    ]
   },
   {
     "id": "cs_01hzyq95k8b1q7",
@@ -129,6 +966,48 @@
       "tinVerified": true,
       "bankNameMatched": true,
       "identityCheck": "VERIFIED"
-    }
+    },
+    "documents": [
+      {
+        "id": "doc_cac_192837",
+        "type": "CAC_CERTIFICATE",
+        "title": "CAC Certificate of Incorporation",
+        "fileName": "Prestige_Build_CAC_RC1678291.pdf",
+        "fileSize": "1.5 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-27T09:44:12.000Z",
+        "verified": true
+      },
+      {
+        "id": "doc_tin_192837",
+        "type": "TIN_CERTIFICATE",
+        "title": "FIRS Tax Clearance Certificate",
+        "fileName": "FIRS_TIN_31049281_Current.pdf",
+        "fileSize": "820 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-27T09:44:12.000Z",
+        "verified": true
+      },
+      {
+        "id": "doc_id_192837",
+        "type": "DIRECTOR_ID",
+        "title": "Director NIN National ID Slip",
+        "fileName": "Fatima_Bello_NIN_Slip.pdf",
+        "fileSize": "510 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-27T09:44:12.000Z",
+        "verified": true
+      },
+      {
+        "id": "doc_coren_192837",
+        "type": "COREN_LICENSE",
+        "title": "COREN MEP System Practicing Certificate",
+        "fileName": "COREN_R58209_MEP_License.pdf",
+        "fileSize": "1.3 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-27T09:44:12.000Z",
+        "verified": true
+      }
+    ]
   }
 ]

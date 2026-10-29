@@ -1,0 +1,218 @@
+{
+  "updatedAt": "2026-10-29T18:05:00.000Z",
+  "roles": {
+    "owner": {
+      "key": "owner",
+      "label": "Property Owners",
+      "shortRole": "Property Owner",
+      "heroHeadline": "100% Full Feature Access · Pay Only for Project Slots",
+      "summary": "Every property owner gets 100% of the platform's capabilities from day one: bank escrow custody, daily visual telemetry, and unlimited client reps. Single-home builders are free forever; you only subscribe for capacity slots if managing multiple concurrent builds.",
+      "extraSlotNotice": {
+        "usd": "+$19.99 / month per extra slot",
+        "ngn": "+₦25,000 / month per extra slot",
+        "desc": "Building an auxiliary guest house, boundary wall, or 11th site? Add single construction slots anytime without jumping tiers."
+      },
+      "tiers": [
+        {
+          "id": "owner-private",
+          "name": "Private Owner",
+          "kicker": "Single-Home Builder",
+          "capacitySlots": 1,
+          "priceMonthlyUSD": "$0",
+          "priceYearlyUSD": "$0",
+          "priceMonthlyNGN": "₦0",
+          "priceYearlyNGN": "₦0",
+          "periodMonthly": "Free Forever",
+          "periodYearly": "Free Forever",
+          "subtext": "For individual home builders and private clients building a single property.",
+          "features": [
+            "1 Free Active Project Slot Forever",
+            "100% Bank Escrow Milestone Protection",
+            "Daily Visual Photo & Telemetry Logs",
+            "Unlimited Family & Representative Invites"
+          ]
+        },
+        {
+          "id": "owner-portfolio",
+          "name": "Portfolio Investor",
+          "kicker": "Multi-Build Portfolio",
+          "capacitySlots": 3,
+          "priceMonthlyUSD": "$49.99",
+          "priceYearlyUSD": "$499.99",
+          "priceMonthlyNGN": "₦65,000",
+          "priceYearlyNGN": "₦650,000",
+          "periodMonthly": "per month",
+          "periodYearly": "per year (2 months free)",
+          "subtext": "For owners building multiple properties or rental investments simultaneously.",
+          "features": [
+            "3 Concurrent Active Project Dashboards",
+            "Priority Milestone Escrow Disbursements",
+            "Independent QA/QC Site Inspector Dispatch",
+            "Dedicated Financial Ledger Reports"
+          ]
+        },
+        {
+          "id": "owner-estate",
+          "name": "Estate Developer",
+          "kicker": "Large-Scale Portfolios",
+          "capacitySlots": 10,
+          "priceMonthlyUSD": "$149.99",
+          "priceYearlyUSD": "$1,499.99",
+          "priceMonthlyNGN": "₦200,000",
+          "priceYearlyNGN": "₦2,000,000",
+          "periodMonthly": "per month",
+          "periodYearly": "per year (2 months free)",
+          "subtext": "For estate developers, family syndicates, and high-volume residential portfolios.",
+          "features": [
+            "10 Simultaneous Active Construction Slots",
+            "Custom Multi-Stage Approval Workflows",
+            "Direct BPP & Regulatory Document Archive",
+            "Institutional Bank Audit Trail"
+          ]
+        }
+      ]
+    },
+    "contractor": {
+      "key": "contractor",
+      "label": "General Contractors",
+      "shortRole": "General Contractor",
+      "heroHeadline": "Commercial Company Tiers · Unlimited Crew & 1st Project Free",
+      "summary": "Commercial company pricing scales strictly by active concurrent construction contracts. Every plan includes unlimited site crew, field photo uploads, and directory verification with zero per-seat penalties. Your first project is 100% free.",
+      "extraSlotNotice": {
+        "usd": "+$49.99 / month per extra job slot",
+        "ngn": "+₦65,000 / month per extra job slot",
+        "desc": "Won an unexpected extra tender? Add single job slots anytime without having to jump to the next major tier."
+      },
+      "tiers": [
+        {
+          "id": "contractor-starter",
+          "name": "Starter Contractor",
+          "kicker": "New Construction Company",
+          "capacitySlots": 1,
+          "priceMonthlyUSD": "1st Build Free",
+          "priceYearlyUSD": "$799.99",
+          "priceMonthlyNGN": "1st Build Free",
+          "priceYearlyNGN": "₦1,000,000",
+          "periodMonthly": "then $79.99/mo (₦100,000/mo)",
+          "periodYearly": "per year after first build",
+          "subtext": "Complete your entire first client project with zero platform commission or setup fees.",
+          "features": [
+            "1 Active Project Slot (Free for 1st Build)",
+            "Automated CAC & NUBAN Identity Check",
+            "Guaranteed Escrow Stage Payouts",
+            "Direct Site & Owner Messaging"
+          ]
+        },
+        {
+          "id": "contractor-verified",
+          "name": "Verified Builder",
+          "kicker": "Commercial Builders",
+          "capacitySlots": 3,
+          "priceMonthlyUSD": "$199.99",
+          "priceYearlyUSD": "$1,999.99",
+          "priceMonthlyNGN": "₦260,000",
+          "priceYearlyNGN": "₦2,600,000",
+          "periodMonthly": "per month",
+          "periodYearly": "per year (2 months free)",
+          "subtext": "For licensed construction firms managing active client sites with steady tender bids.",
+          "features": [
+            "Up to 3 Concurrent Active Build Slots",
+            "COREN / CORBON Verified Partner Seal",
+            "Unlimited Client Representatives & Foremen",
+            "24-Hour Stage Escrow Release Routing"
+          ]
+        },
+        {
+          "id": "contractor-prime",
+          "name": "Prime Consortium",
+          "kicker": "Tier-1 Construction Firms",
+          "capacitySlots": 8,
+          "priceMonthlyUSD": "$449.99",
+          "priceYearlyUSD": "$4,499.99",
+          "priceMonthlyNGN": "₦600,000",
+          "priceYearlyNGN": "₦6,000,000",
+          "periodMonthly": "per month",
+          "periodYearly": "per year (2 months free)",
+          "subtext": "For large construction companies handling multiple commercial developments.",
+          "features": [
+            "Up to 8 Concurrent Active Project Slots",
+            "BPP Federal Tender Priority Badge",
+            "Dedicated Platform Account Manager",
+            "Priority Multi-Bank Escrow Fast-Tracking"
+          ]
+        }
+      ]
+    },
+    "specialist": {
+      "key": "specialist",
+      "label": "Quality Specialists & Engineers",
+      "shortRole": "Quality Specialist",
+      "heroHeadline": "Independent Quality Auditing & Engineering Governance",
+      "summary": "Get dispatched for paid milestone audits on verified construction sites, or equip your engineering consultancy with digital QA/QC checklists, cube test reports, and tamper-evident audit stamps.",
+      "extraSlotNotice": {
+        "usd": "+$29.99 / month per extra audit slot",
+        "ngn": "+₦40,000 / month per extra audit slot",
+        "desc": "Expanding your engineering consultancy? Add active audit slots as your field engineer team grows."
+      },
+      "tiers": [
+        {
+          "id": "specialist-network",
+          "name": "Inspector Network Member",
+          "kicker": "Independent Auditor",
+          "capacitySlots": 1,
+          "priceMonthlyUSD": "Free to Join",
+          "priceYearlyUSD": "Free to Join",
+          "priceMonthlyNGN": "Free to Join",
+          "priceYearlyNGN": "Free to Join",
+          "periodMonthly": "100% audit fee kept",
+          "periodYearly": "100% audit fee kept",
+          "subtext": "For accredited structural, civil, or MEP engineers conducting site audits.",
+          "features": [
+            "On-Demand Site Audit Dispatch Requests",
+            "Direct Escrow Fee Disbursement",
+            "Mobile Structural Inspection Checklist",
+            "Digital COREN Stamp Certification"
+          ]
+        },
+        {
+          "id": "specialist-practice",
+          "name": "Consulting Engineering Practice",
+          "kicker": "Engineering Firms",
+          "capacitySlots": 10,
+          "priceMonthlyUSD": "$99.99",
+          "priceYearlyUSD": "$999.99",
+          "priceMonthlyNGN": "₦130,000",
+          "priceYearlyNGN": "₦1,300,000",
+          "periodMonthly": "per month",
+          "periodYearly": "per year (2 months free)",
+          "subtext": "For structural & civil engineering consultancies auditing private client projects.",
+          "features": [
+            "10 Simultaneous Site Audit Slots",
+            "Multi-Engineer Dispatch Management",
+            "Structural Defect & Cube Test Logging",
+            "Tamper-Proof Audit Sign-Off Certificates"
+          ]
+        },
+        {
+          "id": "specialist-lab",
+          "name": "Accredited Testing Laboratory",
+          "kicker": "Materials Testing Labs",
+          "capacitySlots": 999,
+          "priceMonthlyUSD": "Custom",
+          "priceYearlyUSD": "Custom",
+          "priceMonthlyNGN": "Custom",
+          "priceYearlyNGN": "Custom",
+          "periodMonthly": "Partner Integration",
+          "periodYearly": "Partner Integration",
+          "subtext": "For materials testing laboratories verifying concrete, rebar, and soil compaction.",
+          "features": [
+            "Unlimited Batch Test Validations",
+            "Digital Concrete Cube Crush Certificates",
+            "Soil Compaction & Steel Tensile Dossiers",
+            "Direct API Webhook to Lab Instruments"
+          ]
+        }
+      ]
+    }
+  }
+}

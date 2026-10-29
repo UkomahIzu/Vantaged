@@ -8,6 +8,13 @@ export interface CompanySignupModalProps {
   initialPlan?: "starter" | "verified" | "prime";
 }
 
+export interface UploadedDocumentMeta {
+  fileName: string;
+  fileSize: string;
+  fileType: string;
+  fileData?: string;
+}
+
 interface FormData {
   // Step 1: Corporate Profile
   companyName: string;
@@ -32,7 +39,13 @@ interface FormData {
   accountNumber: string;
   accountName: string;
 
-  // Step 4: Accreditations & Plan
+  // Step 4: Compliance Documents
+  cacDoc: UploadedDocumentMeta | null;
+  tinDoc: UploadedDocumentMeta | null;
+  directorIdDoc: UploadedDocumentMeta | null;
+  corenDoc: UploadedDocumentMeta | null;
+
+  // Step 5: Accreditations & Plan
   corenNumber: string;
   bppCategory: string;
   selectedPlan: "starter" | "verified" | "prime";
@@ -82,7 +95,7 @@ export function CompanySignupModal({
   initialPlan = "starter",
 }: CompanySignupModalProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState<any | null>(null);
@@ -106,6 +119,26 @@ export function CompanySignupModal({
     bankName: NIGERIAN_BANKS[0],
     accountNumber: "1012345678",
     accountName: "Crane & Stone Engineering Limited",
+    cacDoc: {
+      fileName: "Crane_Stone_CAC_RC1849202.pdf",
+      fileSize: "1.4 MB",
+      fileType: "application/pdf",
+    },
+    tinDoc: {
+      fileName: "FIRS_TaxClearance_24910294.pdf",
+      fileSize: "840 KB",
+      fileType: "application/pdf",
+    },
+    directorIdDoc: {
+      fileName: "Babatunde_Adeleke_NIN_Slip.pdf",
+      fileSize: "620 KB",
+      fileType: "application/pdf",
+    },
+    corenDoc: {
+      fileName: "COREN_R49201_License_2026.pdf",
+      fileSize: "1.1 MB",
+      fileType: "application/pdf",
+    },
     corenNumber: "COREN/R/49201",
     bppCategory: "Category B - Federal Works",
     selectedPlan: initialPlan,
@@ -171,6 +204,43 @@ export function CompanySignupModal({
     setErrorMsg(null);
   };
 
+  const handleFileUpload = (
+    field: "cacDoc" | "tinDoc" | "directorIdDoc" | "corenDoc",
+    file: File
+  ) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMsg("File size exceeds 10MB limit. Please upload a smaller document.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const formattedSize =
+        file.size > 1024 * 1024
+          ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+          : `${Math.round(file.size / 1024)} KB`;
+
+      setFormData((prev) => ({
+        ...prev,
+        [field]: {
+          fileName: file.name,
+          fileSize: formattedSize,
+          fileType: file.type || "application/pdf",
+          fileData: reader.result as string,
+        },
+      }));
+    };
+    reader.readAsDataURL(file);
+    setErrorMsg(null);
+  };
+
+  const handleRemoveDoc = (field: "cacDoc" | "tinDoc" | "directorIdDoc" | "corenDoc") => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: null,
+    }));
+  };
+
   const validateStep = (currentStep: number): boolean => {
     if (currentStep === 1) {
       if (!formData.companyName.trim()) {
@@ -211,6 +281,19 @@ export function CompanySignupModal({
         setErrorMsg("Settlement Account Name is required");
         return false;
       }
+    } else if (currentStep === 4) {
+      if (!formData.cacDoc) {
+        setErrorMsg("CAC Certificate of Incorporation / Status Report is required");
+        return false;
+      }
+      if (!formData.tinDoc) {
+        setErrorMsg("FIRS Tax Clearance Certificate / TIN Document is required");
+        return false;
+      }
+      if (!formData.directorIdDoc) {
+        setErrorMsg(`Managing Director ${formData.idType} identity document is required`);
+        return false;
+      }
     }
     return true;
   };
@@ -218,7 +301,7 @@ export function CompanySignupModal({
   const handleNext = () => {
     if (validateStep(step)) {
       setErrorMsg(null);
-      setStep((prev) => (prev < 4 ? ((prev + 1) as any) : prev));
+      setStep((prev) => (prev < 5 ? ((prev + 1) as any) : prev));
     }
   };
 
@@ -235,10 +318,70 @@ export function CompanySignupModal({
     setErrorMsg(null);
 
     try {
+      const documentsPayload = [
+        formData.cacDoc
+          ? {
+              id: `doc_cac_${Date.now()}`,
+              type: "CAC_CERTIFICATE",
+              title: "CAC Certificate of Incorporation",
+              fileName: formData.cacDoc.fileName,
+              fileSize: formData.cacDoc.fileSize,
+              fileType: formData.cacDoc.fileType,
+              fileData: formData.cacDoc.fileData,
+              uploadedAt: new Date().toISOString(),
+              verified: false,
+            }
+          : null,
+        formData.tinDoc
+          ? {
+              id: `doc_tin_${Date.now()}`,
+              type: "TIN_CERTIFICATE",
+              title: "FIRS Tax Clearance Certificate",
+              fileName: formData.tinDoc.fileName,
+              fileSize: formData.tinDoc.fileSize,
+              fileType: formData.tinDoc.fileType,
+              fileData: formData.tinDoc.fileData,
+              uploadedAt: new Date().toISOString(),
+              verified: false,
+            }
+          : null,
+        formData.directorIdDoc
+          ? {
+              id: `doc_id_${Date.now()}`,
+              type: "DIRECTOR_ID",
+              title: `Director ${formData.idType} Verification Slip`,
+              fileName: formData.directorIdDoc.fileName,
+              fileSize: formData.directorIdDoc.fileSize,
+              fileType: formData.directorIdDoc.fileType,
+              fileData: formData.directorIdDoc.fileData,
+              uploadedAt: new Date().toISOString(),
+              verified: false,
+            }
+          : null,
+        formData.corenDoc
+          ? {
+              id: `doc_coren_${Date.now()}`,
+              type: "COREN_LICENSE",
+              title: "COREN Practicing License",
+              fileName: formData.corenDoc.fileName,
+              fileSize: formData.corenDoc.fileSize,
+              fileType: formData.corenDoc.fileType,
+              fileData: formData.corenDoc.fileData,
+              uploadedAt: new Date().toISOString(),
+              verified: false,
+            }
+          : null,
+      ].filter(Boolean);
+
+      const payload = {
+        ...formData,
+        documents: documentsPayload,
+      };
+
       const res = await fetch("/api/contractors/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -377,12 +520,13 @@ export function CompanySignupModal({
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
             {/* Step Progress Tracker */}
-            <div className="shrink-0 px-5 sm:px-6 py-2 bg-[#EDEBF5]/60 dark:bg-[#1F174C]/60 border-b border-[#E2E0EC] dark:border-[#2C2460] grid grid-cols-4 gap-1 text-center select-none text-xs">
+            <div className="shrink-0 px-5 sm:px-6 py-2 bg-[#EDEBF5]/60 dark:bg-[#1F174C]/60 border-b border-[#E2E0EC] dark:border-[#2C2460] grid grid-cols-5 gap-1 text-center select-none text-xs">
               {[
                 { s: 1, label: "Company" },
                 { s: 2, label: "Director" },
                 { s: 3, label: "Banking" },
-                { s: 4, label: "Capacity" },
+                { s: 4, label: "Documents" },
+                { s: 5, label: "Plan" },
               ].map((item) => (
                 <div
                   key={item.s}
@@ -668,11 +812,146 @@ export function CompanySignupModal({
                 </div>
               )}
 
-              {/* ── STEP 4: Accreditations & Plan Selection ── */}
+              {/* ── STEP 4: Compliance Document Upload ── */}
               {step === 4 && (
                 <div className="space-y-3">
+                  <div className="pb-1 border-b border-[#E2E0EC] dark:border-[#2C2460]">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7C7894] dark:text-[#918ADA] block">
+                      Step 4 of 5 · Compliance Document Upload
+                    </span>
+                    <p className="text-[11px] text-[#5E5A7D] dark:text-[#B8B1E9]">
+                      Upload corporate and regulatory documents for admin compliance review.
+                    </p>
+                  </div>
+
+                  {/* Document List */}
+                  <div className="space-y-2.5">
+                    {[
+                      {
+                        key: "cacDoc" as const,
+                        title: "CAC Certificate / Status Report *",
+                        desc: "Official Certificate of Incorporation or Form CAC 1.1 / Status Report.",
+                        doc: formData.cacDoc,
+                        required: true,
+                        accept: ".pdf,.png,.jpg,.jpeg",
+                      },
+                      {
+                        key: "tinDoc" as const,
+                        title: "FIRS Tax Clearance / TIN Document *",
+                        desc: "Valid corporate Tax Identification Number certificate or clearance slip.",
+                        doc: formData.tinDoc,
+                        required: true,
+                        accept: ".pdf,.png,.jpg,.jpeg",
+                      },
+                      {
+                        key: "directorIdDoc" as const,
+                        title: `Managing Director ${formData.idType} Document *`,
+                        desc: `Clear copy of ${formData.idType === "NIN" ? "National NIN Slip / Card" : "International Passport Bio Page"}.`,
+                        doc: formData.directorIdDoc,
+                        required: true,
+                        accept: ".pdf,.png,.jpg,.jpeg",
+                      },
+                      {
+                        key: "corenDoc" as const,
+                        title: "COREN / Technical Practicing License (Optional)",
+                        desc: "Engineering, quantity surveying or architectural council license.",
+                        doc: formData.corenDoc,
+                        required: false,
+                        accept: ".pdf,.png,.jpg,.jpeg",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.key}
+                        className={`p-3 rounded-lg border transition-all ${
+                          item.doc
+                            ? "bg-[#E9F6EC]/50 dark:bg-[#1A3824]/40 border-[#A3D9B1] dark:border-[#25633A]"
+                            : "bg-[#F7F7FA] dark:bg-[#211A4D] border-[#E2E0EC] dark:border-[#2C2460]"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-[#261A66] dark:text-[#F4F3FC]">
+                                {item.title}
+                              </span>
+                              {item.doc && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#1F6B3E] text-white">
+                                  Ready ✓
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-[#5E5A7D] dark:text-[#B8B1E9] mt-0.5">
+                              {item.desc}
+                            </p>
+                          </div>
+
+                          {item.doc ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDoc(item.key)}
+                              className="text-[10px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 cursor-pointer shrink-0"
+                            >
+                              ✕ Remove
+                            </button>
+                          ) : null}
+                        </div>
+
+                        {item.doc ? (
+                          <div className="mt-2 flex items-center justify-between p-2 rounded bg-white dark:bg-[#18123F] border border-[#A3D9B1]/60 text-xs">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-[#1F6B3E] font-bold">📄</span>
+                              <span className="font-mono text-[11px] font-semibold text-[#261A66] dark:text-[#F4F3FC] truncate">
+                                {item.doc.fileName}
+                              </span>
+                              <span className="text-[10px] text-[#7C7894] font-mono shrink-0">
+                                ({item.doc.fileSize})
+                              </span>
+                            </div>
+                            <label className="text-[10px] font-bold text-[#EF5F18] hover:underline cursor-pointer shrink-0 ml-2">
+                              Change
+                              <input
+                                type="file"
+                                accept={item.accept}
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleFileUpload(item.key, file);
+                                }}
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <label className="mt-2 flex items-center justify-center gap-2 p-2.5 rounded border border-dashed border-[#CBC8DA] dark:border-[#3D3478] bg-white/70 dark:bg-[#18123F]/70 hover:border-[#EF5F18] hover:bg-white dark:hover:bg-[#18123F] transition-all cursor-pointer">
+                            <span className="text-[#EF5F18] font-bold text-xs">📁</span>
+                            <span className="text-[11px] font-medium text-[#5E5A7D] dark:text-[#B8B1E9]">
+                              Click or drop file <span className="text-[10px] text-[#7C7894]">(PDF, PNG, JPG max 10MB)</span>
+                            </span>
+                            <input
+                              type="file"
+                              accept={item.accept}
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileUpload(item.key, file);
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="p-2.5 rounded-md bg-[#EDEBF5] dark:bg-[#211A4D] text-[11px] text-[#5E5A7D] dark:text-[#B8B1E9] leading-relaxed">
+                    🔒 Documents are encrypted and sent directly to the Vantaged Compliance Officer for manual document inspection.
+                  </div>
+                </div>
+              )}
+
+              {/* ── STEP 5: Accreditations & Plan Selection ── */}
+              {step === 5 && (
+                <div className="space-y-3">
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7C7894] dark:text-[#918ADA] block">
-                    Step 4 of 4 · Capacity Tier &amp; Professional Badges
+                    Step 5 of 5 · Capacity Tier &amp; Professional Badges
                   </span>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -785,7 +1064,7 @@ export function CompanySignupModal({
                   Cancel
                 </button>
 
-                {step < 4 ? (
+                {step < 5 ? (
                   <button
                     type="button"
                     onClick={handleNext}

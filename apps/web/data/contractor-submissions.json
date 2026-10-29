@@ -1,5 +1,80 @@
 [
   {
+    "id": "sub_1793236783276_83337",
+    "referenceNumber": "VTG-CAC-83337",
+    "submittedAt": "2026-10-29T01:19:43.276Z",
+    "status": "UNDER_REVIEW",
+    "companyName": "Crane & Stone Engineering Limited",
+    "rcNumber": "RC-1849202",
+    "tin": "24910294-0001",
+    "category": "General Building & Construction",
+    "email": "info@craneandstone.com",
+    "phone": "+234 803 123 4567",
+    "officeAddress": "Plot 14, Commercial Avenue, Victoria Island",
+    "state": "Lagos",
+    "directorName": "Engr. Babatunde Julius Adeleke",
+    "directorRole": "Managing Director",
+    "directorEmail": "b.adeleke@craneandstone.com",
+    "directorPhone": "+234 802 319 8421",
+    "idType": "NIN",
+    "idNumber": "19283746501",
+    "bankName": "Zenith Bank",
+    "accountNumber": "1012345678",
+    "accountName": "Crane & Stone Engineering Limited",
+    "corenNumber": "COREN/R/49201",
+    "bppCategory": "Category B - Federal Works",
+    "selectedPlan": "starter",
+    "yearsInBusiness": "6–10 years",
+    "automatedChecks": {
+      "cacStatus": "ACTIVE",
+      "tinVerified": true,
+      "bankNameMatched": true,
+      "identityCheck": "VERIFIED"
+    },
+    "documents": [
+      {
+        "id": "doc_cac_83337",
+        "type": "CAC_CERTIFICATE",
+        "title": "CAC Certificate of Incorporation",
+        "fileName": "Crane_Stone_CAC_RC1849202.pdf",
+        "fileSize": "1.4 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T01:19:43.276Z",
+        "verified": false
+      },
+      {
+        "id": "doc_tin_83337",
+        "type": "TIN_CERTIFICATE",
+        "title": "FIRS Tax Clearance Certificate",
+        "fileName": "FIRS_TaxClearance_24910294.pdf",
+        "fileSize": "840 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T01:19:43.276Z",
+        "verified": false
+      },
+      {
+        "id": "doc_id_83337",
+        "type": "DIRECTOR_ID",
+        "title": "Managing Director NIN Slip",
+        "fileName": "Babatunde_Adeleke_NIN_Slip.pdf",
+        "fileSize": "620 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T01:19:43.276Z",
+        "verified": false
+      },
+      {
+        "id": "doc_coren_83337",
+        "type": "COREN_LICENSE",
+        "title": "COREN Practicing License",
+        "fileName": "COREN_R49201_License_2026.pdf",
+        "fileSize": "1.1 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-29T01:19:43.276Z",
+        "verified": false
+      }
+    ]
+  },
+  {
     "id": "cs_01hzyq89m1b4v9",
     "referenceNumber": "VTG-CAC-749102",
     "submittedAt": "2026-10-28T14:32:00.000Z",
@@ -30,7 +105,39 @@
       "tinVerified": true,
       "bankNameMatched": true,
       "identityCheck": "VERIFIED"
-    }
+    },
+    "documents": [
+      {
+        "id": "doc_cac_749102",
+        "type": "CAC_CERTIFICATE",
+        "title": "CAC Certificate of Incorporation",
+        "fileName": "Apex_Structure_CAC_RC1849204.pdf",
+        "fileSize": "1.2 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T14:32:00.000Z",
+        "verified": false
+      },
+      {
+        "id": "doc_tin_749102",
+        "type": "TIN_CERTIFICATE",
+        "title": "FIRS Tax Clearance Certificate",
+        "fileName": "FIRS_TaxClearance_Apex.pdf",
+        "fileSize": "790 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T14:32:00.000Z",
+        "verified": false
+      },
+      {
+        "id": "doc_id_749102",
+        "type": "DIRECTOR_ID",
+        "title": "Director NIN Verification Document",
+        "fileName": "Director_NIN_74928104829.pdf",
+        "fileSize": "540 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T14:32:00.000Z",
+        "verified": false
+      }
+    ]
   },
   {
     "id": "cs_01hzyq92a9x2m4",
@@ -63,7 +170,39 @@
       "tinVerified": true,
       "bankNameMatched": true,
       "identityCheck": "VERIFIED"
-    }
+    },
+    "documents": [
+      {
+        "id": "doc_cac_382910",
+        "type": "CAC_CERTIFICATE",
+        "title": "CAC Certificate of Incorporation",
+        "fileName": "Kano_Skyline_CAC_Certificate.pdf",
+        "fileSize": "1.6 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T18:15:30.000Z",
+        "verified": false
+      },
+      {
+        "id": "doc_tin_382910",
+        "type": "TIN_CERTIFICATE",
+        "title": "FIRS Tax Clearance Certificate",
+        "fileName": "FIRS_TaxClearance_19402914.pdf",
+        "fileSize": "680 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-28T18:15:30.000Z",
+        "verified": false
+      },
+      {
+        "id": "doc_id_382910",
+        "type": "DIRECTOR_ID",
+        "title": "Managing Director Passport Photo Page",
+        "fileName": "Ibrahim_Danjuma_Passport_A09482194.jpg",
+        "fileSize": "910 KB",
+        "fileType": "image/jpeg",
+        "uploadedAt": "2026-10-28T18:15:30.000Z",
+        "verified": false
+      }
+    ]
   },
   {
     "id": "cs_01hzyq95k8b1q7",
@@ -96,7 +235,48 @@
       "tinVerified": true,
       "bankNameMatched": true,
       "identityCheck": "VERIFIED"
-    }
+    },
+    "documents": [
+      {
+        "id": "doc_cac_192837",
+        "type": "CAC_CERTIFICATE",
+        "title": "CAC Certificate of Incorporation",
+        "fileName": "Prestige_Build_CAC_RC1678291.pdf",
+        "fileSize": "1.5 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-27T09:44:12.000Z",
+        "verified": true
+      },
+      {
+        "id": "doc_tin_192837",
+        "type": "TIN_CERTIFICATE",
+        "title": "FIRS Tax Clearance Certificate",
+        "fileName": "FIRS_TIN_31049281_Current.pdf",
+        "fileSize": "820 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-27T09:44:12.000Z",
+        "verified": true
+      },
+      {
+        "id": "doc_id_192837",
+        "type": "DIRECTOR_ID",
+        "title": "Director NIN National ID Slip",
+        "fileName": "Fatima_Bello_NIN_Slip.pdf",
+        "fileSize": "510 KB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-27T09:44:12.000Z",
+        "verified": true
+      },
+      {
+        "id": "doc_coren_192837",
+        "type": "COREN_LICENSE",
+        "title": "COREN MEP System Practicing Certificate",
+        "fileName": "COREN_R58209_MEP_License.pdf",
+        "fileSize": "1.3 MB",
+        "fileType": "application/pdf",
+        "uploadedAt": "2026-10-27T09:44:12.000Z",
+        "verified": true
+      }
+    ]
   }
 ]
-

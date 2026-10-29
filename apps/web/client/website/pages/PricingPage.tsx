@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Navbar } from "../sections/Navbar";
 import { FooterSection } from "../sections/FooterSection";
 import { openCompanySignupModal } from "../components/CompanySignupModal";
+import { TradeSignupModal, openTradeSignupModal } from "../components/TradeSignupModal";
 
 type RoleKey = "owner" | "contractor" | "specialist";
 type Currency = "USD" | "NGN";
@@ -355,7 +356,36 @@ export function PricingPage() {
     },
   };
 
-  const activeConfig = roleConfigs[selectedRole];
+  const [roleConfigsState, setRoleConfigsState] = useState<Record<RoleKey, RoleConfig>>(roleConfigs);
+
+  useEffect(() => {
+    fetch("/api/pricing")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.roles) {
+          setRoleConfigsState((prev) => {
+            const next = { ...prev };
+            (["owner", "contractor", "specialist"] as RoleKey[]).forEach((r) => {
+              if (data.roles[r]) {
+                if (data.roles[r].extraSlotNotice) {
+                  next[r].extraSlotNotice = data.roles[r].extraSlotNotice;
+                }
+                if (data.roles[r].tiers) {
+                  next[r].tiers = next[r].tiers.map((t) => {
+                    const match = data.roles[r].tiers.find((dt: any) => dt.id === t.id);
+                    return match ? { ...t, ...match } : t;
+                  });
+                }
+              }
+            });
+            return next;
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const activeConfig = roleConfigsState[selectedRole];
 
   // Escrow Take-rate schedule data directly from Section 2.2 of monetization plan
   const escrowTakeRateTiers = [
@@ -671,6 +701,112 @@ export function PricingPage() {
                 </div>
               </div>
             )}
+
+            {/* ── Standalone Tier for Uncertified Artisans & Small Contractors ── */}
+            {selectedRole === "contractor" && (
+              <div className="mt-16 pt-12 border-t border-[var(--vt-color-border-default,#E2E0EC)] dark:border-[var(--vt-color-border-default,#2C2460)]">
+                <div className="max-w-4xl mx-auto">
+                  <div className="text-center mb-8">
+                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-[var(--vt-color-orange-600,#D84C0B)] block mb-1">
+                      Entry-Level Trade Tier · No Corporate Certifications Needed
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] dark:text-[var(--vt-color-text-default,#F4F3FC)]">
+                      Independent Artisan &amp; Trade Contractor
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-600,#5E5A7D)] dark:text-[var(--vt-color-text-muted,#B8B1E9)] mt-1.5 max-w-xl mx-auto">
+                      For independent tradespeople, masons, plumbers, electricians, and small builders without CAC Limited or COREN certifications.
+                    </p>
+                  </div>
+
+                  {/* Standalone Tier Card */}
+                  <div className="rounded-2xl p-6 sm:p-8 bg-gradient-to-br from-white via-white to-[var(--vt-color-orange-50,#FFF4EE)]/50 dark:from-[var(--vt-color-surface-raised,#211A4D)] dark:to-[var(--vt-color-surface-sunken,#0C0824)] border-2 border-dashed border-[var(--vt-color-orange-300,#FBA674)] dark:border-[var(--vt-color-orange-700,#8E320A)] shadow-sm hover:shadow-md transition-all">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-[var(--vt-color-border-default,#E2E0EC)] dark:border-[var(--vt-color-border-default,#2C2460)]">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-[var(--vt-color-orange-100,#FDCAA9)] text-[var(--vt-color-orange-800,#932F04)] dark:bg-[#3D1E10] dark:text-[#FDCAA9]">
+                            Single-Project Trade Tier
+                          </span>
+                          <span className="text-xs text-[var(--vt-color-neutral-400,#A3A0B8)]">·</span>
+                          <span className="text-xs font-bold text-emerald-600">Free to Register</span>
+                        </div>
+                        <h4 className="text-xl sm:text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] dark:text-[var(--vt-color-text-default,#F4F3FC)]">
+                          Trade Contractor Tier
+                        </h4>
+                        <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] dark:text-[var(--vt-color-text-muted,#B8B1E9)] mt-1 max-w-md">
+                          Execute residential finishes, interior trades, and minor renovations with guaranteed milestone escrow payouts.
+                        </p>
+                      </div>
+
+                      <div className="lg:text-right shrink-0">
+                        <div className="text-3xl sm:text-4xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] dark:text-[var(--vt-color-text-default,#F4F3FC)]">
+                          {currency === "USD" ? "$0" : "₦0"}
+                        </div>
+                        <span className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)] block mt-0.5">
+                          Free Forever · Pay only escrow take-rate on completed stages
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Operational Limits Box */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-6">
+                      <div className="p-4 rounded-xl bg-white dark:bg-[#150F33] border border-[var(--vt-color-border-default,#E2E0EC)] dark:border-[#2C2460]">
+                        <span className="text-[10px] font-mono font-bold uppercase text-[var(--vt-color-orange-600,#D84C0B)] block mb-0.5">
+                          Strict Capacity Limit
+                        </span>
+                        <div className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] dark:text-white">
+                          1 Active Project at a Time
+                        </div>
+                        <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
+                          Locked to 1 concurrent site. Finished projects automatically recycle the slot. Cannot purchase extra slots.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-white dark:bg-[#150F33] border border-[var(--vt-color-border-default,#E2E0EC)] dark:border-[#2C2460]">
+                        <span className="text-[10px] font-mono font-bold uppercase text-[var(--vt-color-orange-600,#D84C0B)] block mb-0.5">
+                          Contract Value Ceiling
+                        </span>
+                        <div className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] dark:text-white">
+                          Projects Under {currency === "USD" ? "$10,000" : "₦10,000,000"}
+                        </div>
+                        <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
+                          Restricted to finishes, trade installations, and minor renovations. Full certifications needed for larger works.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Features list */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] dark:text-[var(--vt-color-text-muted,#B8B1E9)] mb-6">
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-600 font-bold">✓</span>
+                        <span>Personal NIN &amp; NUBAN Bank Account Verification</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-600 font-bold">✓</span>
+                        <span>Guaranteed Bank Escrow Stage Payouts</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-600 font-bold">✓</span>
+                        <span>Mobile Photo &amp; Milestone Proof Submissions</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-600 font-bold">✓</span>
+                        <span>No CAC Ltd or COREN License Required</span>
+                      </div>
+                    </div>
+
+                    {/* CTA Button */}
+                    <button
+                      type="button"
+                      onClick={() => openTradeSignupModal()}
+                      className="w-full h-11 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg cursor-pointer"
+                    >
+                      <span>Register as Trade Contractor (No Corporate Certifications)</span>
+                      <span>&rarr;</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -833,6 +969,9 @@ export function PricingPage() {
           </div>
         </section>
       </main>
+
+      {/* ── Modals ── */}
+      <TradeSignupModal />
 
       {/* ── Footer ── */}
       <FooterSection />
