@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { openCompanySignupModal } from "../components/CompanySignupModal";
 
 export type OwnerRoleType = "OWNER_ADMIN" | "ORGANIZATION" | "OWNER_REP";
 
@@ -383,6 +384,22 @@ export function OwnerSignupPage() {
                   <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-500,#7C7894)] font-sans leading-relaxed">
                     Enter your credentials and specific role parameters to initialize project access.
                   </p>
+                </div>
+
+                {/* Contractor Switch Banner */}
+                <div className="flex items-center justify-between p-3 rounded-md bg-[#FFF5EB] border border-[#FBA674]/40 text-xs text-[var(--vt-color-indigo-900,#261A66)] font-sans">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[var(--vt-color-orange-600,#D84C0B)]">Are you a Contractor?</span>
+                    <span className="hidden sm:inline text-[var(--vt-color-neutral-600,#5E5A7D)]">Register your construction company</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openCompanySignupModal("starter")}
+                    className="px-3 py-1.5 bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white font-bold rounded-md transition-all cursor-pointer text-xs flex items-center gap-1 shadow-xs"
+                  >
+                    <span>Company Sign Up</span>
+                    <span>&rarr;</span>
+                  </button>
                 </div>
 
                 {/* 1. Full Name Input Bar (Swapped to Top Full-Width Position) */}

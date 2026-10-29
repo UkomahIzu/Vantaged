@@ -3,6 +3,7 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 
 import { ThemeProvider } from "../client/context/ThemeContext";
+import { GlobalCompanySignupModal } from "../client/website/components/CompanySignupModal";
 
 const outfit = Outfit({
   variable: "--vt-font-sans",
@@ -63,6 +64,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
           {children}
+          <GlobalCompanySignupModal />
         </ThemeProvider>
       </body>
     </html>

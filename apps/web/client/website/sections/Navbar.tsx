@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { defaultNavLinks } from "../data/navigation";
 import { LanguageDropdown } from "../components/LanguageDropdown";
+import { useTheme } from "../../context/ThemeContext";
+import { openCompanySignupModal } from "../components/CompanySignupModal";
 import type { NavItem } from "../types";
 
 export interface NavbarProps {
@@ -14,6 +16,7 @@ export function Navbar({
   navLinks = defaultNavLinks,
   activeLinkId = "nav-home",
 }: NavbarProps) {
+  const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [signupDropdownOpen, setSignupDropdownOpen] = useState(false);
@@ -62,7 +65,9 @@ export function Navbar({
           <img
             src="/brand/vantaged-measurement-logo.svg"
             alt="Vantaged"
-            className="h-7 sm:h-8 w-auto max-w-[180px] object-contain"
+            className={`h-7 sm:h-8 w-auto max-w-[180px] object-contain transition-all duration-200 ${
+              theme === "dark" ? "brightness-0 invert" : ""
+            }`}
           />
         </a>
 
@@ -162,8 +167,35 @@ export function Navbar({
           })}
         </nav>
 
-        {/* ── Extreme Right Actions: Global Dropdown + Login + Sign Up (Square with slight radius) ── */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* ── Extreme Right Actions: Theme Toggle + Language Dropdown + Login + Sign Up ── */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Single Light/Dark Mode Toggle Button (Matching Owner Dashboard HeaderBar) */}
+          <button
+            id="nav-theme-toggle-btn"
+            type="button"
+            onClick={toggleTheme}
+            title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            aria-label={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            className="h-8.5 px-2.5 sm:px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer shadow-2xs font-sans"
+          >
+            {theme === "light" ? (
+              <>
+                <svg className="w-3.5 h-3.5 text-[var(--vt-color-orange-500,#EF5F18)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                </svg>
+                <span>Light</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5 text-[var(--vt-color-orange-400,#F6803F)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                </svg>
+                <span>Dark</span>
+              </>
+            )}
+          </button>
+
           {/* Global / Region Language Dropdown */}
           <LanguageDropdown />
 
@@ -198,11 +230,14 @@ export function Navbar({
               >
                 <div className="flex flex-col gap-0.5">
                   {/* Contractor Option */}
-                  <a
+                  <button
+                    type="button"
                     id="signup-role-contractor"
-                    href="/signup?role=contractor"
-                    onClick={() => setSignupDropdownOpen(false)}
-                    className="group px-3 py-2 rounded-md hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] transition-colors flex flex-col text-left"
+                    onClick={() => {
+                      setSignupDropdownOpen(false);
+                      openCompanySignupModal();
+                    }}
+                    className="group px-3 py-2 rounded-md hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] transition-colors flex flex-col text-left w-full cursor-pointer"
                   >
                     <span className="text-xs sm:text-sm font-semibold text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors">
                       Contractor
@@ -210,7 +245,7 @@ export function Navbar({
                     <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] leading-snug mt-0.5">
                       Submit milestone proof, request site verification & receive automated stage payouts
                     </span>
-                  </a>
+                  </button>
 
                   {/* Owner Option */}
                   <a
@@ -288,6 +323,30 @@ export function Navbar({
           ))}
 
           <div className="pt-3 mt-2 border-t border-[var(--vt-color-neutral-200,#E2E0EC)] flex flex-col gap-2">
+            {/* Mobile Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="w-full py-2 px-3 rounded-md bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-text-default,#261A66)] flex items-center justify-between text-xs font-semibold cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                {theme === "light" ? (
+                  <svg className="w-4 h-4 text-[var(--vt-color-orange-500,#EF5F18)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-[var(--vt-color-orange-400,#F6803F)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                  </svg>
+                )}
+                <span>Theme Mode</span>
+              </span>
+              <span className="text-[11px] font-mono text-[var(--vt-color-orange-600,#D84C0B)] uppercase">
+                {theme === "light" ? "Light" : "Dark"}
+              </span>
+            </button>
+
             <a
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
@@ -300,13 +359,16 @@ export function Navbar({
                 Sign Up As
               </span>
               <div className="flex gap-2">
-                <a
-                  href="/signup?role=contractor"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex-1 text-center py-2 text-xs font-semibold bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] rounded-md transition-colors"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openCompanySignupModal();
+                  }}
+                  className="flex-1 text-center py-2 text-xs font-semibold bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] rounded-md transition-colors cursor-pointer"
                 >
                   Contractor
-                </a>
+                </button>
                 <a
                   href="/signup/owner"
                   onClick={() => setMobileMenuOpen(false)}
