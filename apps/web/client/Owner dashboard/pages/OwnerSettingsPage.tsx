@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
@@ -10,11 +10,131 @@ import { VantagedSelect } from "../components/VantagedSelect";
 
 export type SettingsTab = "profile" | "subscription" | "security" | "escrow" | "notifications";
 
+interface OwnerPricingTier {
+  id: "owner-private" | "owner-portfolio" | "owner-estate";
+  name: string;
+  kicker: string;
+  capacitySlots: number;
+  priceMonthlyUSD: string;
+  priceYearlyUSD: string;
+  priceMonthlyNGN: string;
+  priceYearlyNGN: string;
+  periodMonthly: string;
+  periodYearly: string;
+  subtext: string;
+  features?: string[];
+}
+
+interface OwnerPricingState {
+  extraSlotNotice: {
+    usd: string;
+    ngn: string;
+    desc: string;
+  };
+  tiers: OwnerPricingTier[];
+}
+
+const DEFAULT_OWNER_PRICING: OwnerPricingState = {
+  extraSlotNotice: {
+    usd: "+$19.99 / month per extra slot",
+    ngn: "+₦25,000 / month per extra slot",
+    desc: "Building an auxiliary guest house, boundary wall, or 11th site? Add single construction slots anytime without jumping tiers.",
+  },
+  tiers: [
+    {
+      id: "owner-private",
+      name: "Private Owner",
+      kicker: "Single-Home Builder",
+      capacitySlots: 1,
+      priceMonthlyUSD: "$0",
+      priceYearlyUSD: "$0",
+      priceMonthlyNGN: "₦0",
+      priceYearlyNGN: "₦0",
+      periodMonthly: "Free Forever",
+      periodYearly: "Free Forever",
+      subtext: "For private individuals building a personal home, duplex, or single residential villa.",
+    },
+    {
+      id: "owner-portfolio",
+      name: "Portfolio Investor",
+      kicker: "Multi-Build Portfolio",
+      capacitySlots: 3,
+      priceMonthlyUSD: "$49.99",
+      priceYearlyUSD: "$499.99",
+      priceMonthlyNGN: "₦65,000",
+      priceYearlyNGN: "₦650,000",
+      periodMonthly: "per month",
+      periodYearly: "per year (2 months free)",
+      subtext: "For investors building multiple residences, rentals, or family portfolios simultaneously.",
+    },
+    {
+      id: "owner-estate",
+      name: "Estate Developer",
+      kicker: "Large-Scale Portfolios",
+      capacitySlots: 10,
+      priceMonthlyUSD: "$149.99",
+      priceYearlyUSD: "$1,499.99",
+      priceMonthlyNGN: "₦200,000",
+      priceYearlyNGN: "₦2,000,000",
+      periodMonthly: "per month",
+      periodYearly: "per year (2 months free)",
+      subtext: "For estate developers, institutional syndicates, and high-volume residential communities.",
+    },
+  ],
+};
+
 export function OwnerSettingsPage() {
   const scrollRef = useScrollRestoration<HTMLElement>("owner_settings");
   const currentUser = useCurrentUser();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Live Platform Pricing State (synchronizes dynamically with /api/pricing and admin updates)
+  const [ownerPricing, setOwnerPricing] = useState<OwnerPricingState>(DEFAULT_OWNER_PRICING);
+
+  const fetchPricing = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pricing");
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.roles?.owner) {
+          const ownerData = data.roles.owner;
+          setOwnerPricing((prev) => ({
+            extraSlotNotice: ownerData.extraSlotNotice || prev.extraSlotNotice,
+            tiers: prev.tiers.map((t) => {
+              const match = ownerData.tiers?.find((dt: any) => dt.id === t.id);
+              return match ? { ...t, ...match } : t;
+            }),
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch platform pricing in Owner Settings:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPricing();
+    window.addEventListener("focus", fetchPricing);
+    window.addEventListener("storage", fetchPricing);
+    window.addEventListener("vantaged_pricing_update", fetchPricing);
+    return () => {
+      window.removeEventListener("focus", fetchPricing);
+      window.removeEventListener("storage", fetchPricing);
+      window.removeEventListener("vantaged_pricing_update", fetchPricing);
+    };
+  }, [fetchPricing]);
+
+  // Pricing Helpers
+  const privateTier = ownerPricing.tiers.find((t) => t.id === "owner-private") || DEFAULT_OWNER_PRICING.tiers[0];
+  const portfolioTier = ownerPricing.tiers.find((t) => t.id === "owner-portfolio") || DEFAULT_OWNER_PRICING.tiers[1];
+  const estateTier = ownerPricing.tiers.find((t) => t.id === "owner-estate") || DEFAULT_OWNER_PRICING.tiers[2];
+
+  const extraSlotUnitPriceNGN = useMemo(() => {
+    const raw = ownerPricing.extraSlotNotice.ngn || "";
+    const digits = raw.replace(/[^0-9]/g, "");
+    return digits ? parseInt(digits, 10) : 25000;
+  }, [ownerPricing.extraSlotNotice.ngn]);
 
   // Subscription & Capacity State
   const [currentTier, setCurrentTier] = useState<"owner-private" | "owner-portfolio" | "owner-estate">("owner-private");
@@ -237,16 +357,13 @@ export function OwnerSettingsPage() {
             <button
               type="button"
               onClick={() => setActiveTab("subscription")}
-              className={`pb-2.5 px-1 text-xs sm:text-sm font-semibold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+              className={`pb-2.5 px-1 text-xs sm:text-sm font-semibold transition-all border-b-2 cursor-pointer ${
                 activeTab === "subscription"
                   ? "border-[var(--vt-color-orange-500,#EF5F18)] text-[var(--vt-color-indigo-900,#261A66)] font-bold"
                   : "border-transparent text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
               }`}
             >
-              <span>Subscription & Capacity</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
-                {tierNames[currentTier]}
-              </span>
+              Subscription & Capacity
             </button>
 
             <button
@@ -445,17 +562,9 @@ export function OwnerSettingsPage() {
                 <div className="p-6 bg-gradient-to-r from-[var(--vt-color-neutral-50,#F7F7FA)] via-white to-[var(--vt-color-orange-50,#FFF4EE)]/30 border-b border-[var(--vt-color-border-default,#E2E0EC)]/70">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                          Active Subscription & Project Capacity
-                        </h2>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-2xs flex items-center gap-1">
-                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                          <span>{tierNames[currentTier]}</span>
-                        </span>
-                      </div>
+                      <h2 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                        Active Subscription & Project Capacity
+                      </h2>
                       <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1">
                         Monitor active construction site slots, manage tier allocation, and expand capacity anytime.
                       </p>
@@ -477,16 +586,13 @@ export function OwnerSettingsPage() {
                       <button
                         type="button"
                         onClick={() => setBillingCycle("yearly")}
-                        className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                           billingCycle === "yearly"
                             ? "bg-white text-[var(--vt-color-indigo-900,#261A66)] font-bold shadow-2xs"
                             : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
                         }`}
                       >
-                        <span>Yearly</span>
-                        <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-[var(--vt-color-orange-100,#FEDDC7)] text-[var(--vt-color-orange-700,#B33C08)]">
-                          Save 17%
-                        </span>
+                        Yearly (Save 17%)
                       </button>
                     </div>
                   </div>
@@ -502,14 +608,14 @@ export function OwnerSettingsPage() {
                       </p>
                       <p className="text-[11px] text-[var(--vt-color-orange-600,#D84C0B)] font-semibold mt-0.5">
                         {currentTier === "owner-private"
-                          ? "₦0 Free Forever"
+                          ? `${privateTier.priceMonthlyNGN} Free Forever`
                           : currentTier === "owner-portfolio"
                           ? billingCycle === "monthly"
-                            ? "₦65,000 / month"
-                            : "₦650,000 / year"
+                            ? `${portfolioTier.priceMonthlyNGN} / month`
+                            : `${portfolioTier.priceYearlyNGN} / year`
                           : billingCycle === "monthly"
-                          ? "₦200,000 / month"
-                          : "₦2,000,000 / year"}
+                          ? `${estateTier.priceMonthlyNGN} / month`
+                          : `${estateTier.priceYearlyNGN} / year`}
                       </p>
                     </div>
 
@@ -567,14 +673,9 @@ export function OwnerSettingsPage() {
                       </svg>
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-700,#B33C08)]">
-                          Recommended Next Step
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--vt-color-orange-100,#FEDDC7)] text-[var(--vt-color-orange-800,#8D2B05)]">
-                          +2 Project Slots
-                        </span>
-                      </div>
+                      <p className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-700,#B33C08)]">
+                        Recommended Next Step
+                      </p>
                       <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
                         Upgrade to Portfolio Investor Tier
                       </h3>
@@ -586,9 +687,9 @@ export function OwnerSettingsPage() {
                   <button
                     type="button"
                     onClick={() => handleUpgradeTier("owner-portfolio")}
-                    className="w-full md:w-auto shrink-0 h-10 px-5 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    className="w-full md:w-auto shrink-0 h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 font-sans"
                   >
-                    <span>Upgrade to Portfolio Tier (₦65,000/mo)</span>
+                    <span>Upgrade to Portfolio Tier ({portfolioTier.priceMonthlyNGN}/mo)</span>
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="5" y1="12" x2="19" y2="12" />
                       <polyline points="12 5 19 12 12 19" />
@@ -606,14 +707,9 @@ export function OwnerSettingsPage() {
                       </svg>
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-700,#B33C08)]">
-                          Enterprise Scale
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--vt-color-orange-100,#FEDDC7)] text-[var(--vt-color-orange-800,#8D2B05)]">
-                          +7 Project Slots
-                        </span>
-                      </div>
+                      <p className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-700,#B33C08)]">
+                        Enterprise Scale
+                      </p>
                       <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
                         Upgrade to Estate Developer Tier
                       </h3>
@@ -625,9 +721,9 @@ export function OwnerSettingsPage() {
                   <button
                     type="button"
                     onClick={() => handleUpgradeTier("owner-estate")}
-                    className="w-full md:w-auto shrink-0 h-10 px-5 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    className="w-full md:w-auto shrink-0 h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 font-sans"
                   >
-                    <span>Upgrade to Estate Tier (₦200,000/mo)</span>
+                    <span>Upgrade to Estate Tier ({estateTier.priceMonthlyNGN}/mo)</span>
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="5" y1="12" x2="19" y2="12" />
                       <polyline points="12 5 19 12 12 19" />
@@ -653,9 +749,6 @@ export function OwnerSettingsPage() {
                       </p>
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
-                    10 Slots Active
-                  </span>
                 </div>
               )}
 
@@ -675,44 +768,34 @@ export function OwnerSettingsPage() {
                   <div
                     className={`rounded-2xl flex flex-col justify-between transition-all duration-200 ${
                       currentTier === "owner-private"
-                        ? "border-2 border-[var(--vt-color-orange-500,#EF5F18)] ring-4 ring-[var(--vt-color-orange-500,#EF5F18)]/15 bg-white shadow-md relative"
+                        ? "border-2 border-[var(--vt-color-orange-500,#EF5F18)] ring-4 ring-[var(--vt-color-orange-500,#EF5F18)]/15 bg-white shadow-md"
                         : "border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:border-[var(--vt-color-neutral-300,#CAC7D8)] shadow-2xs"
                     }`}
                   >
-                    {/* Orange Badge Pill for Current Tier */}
-                    {currentTier === "owner-private" && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] text-white text-[10px] font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-1 whitespace-nowrap">
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        <span>Current Active Tier</span>
-                      </div>
-                    )}
-
                     <div className="p-6">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-500,#7C7894)]">
-                          Single-Home Builder
+                          {privateTier.kicker || "Single-Home Builder"}
                         </span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--vt-color-neutral-100,#ECEBF3)] text-[var(--vt-color-indigo-900,#261A66)]">
-                          1 Project Slot
+                        <span className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">
+                          {privateTier.capacitySlots} Project Slot
                         </span>
                       </div>
 
                       <h4 className="text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-2">
-                        Private Owner
+                        {privateTier.name}
                       </h4>
 
                       <div className="mt-3 flex items-baseline gap-1.5">
                         <span className="text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                          ₦0
+                          {billingCycle === "monthly" ? privateTier.priceMonthlyNGN : privateTier.priceYearlyNGN}
                         </span>
                         <span className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">
-                          · Free Forever
+                          · {billingCycle === "monthly" ? privateTier.periodMonthly : privateTier.periodYearly}
                         </span>
                       </div>
                       <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
-                        For private individuals building a personal home, duplex, or single residential villa.
+                        {privateTier.subtext}
                       </p>
 
                       <div className="w-full h-px bg-[var(--vt-color-border-default,#E2E0EC)]/70 my-4" />
@@ -754,7 +837,7 @@ export function OwnerSettingsPage() {
 
                     <div className="p-6 pt-0">
                       {currentTier === "owner-private" ? (
-                        <div className="w-full h-10 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-orange-700,#B33C08)] text-xs font-bold flex items-center justify-center gap-1.5 cursor-default">
+                        <div className="w-full h-9 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-orange-700,#B33C08)] text-xs font-bold flex items-center justify-center gap-1.5 cursor-default font-sans">
                           <svg className="w-4 h-4 text-[var(--vt-color-orange-600,#D84C0B)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
@@ -764,7 +847,7 @@ export function OwnerSettingsPage() {
                         <button
                           type="button"
                           onClick={() => handleUpgradeTier("owner-private")}
-                          className="w-full h-10 rounded-xl bg-[var(--vt-color-neutral-100,#ECEBF3)] hover:bg-[var(--vt-color-neutral-200,#DDDCE6)] text-[var(--vt-color-indigo-900,#261A66)] text-xs font-bold transition-all cursor-pointer"
+                          className="w-full h-9 px-3.5 rounded-md bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer active:scale-98 font-sans"
                         >
                           Switch to Private Tier
                         </button>
@@ -776,44 +859,36 @@ export function OwnerSettingsPage() {
                   <div
                     className={`rounded-2xl flex flex-col justify-between transition-all duration-200 ${
                       currentTier === "owner-portfolio"
-                        ? "border-2 border-[var(--vt-color-orange-500,#EF5F18)] ring-4 ring-[var(--vt-color-orange-500,#EF5F18)]/15 bg-white shadow-md relative"
+                        ? "border-2 border-[var(--vt-color-orange-500,#EF5F18)] ring-4 ring-[var(--vt-color-orange-500,#EF5F18)]/15 bg-white shadow-md"
                         : "border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:border-[var(--vt-color-neutral-300,#CAC7D8)] shadow-2xs"
                     }`}
                   >
-                    {/* Orange Badge Pill for Current Tier */}
-                    {currentTier === "owner-portfolio" && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] text-white text-[10px] font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-1 whitespace-nowrap">
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        <span>Current Active Tier</span>
-                      </div>
-                    )}
-
                     <div className="p-6">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-500,#7C7894)]">
-                          Multi-Build Portfolio
+                          {portfolioTier.kicker || "Multi-Build Portfolio"}
                         </span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--vt-color-orange-100,#FEDDC7)] text-[var(--vt-color-orange-800,#8D2B05)]">
-                          3 Project Slots
+                        <span className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">
+                          {portfolioTier.capacitySlots} Project Slots
                         </span>
                       </div>
 
                       <h4 className="text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-2">
-                        Portfolio Investor
+                        {portfolioTier.name}
                       </h4>
 
                       <div className="mt-3 flex items-baseline gap-1.5">
                         <span className="text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                          {billingCycle === "monthly" ? "₦65,000" : "₦650,000"}
+                          {billingCycle === "monthly" ? portfolioTier.priceMonthlyNGN : portfolioTier.priceYearlyNGN}
                         </span>
                         <span className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">
-                          {billingCycle === "monthly" ? "/ month" : "/ year (2 mo free)"}
+                          {billingCycle === "monthly"
+                            ? ` / ${portfolioTier.periodMonthly.replace("per ", "")}`
+                            : ` / ${portfolioTier.periodYearly.replace("per ", "")}`}
                         </span>
                       </div>
                       <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
-                        For investors building multiple residences, rentals, or family portfolios simultaneously.
+                        {portfolioTier.subtext}
                       </p>
 
                       <div className="w-full h-px bg-[var(--vt-color-border-default,#E2E0EC)]/70 my-4" />
@@ -855,7 +930,7 @@ export function OwnerSettingsPage() {
 
                     <div className="p-6 pt-0">
                       {currentTier === "owner-portfolio" ? (
-                        <div className="w-full h-10 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-orange-700,#B33C08)] text-xs font-bold flex items-center justify-center gap-1.5 cursor-default">
+                        <div className="w-full h-9 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-orange-700,#B33C08)] text-xs font-bold flex items-center justify-center gap-1.5 cursor-default font-sans">
                           <svg className="w-4 h-4 text-[var(--vt-color-orange-600,#D84C0B)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
@@ -865,7 +940,7 @@ export function OwnerSettingsPage() {
                         <button
                           type="button"
                           onClick={() => handleUpgradeTier("owner-portfolio")}
-                          className="w-full h-10 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                          className="w-full h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 font-sans"
                         >
                           <span>Upgrade to Portfolio Tier</span>
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -877,7 +952,7 @@ export function OwnerSettingsPage() {
                         <button
                           type="button"
                           onClick={() => handleUpgradeTier("owner-portfolio")}
-                          className="w-full h-10 rounded-xl bg-[var(--vt-color-neutral-100,#ECEBF3)] hover:bg-[var(--vt-color-neutral-200,#DDDCE6)] text-[var(--vt-color-indigo-900,#261A66)] text-xs font-bold transition-all cursor-pointer"
+                          className="w-full h-9 px-3.5 rounded-md bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer active:scale-98 font-sans"
                         >
                           Switch to Portfolio Tier
                         </button>
@@ -889,44 +964,36 @@ export function OwnerSettingsPage() {
                   <div
                     className={`rounded-2xl flex flex-col justify-between transition-all duration-200 ${
                       currentTier === "owner-estate"
-                        ? "border-2 border-[var(--vt-color-orange-500,#EF5F18)] ring-4 ring-[var(--vt-color-orange-500,#EF5F18)]/15 bg-white shadow-md relative"
+                        ? "border-2 border-[var(--vt-color-orange-500,#EF5F18)] ring-4 ring-[var(--vt-color-orange-500,#EF5F18)]/15 bg-white shadow-md"
                         : "border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:border-[var(--vt-color-neutral-300,#CAC7D8)] shadow-2xs"
                     }`}
                   >
-                    {/* Orange Badge Pill for Current Tier */}
-                    {currentTier === "owner-estate" && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] text-white text-[10px] font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-1 whitespace-nowrap">
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        <span>Current Active Tier</span>
-                      </div>
-                    )}
-
                     <div className="p-6">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-500,#7C7894)]">
-                          Large-Scale Portfolios
+                          {estateTier.kicker || "Large-Scale Portfolios"}
                         </span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--vt-color-indigo-100,#E8E6F5)] text-[var(--vt-color-indigo-900,#261A66)]">
-                          10 Project Slots
+                        <span className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">
+                          {estateTier.capacitySlots} Project Slots
                         </span>
                       </div>
 
                       <h4 className="text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-2">
-                        Estate Developer
+                        {estateTier.name}
                       </h4>
 
                       <div className="mt-3 flex items-baseline gap-1.5">
                         <span className="text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                          {billingCycle === "monthly" ? "₦200,000" : "₦2,000,000"}
+                          {billingCycle === "monthly" ? estateTier.priceMonthlyNGN : estateTier.priceYearlyNGN}
                         </span>
                         <span className="text-xs font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">
-                          {billingCycle === "monthly" ? "/ month" : "/ year (2 mo free)"}
+                          {billingCycle === "monthly"
+                            ? ` / ${estateTier.periodMonthly.replace("per ", "")}`
+                            : ` / ${estateTier.periodYearly.replace("per ", "")}`}
                         </span>
                       </div>
                       <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
-                        For estate developers, institutional syndicates, and high-volume residential communities.
+                        {estateTier.subtext}
                       </p>
 
                       <div className="w-full h-px bg-[var(--vt-color-border-default,#E2E0EC)]/70 my-4" />
@@ -968,7 +1035,7 @@ export function OwnerSettingsPage() {
 
                     <div className="p-6 pt-0">
                       {currentTier === "owner-estate" ? (
-                        <div className="w-full h-10 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-orange-700,#B33C08)] text-xs font-bold flex items-center justify-center gap-1.5 cursor-default">
+                        <div className="w-full h-9 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-orange-700,#B33C08)] text-xs font-bold flex items-center justify-center gap-1.5 cursor-default font-sans">
                           <svg className="w-4 h-4 text-[var(--vt-color-orange-600,#D84C0B)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
@@ -978,7 +1045,7 @@ export function OwnerSettingsPage() {
                         <button
                           type="button"
                           onClick={() => handleUpgradeTier("owner-estate")}
-                          className="w-full h-10 rounded-xl bg-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-indigo-950,#1B1248)] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                          className="w-full h-9 px-4 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-indigo-950,#1B1248)] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 font-sans"
                         >
                           <span>Upgrade to Estate Developer</span>
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1009,16 +1076,11 @@ export function OwnerSettingsPage() {
                         </svg>
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                            Buy Extra Project Slots (À La Carte Capacity)
-                          </h3>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-orange-100,#FEDDC7)] text-[var(--vt-color-orange-800,#8D2B05)]">
-                            Add-on
-                          </span>
-                        </div>
+                        <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                          Buy Extra Project Slots (À La Carte Capacity)
+                        </h3>
                         <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1 max-w-2xl">
-                          Need an auxiliary construction slot without jumping to a higher subscription tier? Buy single project slots anytime for guest houses, gatehouse development, boundary walls, or additional properties.
+                          {ownerPricing.extraSlotNotice.desc || "Need an auxiliary construction slot without jumping to a higher subscription tier? Buy single project slots anytime for guest houses, gatehouse development, boundary walls, or additional properties."}
                         </p>
                       </div>
                     </div>
@@ -1028,7 +1090,10 @@ export function OwnerSettingsPage() {
                         Add-on Pricing
                       </p>
                       <p className="text-xs font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                        +₦25,000 <span className="text-[10px] font-normal text-[var(--vt-color-neutral-500,#7C7894)]">/ mo ($19.99)</span>
+                        {ownerPricing.extraSlotNotice.ngn.startsWith("+") ? ownerPricing.extraSlotNotice.ngn : `+${ownerPricing.extraSlotNotice.ngn}`}
+                        <span className="text-[10px] font-normal text-[var(--vt-color-neutral-500,#7C7894)]">
+                          {" "}({ownerPricing.extraSlotNotice.usd})
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -1095,7 +1160,7 @@ export function OwnerSettingsPage() {
                       <div className="flex items-center justify-between text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1.5 pt-1.5 border-t border-[var(--vt-color-border-default,#E2E0EC)]/60">
                         <span>Monthly Add-on Rate:</span>
                         <strong className="text-[var(--vt-color-orange-600,#D84C0B)] font-extrabold">
-                          +₦{(buySlotsInput * 25000).toLocaleString()} / mo
+                          +₦{(buySlotsInput * extraSlotUnitPriceNGN).toLocaleString()} / mo
                         </strong>
                       </div>
                     </div>
@@ -1104,7 +1169,7 @@ export function OwnerSettingsPage() {
                     <div className="flex items-end">
                       <button
                         type="submit"
-                        className="w-full h-10 px-5 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                        className="w-full h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 font-sans"
                       >
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="8" cy="21" r="1" />
@@ -1132,7 +1197,7 @@ export function OwnerSettingsPage() {
                             {extraSlotsCount} À La Carte Project Slot{extraSlotsCount > 1 ? "s" : ""} Currently Active
                           </p>
                           <p className="text-[11px] text-[var(--vt-color-neutral-600,#5E5A7D)]">
-                            Billed at +₦{(extraSlotsCount * 25000).toLocaleString()} / month · Renews monthly with your subscription
+                            Billed at +₦{(extraSlotsCount * extraSlotUnitPriceNGN).toLocaleString()} / month · Renews monthly with your subscription
                           </p>
                         </div>
                       </div>
@@ -1140,7 +1205,7 @@ export function OwnerSettingsPage() {
                       <button
                         type="button"
                         onClick={handleRemoveExtraSlot}
-                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-[var(--vt-color-neutral-100,#ECEBF3)] text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                        className="h-8 px-3 rounded-md bg-white hover:bg-[var(--vt-color-neutral-100,#ECEBF3)] text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0 font-sans"
                       >
                         Release 1 Slot
                       </button>

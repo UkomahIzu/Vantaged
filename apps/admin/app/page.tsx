@@ -16,6 +16,54 @@ import {
 
 export default function AdminDashboardPage() {
   const { user } = useAdminAuth();
+  const [stats, setStats] = React.useState({
+    pendingVerifications: 2,
+    verifiedContractors: 14,
+    ongoingBuilds: 38,
+    activeDisputes: 1,
+    totalPresets: 7,
+  });
+
+  React.useEffect(() => {
+    fetch("/api/verifications")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && Array.isArray(data.data)) {
+          const pending = data.data.filter(
+            (s: any) => s.status === "UNDER_REVIEW" || s.status === "SUBMITTED"
+          ).length;
+          setStats((prev) => ({ ...prev, pendingVerifications: pending }));
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/contractors")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && Array.isArray(data.data)) {
+          setStats((prev) => ({ ...prev, verifiedContractors: data.data.length }));
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/disputes")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && Array.isArray(data.data)) {
+          const active = data.data.filter((d: any) => d.status !== "RESOLVED").length;
+          setStats((prev) => ({ ...prev, activeDisputes: active }));
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/presets")
+      .then((res) => res.json())
+      .then((data) => {
+        const customCount = data?.success && Array.isArray(data.data) ? data.data.length : 0;
+        setStats((prev) => ({ ...prev, totalPresets: 7 + customCount }));
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div
@@ -60,7 +108,9 @@ export default function AdminDashboardPage() {
             className="h-10 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] flex items-center gap-2"
           >
             <span>Review Queue</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/25 font-bold">2</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/25 font-bold">
+              {stats.pendingVerifications}
+            </span>
           </Link>
         </div>
       </section>
@@ -85,7 +135,7 @@ export default function AdminDashboardPage() {
           </div>
           <div>
             <div className="text-3xl sm:text-4xl font-extrabold text-[var(--vt-color-orange-600,#D84C0B)] tracking-tight mb-1">
-              02
+              {stats.pendingVerifications.toString().padStart(2, "0")}
             </div>
             <h3 className="text-sm font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
               Pending verifications
@@ -111,7 +161,7 @@ export default function AdminDashboardPage() {
           </div>
           <div>
             <div className="text-3xl sm:text-4xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight mb-1">
-              14
+              {stats.verifiedContractors.toString().padStart(2, "0")}
             </div>
             <h3 className="text-sm font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
               Verified contractors
@@ -121,7 +171,7 @@ export default function AdminDashboardPage() {
 
         {/* Card 3: Platform Projects */}
         <Link
-          href="/projects"
+          href="/contractors"
           className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-400,#F78241)] rounded-xl p-5 shadow-[0_4px_16px_rgba(38,26,102,0.04)] hover:shadow-[0_8px_24px_rgba(239,95,24,0.12)] transition-all flex flex-col justify-between group cursor-pointer"
         >
           <div className="flex items-center justify-between mb-4">
@@ -129,7 +179,7 @@ export default function AdminDashboardPage() {
               <IconUsers className="w-5 h-5" />
             </div>
             <span className="text-[11px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] flex items-center gap-1 transition-colors">
-              <span>Active sites</span>
+              <span>View by company</span>
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
@@ -137,10 +187,10 @@ export default function AdminDashboardPage() {
           </div>
           <div>
             <div className="text-3xl sm:text-4xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight mb-1">
-              38
+              {stats.ongoingBuilds.toString().padStart(2, "0")}
             </div>
             <h3 className="text-sm font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
-              Ongoing builds
+              Ongoing builds (Contractor sites)
             </h3>
           </div>
         </Link>
@@ -155,12 +205,12 @@ export default function AdminDashboardPage() {
               <IconDisputes className="w-5 h-5" />
             </div>
             <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-              <span>Normal</span>
+              <span>{stats.activeDisputes === 0 ? "Normal" : `${stats.activeDisputes} Advisory`}</span>
             </span>
           </div>
           <div>
             <div className="text-3xl sm:text-4xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight mb-1">
-              00
+              {stats.activeDisputes.toString().padStart(2, "0")}
             </div>
             <h3 className="text-sm font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
               Escrow holds & disputes
@@ -259,7 +309,7 @@ export default function AdminDashboardPage() {
                   <IconVerification className="w-5 h-5" />
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-orange-500,#EF5F18)] text-white">
-                  2 Pending
+                  {stats.pendingVerifications} Pending
                 </span>
               </div>
               <h3 className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-sm group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors">
@@ -286,7 +336,7 @@ export default function AdminDashboardPage() {
                   <IconContractors className="w-5 h-5" />
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]">
-                  14 Active
+                  {stats.verifiedContractors} Active
                 </span>
               </div>
               <h3 className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-sm group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors">
@@ -313,7 +363,7 @@ export default function AdminDashboardPage() {
                   <IconPresets className="w-5 h-5" />
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]">
-                  5 Presets
+                  {stats.totalPresets} Presets
                 </span>
               </div>
               <h3 className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-sm group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors">
@@ -340,7 +390,7 @@ export default function AdminDashboardPage() {
                   <IconDisputes className="w-5 h-5" />
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)]">
-                  0 Holds
+                  {stats.activeDisputes === 0 ? "0 Holds" : `${stats.activeDisputes} Active`}
                 </span>
               </div>
               <h3 className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-sm group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors">

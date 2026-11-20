@@ -75,8 +75,14 @@ export default function VerificationQueuePage() {
   const [selectedSub, setSelectedSub] = useState<ContractorSubmission | null>(null);
   const [inspectingDoc, setInspectingDoc] = useState<ContractorDocument | null>(null);
 
-  // Sync with live submissions API on mount
+  // Sync with live submissions API on mount & parse URL search
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get("search");
+      if (q) setSearchTerm(q);
+    }
+
     fetch("/api/verifications")
       .then((res) => res.json())
       .then((data) => {
@@ -166,6 +172,18 @@ export default function VerificationQueuePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: selectedSub.id, status: "VERIFIED" }),
       });
+
+      fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "CONTRACTOR_VERIFIED",
+          actionLabel: "Contractor Firm Approved & Accredited",
+          target: `${selectedSub.companyName} (${selectedSub.rcNumber})`,
+          details: `All regulatory documents and automated CAC/TIN checks verified. Added to Contractor Directory.`,
+          level: "SUCCESS",
+        }),
+      }).catch(() => {});
     } catch {}
 
     setToastMessage({
@@ -204,6 +222,18 @@ export default function VerificationQueuePage() {
           rejectionNotes: rejectNotes,
         }),
       });
+
+      fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "CONTRACTOR_REJECTED",
+          actionLabel: "Contractor Verification Packet Rejected",
+          target: `${selectedSub.companyName} (${selectedSub.rcNumber})`,
+          details: `Reason: ${rejectReason}. Notes: ${rejectNotes || "Standard compliance rejection."}`,
+          level: "WARNING",
+        }),
+      }).catch(() => {});
     } catch {}
 
     setToastMessage({

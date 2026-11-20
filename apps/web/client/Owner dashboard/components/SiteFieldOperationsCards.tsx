@@ -2,9 +2,45 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useDemoMode } from "../hooks/useDemoMode";
 
 export function SiteFieldOperationsCards() {
+  const { isDemoMode } = useDemoMode();
   const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
+
+  if (!isDemoMode) {
+    return (
+      <div
+        className="w-full font-sans select-none pb-8"
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+      >
+        <div className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-neutral-400,#A3A0B8)] flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                Site Field Operations &amp; Governance Ready
+              </h3>
+              <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                Contract change requests, statutory COREN compliance audits, and daily attendance telemetry will activate upon site groundbreaking.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/owner/find-companies"
+            className="px-3.5 py-1.5 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] hover:bg-[var(--vt-color-orange-500,#EF5F18)] hover:text-white transition-all text-xs font-bold shrink-0"
+          >
+            Find Construction Partner &rarr;
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

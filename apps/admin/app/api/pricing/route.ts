@@ -2,25 +2,27 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-// Paths to locate platform pricing JSON
-const DATA_PATHS = [
-  path.join(process.cwd(), "packages/db/data/platform-pricing.json"),
-  path.join(process.cwd(), "../../packages/db/data/platform-pricing.json"),
-  path.join(process.cwd(), "../packages/db/data/platform-pricing.json"),
-];
+export const dynamic = "force-dynamic";
 
 function getPricingFilePath(): string | null {
-  for (const p of DATA_PATHS) {
-    if (fs.existsSync(p)) return p;
+  const possibleDirs = [
+    path.join(process.cwd(), "packages/db/data"),
+    path.join(process.cwd(), "../../packages/db/data"),
+    path.join(process.cwd(), "../packages/db/data"),
+  ];
+  for (const d of possibleDirs) {
+    if (fs.existsSync(/*turbopackIgnore: true*/ d)) {
+      return path.join(d, "platform-pricing.json");
+    }
   }
-  return DATA_PATHS[0] || null;
+  return path.join(possibleDirs[0]!, "platform-pricing.json");
 }
 
 export async function GET() {
   try {
     const filePath = getPricingFilePath();
-    if (filePath && fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, "utf-8");
+    if (filePath && fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8");
       const data = JSON.parse(raw);
       return NextResponse.json(data);
     }
@@ -41,8 +43,8 @@ export async function PATCH(request: Request) {
     }
 
     let currentData: any = {};
-    if (fs.existsSync(filePath)) {
-      currentData = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+      currentData = JSON.parse(fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8"));
     }
 
     // Merge updated roles or tiers
@@ -66,11 +68,11 @@ export async function PATCH(request: Request) {
 
     // Ensure directory exists
     const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
+      fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
     }
 
-    fs.writeFileSync(filePath, JSON.stringify(currentData, null, 2), "utf-8");
+    fs.writeFileSync(/*turbopackIgnore: true*/ filePath, JSON.stringify(currentData, null, 2), "utf-8");
 
     return NextResponse.json({ success: true, data: currentData });
   } catch (error) {

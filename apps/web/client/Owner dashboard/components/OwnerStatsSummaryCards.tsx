@@ -1,9 +1,38 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useDemoMode } from "../hooks/useDemoMode";
+import { getActiveProjects } from "../pages/projects dashboard/projectStore";
 
 export function OwnerStatsSummaryCards() {
+  const { isDemoMode } = useDemoMode();
+  const [activeCount, setActiveCount] = useState<number>(0);
+
+  useEffect(() => {
+    const sync = () => {
+      const list = getActiveProjects();
+      setActiveCount(list.length);
+    };
+    sync();
+    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener("vantaged_demo_toggle", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener("vantaged_demo_toggle", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [isDemoMode]);
+
+  const activeProjectsDisplay = isDemoMode ? activeCount.toString().padStart(2, "0") : "00";
+  const awaitingApprovalDisplay = isDemoMode && activeCount > 0 ? "01" : "00";
+  const totalSpentDisplay = !isDemoMode
+    ? "₦0"
+    : activeCount === 1
+    ? "₦145,000,000"
+    : "₦701,746,000";
+
   return (
     <div
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
@@ -32,7 +61,7 @@ export function OwnerStatsSummaryCards() {
 
         <div>
           <div className="text-3xl sm:text-4xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight mb-1">
-            06
+            {activeProjectsDisplay}
           </div>
           <h3 className="text-sm font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
             Active projects
@@ -42,7 +71,7 @@ export function OwnerStatsSummaryCards() {
 
       {/* 2. Awaiting Your Approval Card - Linked to /owner/projects/proj-lekki/stages */}
       <Link
-        href="/owner/projects/proj-lekki/stages"
+        href={activeCount > 0 ? "/owner/projects/proj-lekki/stages" : "/owner/projects"}
         className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-400,#F78241)] rounded-xl p-5 shadow-[0_4px_16px_rgba(38,26,102,0.04)] hover:shadow-[0_8px_24px_rgba(239,95,24,0.12)] transition-all flex flex-col justify-between group cursor-pointer"
       >
         <div className="flex items-center justify-between mb-4">
@@ -63,7 +92,7 @@ export function OwnerStatsSummaryCards() {
 
         <div>
           <div className="text-3xl sm:text-4xl font-extrabold text-[var(--vt-color-orange-600,#D84C0B)] tracking-tight mb-1">
-            01
+            {awaitingApprovalDisplay}
           </div>
           <h3 className="text-sm font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
             Awaiting your approval
@@ -93,7 +122,7 @@ export function OwnerStatsSummaryCards() {
 
         <div>
           <div className="text-2xl sm:text-3xl lg:text-3.5xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight mb-1">
-            ₦701,746,000
+            {totalSpentDisplay}
           </div>
           <h3 className="text-sm font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] group-hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
             Total spent

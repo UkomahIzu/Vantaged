@@ -9,6 +9,8 @@ import { ProjectFolderCard, ProjectItem } from "../components/ProjectFolderCard"
 import { DraggableChatWindow } from "../components/DraggableChatWindow";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { VantagedSelect } from "../components/VantagedSelect";
+import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
+import { useDemoMode } from "../hooks/useDemoMode";
 
 import {
   INITIAL_ACTIVE_PROJECTS as ACTIVE_PROJECTS,
@@ -47,11 +49,15 @@ export function OwnerProjectsPage() {
   const [sortBy, setSortBy] = useState<"recent" | "progress-desc" | "progress-asc" | "budget-desc" | "budget-asc" | "name-asc">("recent");
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isCapacityModalOpen, setIsCapacityModalOpen] = useState(false);
+  const { isDemoMode } = useDemoMode();
 
   // Synchronized lists for Active Projects, Plan & Contract, and Contract History
   const [activeProjects, setActiveProjects] = useState<ProjectItem[]>(() => getActiveProjects());
   const [proposedPlans, setProposedPlans] = useState<ProjectItem[]>(() => getProposedPlans());
   const [contractHistory, setContractHistory] = useState<ProjectItem[]>(() => getContractHistory());
+
+  const subscription = useOwnerSubscription(activeProjects.length);
 
   useEffect(() => {
     const syncAll = () => {
@@ -62,12 +68,22 @@ export function OwnerProjectsPage() {
 
     syncAll();
     window.addEventListener("vantaged_storage_update", syncAll);
+    window.addEventListener("vantaged_demo_toggle", syncAll);
     window.addEventListener("storage", syncAll);
     return () => {
       window.removeEventListener("vantaged_storage_update", syncAll);
+      window.removeEventListener("vantaged_demo_toggle", syncAll);
       window.removeEventListener("storage", syncAll);
     };
   }, []);
+
+  const handleAddBuildingClick = () => {
+    if (viewMode === "active" && !subscription.canAddProject) {
+      setIsCapacityModalOpen(true);
+    } else {
+      router.push("/owner/find-companies");
+    }
+  };
 
   // Active list based on 3-way switch
   const currentList =
@@ -213,16 +229,37 @@ export function OwnerProjectsPage() {
         <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
           {/* Large Title: Dynamic based on 3-way switch with stable dimensions */}
           <div className="min-w-0">
-            <h1
-              style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-              className="text-2xl sm:text-3xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight whitespace-nowrap"
-            >
-              {viewMode === "active"
-                ? "Active Projects"
-                : viewMode === "plans"
-                ? "Plan & Contract"
-                : "Contract History"}
-            </h1>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1
+                style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+                className="text-2xl sm:text-3xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight whitespace-nowrap"
+              >
+                {viewMode === "active"
+                  ? "Active Projects"
+                  : viewMode === "plans"
+                  ? "Plan & Contract"
+                  : "Contract History"}
+              </h1>
+              {viewMode === "active" && (
+                <div
+                  title={`Your current tier (${subscription.tierName}) permits ${subscription.totalSlots} concurrent active building project${subscription.totalSlots === 1 ? "" : "s"}.`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition-all ${
+                    !subscription.canAddProject
+                      ? "bg-amber-50 border-amber-200 text-amber-800"
+                      : "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-200,#FDCAA9)] text-[var(--vt-color-orange-700,#B33C08)]"
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      !subscription.canAddProject ? "bg-amber-500" : "bg-[var(--vt-color-orange-500,#EF5F18)]"
+                    }`}
+                  />
+                  <span>
+                    Capacity: {activeProjects.length} / {subscription.totalSlots} Slots ({subscription.tierName})
+                  </span>
+                </div>
+              )}
+            </div>
             <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate sm:whitespace-normal">
               {viewMode === "active"
                 ? "Live building sites and ongoing milestone construction."
@@ -301,19 +338,31 @@ export function OwnerProjectsPage() {
               </button>
             </div>
 
-            {/* Add Building Button -> Links to Find Companies Page to Send Brief / Request */}
-            <Link
-              href="/owner/find-companies"
-              title="Find a verified construction company to start a new building project"
+            {/* Add Building Button -> Checks capacity limit before navigating */}
+            <button
+              type="button"
+              onClick={handleAddBuildingClick}
+              title={
+                viewMode === "active" && !subscription.canAddProject
+                  ? `Active project limit reached (${subscription.totalSlots} slots on ${subscription.tierName}). Click to view upgrade options.`
+                  : "Find a verified construction company to start a new building project"
+              }
               style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-              className="h-9 px-3.5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap"
+              className={`h-9 px-3.5 rounded-lg text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap ${
+                viewMode === "active" && !subscription.canAddProject
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)]"
+              }`}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
               <span>Add Building</span>
-            </Link>
+              {viewMode === "active" && !subscription.canAddProject && (
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              )}
+            </button>
 
             {/* Comprehensive Filter Button */}
             <div className="relative shrink-0">
@@ -587,28 +636,65 @@ export function OwnerProjectsPage() {
         {/* ── 3x2 Folder Cards Grid: Interactive Click Transition + All Orange for Active, All White for Contract History ── */}
         <section className="w-full pb-8">
           {filteredAndSortedProjects.length === 0 ? (
-            <div className="w-full py-16 flex flex-col items-center justify-center text-center bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl p-8 shadow-xs">
-              <div className="w-14 h-14 rounded-2xl bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center mb-4 border border-[var(--vt-color-orange-200,#FDCAA9)]">
-                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                  <line x1="10" y1="11" x2="14" y2="15" />
-                  <line x1="14" y1="11" x2="10" y2="15" />
-                </svg>
+            activeFilterCount > 0 ? (
+              <div className="w-full py-16 flex flex-col items-center justify-center text-center bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl p-8 shadow-xs">
+                <div className="w-14 h-14 rounded-2xl bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center mb-4 border border-[var(--vt-color-orange-200,#FDCAA9)]">
+                  <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                  No projects match your filter criteria
+                </h3>
+                <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] max-w-sm mt-1">
+                  Try selecting different categories, contractors, or stages to view projects.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="mt-4 h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] flex items-center gap-1.5 font-sans cursor-pointer"
+                >
+                  Reset all filters
+                </button>
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-                No projects match your filter criteria
-              </h3>
-              <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] max-w-sm mt-1">
-                Try selecting different categories, contractors, or stages to view projects.
-              </p>
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="mt-4 px-4 py-2 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-              >
-                Reset all filters
-              </button>
-            </div>
+            ) : (
+              <div className="w-full py-16 sm:py-20 flex flex-col items-center justify-center text-center bg-white border border-dashed border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl p-8 sm:p-12 shadow-xs">
+                <div className="w-16 h-16 rounded-2xl bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center mb-4 border border-[var(--vt-color-orange-200,#FDCAA9)]">
+                  <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 21h18M5 21V7l8-4v18M13 11h4v10" />
+                  </svg>
+                </div>
+                <h3 className="text-lg sm:text-xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                  {viewMode === "active"
+                    ? "No Active Building Projects Yet"
+                    : viewMode === "plans"
+                    ? "No Proposed Plans Awaiting Agreement"
+                    : "No Past Completed Contracts"}
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-500,#7C7894)] max-w-md mt-1.5 leading-relaxed">
+                  {viewMode === "active"
+                    ? "You haven't started any building projects yet. Connect with verified construction firms in Nigeria and kick off your milestone-protected project."
+                    : viewMode === "plans"
+                    ? "When a contractor prepares and shares a milestone construction plan, it will be listed here for your review and agreement."
+                    : "Completed buildings and handed-over contracts with structural warranties will be archived here."}
+                </p>
+                {viewMode === "active" && (
+                  <div className="mt-5 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleAddBuildingClick}
+                      className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] flex items-center gap-1.5 font-sans cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      <span>Start Your First Project</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-7">
               {filteredAndSortedProjects.map((project) => (
@@ -631,6 +717,81 @@ export function OwnerProjectsPage() {
           )}
         </section>
       </main>
+
+      {/* ── Project Capacity Limit Reached Modal ── */}
+      {isCapacityModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-6 flex flex-col gap-5 animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCapacityModalOpen(false)}
+                className="w-8 h-8 rounded-lg text-[var(--vt-color-neutral-400,#A8A3C5)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] flex items-center justify-center cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                Project Capacity Limit Reached
+              </h3>
+              <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1.5 leading-relaxed">
+                You are currently on the <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{subscription.tierName}</strong> plan, which includes{" "}
+                <strong className="text-[var(--vt-color-orange-600,#D84C0B)]">{subscription.totalSlots} concurrent active building project{subscription.totalSlots === 1 ? "" : "s"}</strong>. You are currently using all {subscription.usedSlots} slot{subscription.usedSlots === 1 ? "" : "s"}.
+              </p>
+              <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-2 leading-relaxed">
+                To manage multiple construction sites concurrently or expand your portfolio pipeline, upgrade your subscription tier or purchase extra slots in Settings.
+              </p>
+            </div>
+
+            <div className="bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-3.5 flex items-center justify-between text-xs">
+              <div>
+                <p className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Active Slots Used</p>
+                <p className="font-extrabold text-[var(--vt-color-indigo-900,#261A66)] text-sm mt-0.5">
+                  {subscription.usedSlots} of {subscription.totalSlots} Slots
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Tier</p>
+                <p className="font-extrabold text-[var(--vt-color-orange-600,#D84C0B)] text-sm mt-0.5">
+                  {subscription.tierName}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsCapacityModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+              <Link
+                href="/owner/settings?tab=subscription"
+                onClick={() => setIsCapacityModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-colors cursor-pointer text-center shadow-xs flex items-center justify-center gap-1.5"
+              >
+                <span>Upgrade Tier</span>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Floating Draggable WhatsApp Contractor Chat Window ── */}
       <DraggableChatWindow

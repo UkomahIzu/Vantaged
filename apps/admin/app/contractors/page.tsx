@@ -8,185 +8,77 @@ import {
   IconShield,
   IconCheckCircle,
   IconExternalLink,
+  IconUsers,
 } from "../../components/AdminIcons";
-
-interface ContractorRecord {
-  id: string;
-  name: string;
-  rcNumber: string;
-  tin: string;
-  director: string;
-  directorRole: string;
-  directorEmail: string;
-  directorPhone: string;
-  state: string;
-  officeAddress: string;
-  category: string;
-  plan: "Starter Builder" | "Verified Builder" | "Prime Consortium";
-  status: "VERIFIED" | "UNDER_REVIEW" | "SUSPENDED";
-  badges: string[];
-  activeSlots: string;
-  slotsUsed: number;
-  slotsMax: number; // 999 for unlimited
-  freeSlotUsed: boolean;
-  bankName: string;
-  accountNumber: string;
-  accountName: string;
-  joinedDate: string;
-}
-
-const INITIAL_CONTRACTORS: ContractorRecord[] = [
-  {
-    id: "cont_01",
-    name: "Prestige Build & MEP Specialists Limited",
-    rcNumber: "RC-1678291",
-    tin: "31049281-0001",
-    director: "Engr. Fatima Bello",
-    directorRole: "Chief Technical Officer",
-    directorEmail: "fatima.bello@prestigebuild.ng",
-    directorPhone: "+234 809 228 4910",
-    state: "Abuja (FCT)",
-    officeAddress: "24 Adetokunbo Ademola Crescent, Wuse 2",
-    category: "MEP Systems & General Building",
-    plan: "Prime Consortium",
-    status: "VERIFIED",
-    badges: ["COREN Verified", "BPP Category A"],
-    activeSlots: "4 / Unlimited",
-    slotsUsed: 4,
-    slotsMax: 999,
-    freeSlotUsed: true,
-    bankName: "Access Bank",
-    accountNumber: "0094829103",
-    accountName: "Prestige Build & MEP Specialists Limited",
-    joinedDate: "15 Jan 2026",
-  },
-  {
-    id: "cont_02",
-    name: "Julius B. Consortium",
-    rcNumber: "RC-1482012",
-    tin: "21940182-0001",
-    director: "Engr. Chidi Okafor",
-    directorRole: "Managing Director",
-    directorEmail: "c.okafor@juliusb.ng",
-    directorPhone: "+234 803 400 1928",
-    state: "Lagos",
-    officeAddress: "Plot 8, Kofo Abayomi Street, Victoria Island",
-    category: "Turnkey Commercial Infrastructure",
-    plan: "Prime Consortium",
-    status: "VERIFIED",
-    badges: ["COREN Verified", "FMWH Category A"],
-    activeSlots: "6 / Unlimited",
-    slotsUsed: 6,
-    slotsMax: 999,
-    freeSlotUsed: true,
-    bankName: "Zenith Bank",
-    accountNumber: "1018291042",
-    accountName: "Julius B. Consortium Limited",
-    joinedDate: "02 Feb 2026",
-  },
-  {
-    id: "cont_03",
-    name: "Apex Structure & Civil Engineering Ltd",
-    rcNumber: "RC-1849204",
-    tin: "23891048-0001",
-    director: "Engr. Babatunde Adeleke",
-    directorRole: "Managing Director",
-    directorEmail: "b.adeleke@apexstructure.ng",
-    directorPhone: "+234 802 319 8421",
-    state: "Lagos",
-    officeAddress: "Plot 14, Commercial Avenue, Victoria Island",
-    category: "Civil Engineering & Infrastructure",
-    plan: "Verified Builder",
-    status: "VERIFIED",
-    badges: ["COREN Verified", "BPP Category B"],
-    activeSlots: "2 / 5 Projects",
-    slotsUsed: 2,
-    slotsMax: 5,
-    freeSlotUsed: true,
-    bankName: "Zenith Bank",
-    accountNumber: "1018492810",
-    accountName: "Apex Structure & Civil Engineering Ltd",
-    joinedDate: "20 Mar 2026",
-  },
-  {
-    id: "cont_04",
-    name: "SolidGround Engineering Limited",
-    rcNumber: "RC-1793201",
-    tin: "28910482-0001",
-    director: "Engr. Kabir Yusuf",
-    directorRole: "Technical Director",
-    directorEmail: "k.yusuf@solidground.ng",
-    directorPhone: "+234 803 719 0281",
-    state: "Abuja (FCT)",
-    officeAddress: "Central Business District, Towers Plot 4",
-    category: "Structural Steel & Pre-cast",
-    plan: "Verified Builder",
-    status: "VERIFIED",
-    badges: ["COREN Verified", "NIQS Certified"],
-    activeSlots: "3 / 5 Projects",
-    slotsUsed: 3,
-    slotsMax: 5,
-    freeSlotUsed: true,
-    bankName: "Guaranty Trust Bank (GTBank)",
-    accountNumber: "0182910482",
-    accountName: "SolidGround Engineering Limited",
-    joinedDate: "10 Apr 2026",
-  },
-  {
-    id: "cont_05",
-    name: "TowerPoint Civil Infrastructure Limited",
-    rcNumber: "RC-1849202",
-    tin: "24910294-0001",
-    director: "Engr. Nnamdi Eze",
-    directorRole: "Managing Director",
-    directorEmail: "n.eze@towerpoint.ng",
-    directorPhone: "+234 803 123 4567",
-    state: "Lagos",
-    officeAddress: "Plot 14, Commercial Avenue, Victoria Island",
-    category: "General Building & Construction",
-    plan: "Verified Builder",
-    status: "VERIFIED",
-    badges: ["COREN Verified", "Lagos State PWD"],
-    activeSlots: "2 / 5 Projects",
-    slotsUsed: 2,
-    slotsMax: 5,
-    freeSlotUsed: true,
-    bankName: "Zenith Bank",
-    accountNumber: "1012345678",
-    accountName: "TowerPoint Civil Infrastructure Limited",
-    joinedDate: "18 May 2026",
-  },
-  {
-    id: "cont_06",
-    name: "Eko Continental Builders Limited",
-    rcNumber: "RC-2049182",
-    tin: "19402914-0001",
-    director: "Alhaji Ibrahim Danjuma",
-    directorRole: "Managing Director",
-    directorEmail: "i.danjuma@ekocontinental.ng",
-    directorPhone: "+234 806 123 4981",
-    state: "Kano",
-    officeAddress: "88 Murtala Mohammed Way, Nassarawa",
-    category: "General Building & Construction",
-    plan: "Starter Builder",
-    status: "VERIFIED",
-    badges: ["COREN Verified", "CAC Certified"],
-    activeSlots: "1 / 1 (Active Free Slot)",
-    slotsUsed: 1,
-    slotsMax: 1,
-    freeSlotUsed: true,
-    bankName: "Guaranty Trust Bank (GTBank)",
-    accountNumber: "0123984710",
-    accountName: "Eko Continental Builders Limited",
-    joinedDate: "04 Jun 2026",
-  },
-];
+import {
+  ContractorRecord,
+  INITIAL_CONTRACTORS,
+} from "../../data/contractorsData";
 
 export default function ContractorsDirectoryPage() {
   const [contractors, setContractors] = useState<ContractorRecord[]>(INITIAL_CONTRACTORS);
   const [planFilter, setPlanFilter] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedContractor, setSelectedContractor] = useState<ContractorRecord | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Sync with live contractors API and URL search params on mount
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const query = urlParams.get("search");
+      if (query) setSearchTerm(query);
+    }
+
+    fetch("/api/contractors")
+      .then((res) => res.json())
+      .then((resData) => {
+        if (resData?.success && Array.isArray(resData.data)) {
+          setContractors(resData.data);
+        }
+      })
+      .catch((err) => console.warn("Using default contractors:", err));
+  }, []);
+
+  const handleToggleSuspend = async (contractor: ContractorRecord) => {
+    const nextStatus = contractor.status === "SUSPENDED" ? "VERIFIED" : "SUSPENDED";
+    const updatedContractors = contractors.map((c) =>
+      c.id === contractor.id ? { ...c, status: nextStatus as any } : c
+    );
+    setContractors(updatedContractors);
+    if (selectedContractor && selectedContractor.id === contractor.id) {
+      setSelectedContractor({ ...selectedContractor, status: nextStatus as any });
+    }
+
+    try {
+      await fetch("/api/contractors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: contractor.id, status: nextStatus }),
+      });
+
+      await fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: nextStatus === "SUSPENDED" ? "CONTRACTOR_SUSPENDED" : "CONTRACTOR_REINSTATED",
+          actionLabel: nextStatus === "SUSPENDED" ? "Contractor Account Suspended" : "Contractor Account Reinstated",
+          target: `${contractor.name} (${contractor.rcNumber})`,
+          details: `Administrative status change to ${nextStatus}.`,
+          level: nextStatus === "SUSPENDED" ? "WARNING" : "SUCCESS",
+        }),
+      });
+
+      showToast(`${contractor.name} has been ${nextStatus === "SUSPENDED" ? "suspended" : "reinstated"}!`);
+    } catch {
+      showToast("Updated contractor status.");
+    }
+  };
 
   // Filter logic: directory contains verified firms filtered by subscription tier
   const filtered = contractors.filter((c) => {
@@ -237,6 +129,12 @@ export default function ContractorsDirectoryPage() {
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
+          {toastMessage && (
+            <div className="animate-in fade-in slide-in-from-top-1 px-3 py-1.5 rounded-lg bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] text-xs font-bold shadow-2xs flex items-center gap-1.5">
+              <span>✓</span>
+              <span>{toastMessage}</span>
+            </div>
+          )}
           <Link
             href="/verifications"
             className="inline-flex items-center gap-2 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] px-4 py-2.5 text-xs font-bold text-white transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)]"
@@ -371,16 +269,17 @@ export default function ContractorsDirectoryPage() {
         <table className="w-full table-fixed text-left border-collapse font-sans text-xs">
           <thead>
             <tr className="border-b border-[var(--vt-color-neutral-100,#EFEEF5)] bg-[var(--vt-color-neutral-50,#F7F7FA)]/80 text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-              <th className="py-3 px-3 sm:px-4 w-[36%]">Company & Legal Entity</th>
-              <th className="py-3 px-3 sm:px-4 w-[24%]">Managing Director</th>
-              <th className="py-3 px-3 sm:px-4 w-[20%]">Subscription Tier & Capacity</th>
-              <th className="py-3 px-3 sm:px-4 w-[20%]">Verified Accreditations</th>
+              <th className="py-3 px-3 sm:px-4 w-[28%]">Company & Legal Entity</th>
+              <th className="py-3 px-3 sm:px-4 w-[20%]">Managing Director</th>
+              <th className="py-3 px-3 sm:px-4 w-[18%]">Subscription Tier & Capacity</th>
+              <th className="py-3 px-3 sm:px-4 w-[16%]">Accreditations</th>
+              <th className="py-3 px-3 sm:px-4 w-[18%] text-right whitespace-nowrap">Projects</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--vt-color-neutral-100,#EFEEF5)]">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-16 text-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                <td colSpan={5} className="py-16 text-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
                   <svg className="w-10 h-10 mx-auto mb-2.5 text-[var(--vt-color-neutral-300,#CBC8DA)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <circle cx="11" cy="11" r="8" />
                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -457,6 +356,20 @@ export default function ContractorsDirectoryPage() {
                       ))}
                     </div>
                   </td>
+
+                  {/* Projects Action Button */}
+                  <td className="py-3 px-3 sm:px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <Link
+                      href={`/contractors/${item.id}/projects`}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] hover:bg-[var(--vt-color-orange-500,#EF5F18)] text-[var(--vt-color-orange-600,#D84C0B)] hover:text-white border border-[var(--vt-color-orange-200,#FDCAA9)] hover:border-[var(--vt-color-orange-500,#EF5F18)] text-xs font-bold transition-all shadow-2xs group/btn cursor-pointer whitespace-nowrap flex-nowrap shrink-0"
+                    >
+                      <IconUsers className="w-3.5 h-3.5 shrink-0" />
+                      <span className="whitespace-nowrap shrink-0">Projects ({item.slotsUsed})</span>
+                      <svg className="w-3.5 h-3.5 shrink-0 transition-transform group-hover/btn:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </Link>
+                  </td>
                 </tr>
               ))
             )}
@@ -514,10 +427,31 @@ export default function ContractorsDirectoryPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)]">
-                    <span className="w-2 h-2 rounded-full bg-[var(--vt-color-green-500,#2E9E57)]" />
-                    Vantaged Verified Partner
-                  </span>
+                  {selectedContractor.status === "SUSPENDED" ? (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSuspend(selectedContractor)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 transition-colors cursor-pointer"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      SUSPENDED · Reinstate
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)]">
+                        <span className="w-2 h-2 rounded-full bg-[var(--vt-color-green-500,#2E9E57)]" />
+                        Vantaged Verified Partner
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSuspend(selectedContractor)}
+                        className="px-2.5 py-1 rounded-md text-[11px] font-bold text-red-600 border border-red-200 hover:bg-red-50 transition-colors cursor-pointer"
+                        title="Temporarily freeze bidding and escrow operations for this contractor"
+                      >
+                        Suspend
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -605,6 +539,29 @@ export default function ContractorsDirectoryPage() {
                 </div>
               </div>
 
+              {/* Active Projects Portfolio Card */}
+              <div className="p-4 rounded-xl border border-[var(--vt-color-orange-200,#FDCAA9)] bg-[var(--vt-color-orange-50,#FFF4EE)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)] flex items-center gap-2">
+                    <IconUsers className="w-4 h-4 text-[var(--vt-color-orange-500,#EF5F18)]" />
+                    <span>Active Projects Portfolio ({selectedContractor.slotsUsed} Ongoing)</span>
+                  </div>
+                  <div className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] mt-0.5">
+                    Inspect all contracted construction sites, stage evidence, milestones, and escrow vaults for {selectedContractor.name}.
+                  </div>
+                </div>
+
+                <Link
+                  href={`/contractors/${selectedContractor.id}/projects`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] shrink-0 cursor-pointer whitespace-nowrap flex-nowrap"
+                >
+                  <span className="whitespace-nowrap">Open Projects List</span>
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </Link>
+              </div>
+
               {/* Enterprise Access Shortcut */}
               <div className="p-4 rounded-xl border border-[var(--vt-color-green-200,#A3D9B1)] bg-[var(--vt-color-green-50,#E9F6EC)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
@@ -643,16 +600,26 @@ export default function ContractorsDirectoryPage() {
 
               <div className="flex items-center gap-2">
                 <Link
-                  href="/subscriptions"
-                  className="h-9 px-4 rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-indigo-900,#261A66)] text-xs font-bold transition-all flex items-center gap-1.5"
+                  href={`/contractors/${selectedContractor.id}/projects`}
+                  className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] flex items-center gap-1.5 cursor-pointer whitespace-nowrap flex-nowrap shrink-0"
                 >
-                  <span>Manage Quota</span>
+                  <IconUsers className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">View Projects ({selectedContractor.slotsUsed})</span>
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </Link>
+                <Link
+                  href="/subscriptions"
+                  className="h-9 px-3.5 rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-indigo-900,#261A66)] text-xs font-bold transition-all flex items-center gap-1.5"
+                >
+                  <span>Quota</span>
                 </Link>
                 <Link
                   href="/verifications"
-                  className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                  className="h-9 px-3.5 rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-neutral-700,#443E63)] text-xs font-bold transition-all flex items-center gap-1.5"
                 >
-                  <span>Verification Packet</span>
+                  <span>Verification</span>
                 </Link>
               </div>
             </div>

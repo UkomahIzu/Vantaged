@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+export const dynamic = "force-dynamic";
+
 const DATA_PATHS = [
   path.join(process.cwd(), "packages/db/data/platform-pricing.json"),
   path.join(process.cwd(), "../../packages/db/data/platform-pricing.json"),
@@ -10,7 +12,7 @@ const DATA_PATHS = [
 
 function getPricingFilePath(): string | null {
   for (const p of DATA_PATHS) {
-    if (fs.existsSync(p)) return p;
+    if (fs.existsSync(/*turbopackIgnore: true*/ p)) return p;
   }
   return null;
 }
@@ -18,8 +20,8 @@ function getPricingFilePath(): string | null {
 export async function GET() {
   try {
     const filePath = getPricingFilePath();
-    if (filePath && fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, "utf-8");
+    if (filePath && fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8");
       const data = JSON.parse(raw);
       return NextResponse.json(data);
     }

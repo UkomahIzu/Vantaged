@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { useDemoMode } from "../hooks/useDemoMode";
+import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
 
 export interface OwnerNotification {
   id: string;
@@ -94,19 +96,46 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
 export function OwnerNotificationsPage() {
   const scrollRef = useScrollRestoration<HTMLElement>("owner_notifications");
   const storageKey = "vantaged_owner_notifications";
-  const [notifications, setNotifications] = useState<OwnerNotification[]>(INITIAL_NOTIFICATIONS);
+  const { isDemoMode } = useDemoMode();
+  const subscription = useOwnerSubscription();
 
-  useEffect(() => {
+  const getSourceNotifications = useCallback((): OwnerNotification[] => {
+    if (!isDemoMode) return [];
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setNotifications(parsed);
+        if (Array.isArray(parsed)) {
+          // Constrain by tier capacity: starter tier only gets Lekki project notifs
+          if (subscription.tierId === "owner-private") {
+            return parsed.filter((n: OwnerNotification) => n.projectTitle === "Lekki Phase 1 Luxury Villa");
+          }
+          return parsed;
         }
       }
     } catch {}
-  }, []);
+    if (subscription.tierId === "owner-private") {
+      return INITIAL_NOTIFICATIONS.filter((n) => n.projectTitle === "Lekki Phase 1 Luxury Villa");
+    }
+    return INITIAL_NOTIFICATIONS;
+  }, [isDemoMode, subscription.tierId]);
+
+  const [notifications, setNotifications] = useState<OwnerNotification[]>(() => getSourceNotifications());
+
+  useEffect(() => {
+    const sync = () => {
+      setNotifications(getSourceNotifications());
+    };
+    sync();
+    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener("vantaged_demo_toggle", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener("vantaged_demo_toggle", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [getSourceNotifications]);
 
   const persistNotifications = (updated: OwnerNotification[]) => {
     setNotifications(updated);
@@ -217,8 +246,27 @@ export function OwnerNotificationsPage() {
           {/* Unified Notification Card */}
           <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs divide-y divide-[var(--vt-color-border-default,#E2E0EC)]/70 overflow-hidden">
             {notifications.length === 0 ? (
-              <div className="py-16 text-center text-sm text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                No notifications right now.
+              <div className="py-20 px-6 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 rounded-2xl bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center mb-4 border border-[var(--vt-color-orange-200,#FDCAA9)] shadow-xs">
+                  <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                  </svg>
+                </div>
+                <h3 className="text-lg sm:text-xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                  All Caught Up!
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-500,#7C7894)] max-w-md mt-1.5 leading-relaxed">
+                  You have no unread notifications. When your contractor requests a milestone sign-off, uploads concrete test results, or releases escrow payments, you will receive real-time alerts here.
+                </p>
+                <div className="mt-5 flex items-center gap-3">
+                  <Link
+                    href="/owner/dashboard"
+                    className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] flex items-center gap-1.5 font-sans cursor-pointer"
+                  >
+                    Return to Dashboard
+                  </Link>
+                </div>
               </div>
             ) : (
               notifications.map((item) => (

@@ -1,0 +1,156 @@
+[
+  {
+    "id": "AUD-872696",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "PRICING_TIER_UPDATED",
+    "actionLabel": "Platform Pricing Tier Updated",
+    "target": "Property Owners · Portfolio Investor",
+    "details": "Updated capacity: 3 slots. USD: $49.99/mo, NGN: ₦65,000/mo.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  },
+  {
+    "id": "AUD-856155",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "PRICING_TIER_UPDATED",
+    "actionLabel": "Platform Pricing Tier Updated",
+    "target": "Property Owners · Portfolio Investor",
+    "details": "Updated capacity: 3 slots. USD: $49.99/mo, NGN: ₦75,000/mo.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  },
+  {
+    "id": "AUD-697495",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "PRICING_TIER_UPDATED",
+    "actionLabel": "Platform Pricing Tier Updated",
+    "target": "Property Owners · Portfolio Investor",
+    "details": "Updated capacity: 3 slots. USD: $49.99/mo, NGN: ₦65,000/mo.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  },
+  {
+    "id": "AUD-669419",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "PRICING_TIER_UPDATED",
+    "actionLabel": "Platform Pricing Tier Updated",
+    "target": "Property Owners · Portfolio Investor",
+    "details": "Updated capacity: 3 slots. USD: $49.99/mo, NGN: ₦75,000/mo.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  },
+  {
+    "id": "AUD-034895",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "CONTRACTOR_VERIFIED",
+    "actionLabel": "Contractor Firm Approved & Accredited",
+    "target": "JKs (RC-1849202)",
+    "details": "All regulatory documents and automated CAC/TIN checks verified. Added to Contractor Directory.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "SUCCESS"
+  },
+  {
+    "id": "AUD-918274",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "PRICING_TIER_UPDATED",
+    "actionLabel": "Platform Pricing Tier Updated",
+    "target": "Property Owners · Portfolio Investor",
+    "details": "Updated capacity: 3 slots. USD: $49.99/mo, NGN: ₦65,000/mo.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  },
+  {
+    "id": "AUD-889677",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "PRICING_TIER_UPDATED",
+    "actionLabel": "Platform Pricing Tier Updated",
+    "target": "Property Owners · Portfolio Investor",
+    "details": "Updated capacity: 3 slots. USD: $60/mo, NGN: ₦65,000/mo.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  },
+  {
+    "id": "AUD-874062",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "PRICING_TIER_UPDATED",
+    "actionLabel": "Platform Pricing Tier Updated",
+    "target": "Property Owners · Portfolio Investor",
+    "details": "Updated capacity: 3 slots. USD: 60/mo, NGN: ₦65,000/mo.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  },
+  {
+    "id": "AUD-636157",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "SYSTEM_HEALTHCHECK",
+    "actionLabel": "Admin Integration Verification",
+    "target": "Operations Console",
+    "details": "Automated verification of frontend-backend connectivity across all administrative modules.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  },
+  {
+    "id": "AUD-948102",
+    "timestamp": "Today at 09:14 WAT",
+    "actor": "Engr. Kenneth Adeleke (Super Admin)",
+    "action": "BADGE_ISSUED",
+    "actionLabel": "COREN License Verified & Issued",
+    "target": "Prestige Build & MEP Specialists (RC-1678291)",
+    "details": "COREN Registration COREN/R/58209 cross-verified against Council database. Granted Verified Builder privileges.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "SUCCESS"
+  },
+  {
+    "id": "AUD-948088",
+    "timestamp": "Today at 08:31 WAT",
+    "actor": "Engr. Kenneth Adeleke (Super Admin)",
+    "action": "AUTH_LOGIN",
+    "actionLabel": "Admin Console Authentication",
+    "target": "Session: ses_01hzyq83m",
+    "details": "Two-Factor hardware token confirmed. Access granted to Port 3001 operations environment.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  },
+  {
+    "id": "AUD-947921",
+    "timestamp": "Yesterday at 16:40 WAT",
+    "actor": "Barrister Amina Bello (Compliance Officer)",
+    "action": "CAC_VALIDATION",
+    "actionLabel": "CAC Corporate Inspection Completed",
+    "target": "Apex Structure & Civil Engineering (RC-1849204)",
+    "details": "Corporate Affairs Commission status confirmed ACTIVE. TIN 23891048-0001 verified against FIRS database.",
+    "ipAddress": "197.210.55.82 (Abuja, NG)",
+    "level": "SUCCESS"
+  },
+  {
+    "id": "AUD-947814",
+    "timestamp": "27 Oct 2026, 14:15 WAT",
+    "actor": "Femi Oladipo (Disputes Arbitrator)",
+    "action": "STAGE_OVERRIDE_REVIEW",
+    "actionLabel": "Milestone Rejection Appeal Monitored",
+    "target": "PRJ-KN-0193 · Nassarawa Commercial Plaza",
+    "details": "Reviewed documentation for substructure stirrup placement. Advised contractor to provide rebar density log.",
+    "ipAddress": "102.88.192.12 (Lagos, NG)",
+    "level": "WARNING"
+  },
+  {
+    "id": "AUD-947602",
+    "timestamp": "26 Oct 2026, 11:05 WAT",
+    "actor": "Chioma Okonkwo (Support Specialist)",
+    "action": "CREDENTIAL_DISPATCH",
+    "actionLabel": "Contractor Terminal Credentials Dispatched",
+    "target": "Prestige Build & MEP Specialists",
+    "details": "Director login link dispatched to operations@prestigebuild.ng for Contractor Portal access.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "INFO"
+  }
+]

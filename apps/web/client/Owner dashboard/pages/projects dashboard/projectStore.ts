@@ -1,6 +1,8 @@
 "use client";
 
 import { ProjectItem } from "../../components/ProjectFolderCard";
+import { getIsDemoMode } from "../../hooks/useDemoMode";
+import { getOwnerCapacity } from "../../hooks/useOwnerSubscription";
 
 export const STORAGE_KEY_ACTIVE = "vantaged_active_projects";
 export const STORAGE_KEY_PLANS = "vantaged_proposed_plans";
@@ -495,6 +497,21 @@ export function getActiveProjects(): ProjectItem[] {
   if (typeof window === "undefined") {
     return INITIAL_ACTIVE_PROJECTS.filter((p) => p.progressPercent < 100);
   }
+
+  // 1. If Demo Mode is OFF: Clean empty state for new user!
+  const isDemo = getIsDemoMode();
+  if (!isDemo) {
+    try {
+      const customSaved = localStorage.getItem("vantaged_custom_owner_active_projects");
+      if (customSaved) {
+        const parsed = JSON.parse(customSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+
+  // 2. Demo Mode is ON:
   try {
     const saved = localStorage.getItem(STORAGE_KEY_ACTIVE);
     let list: ProjectItem[] = saved ? JSON.parse(saved) : INITIAL_ACTIVE_PROJECTS;
@@ -544,9 +561,13 @@ export function getActiveProjects(): ProjectItem[] {
       localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(active));
     }
 
-    return active;
+    // Enforce owner tier capacity:
+    // If on Starter tier (Private Owner - 1 slot), only allow 1 project!
+    const capacity = getOwnerCapacity();
+    return active.slice(0, Math.max(1, capacity.totalSlots));
   } catch {
-    return INITIAL_ACTIVE_PROJECTS.filter((p) => p.progressPercent < 100);
+    const capacity = getOwnerCapacity();
+    return INITIAL_ACTIVE_PROJECTS.filter((p) => p.progressPercent < 100).slice(0, Math.max(1, capacity.totalSlots));
   }
 }
 
@@ -557,6 +578,19 @@ export function getContractHistory(): ProjectItem[] {
   if (typeof window === "undefined") {
     return INITIAL_CONTRACT_HISTORY;
   }
+
+  // If Demo Mode is OFF, return empty history
+  if (!getIsDemoMode()) {
+    try {
+      const customHistory = localStorage.getItem("vantaged_custom_contract_history");
+      if (customHistory) {
+        const parsed = JSON.parse(customHistory);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+
   try {
     const saved = localStorage.getItem(STORAGE_KEY_HISTORY);
     let list: ProjectItem[] = saved ? JSON.parse(saved) : INITIAL_CONTRACT_HISTORY;
@@ -581,6 +615,12 @@ export function getProposedPlans(): ProjectItem[] {
   if (typeof window === "undefined") {
     return INITIAL_PROPOSED_PLANS;
   }
+
+  // If Demo Mode is OFF, return empty plans
+  if (!getIsDemoMode()) {
+    return [];
+  }
+
   try {
     const saved = localStorage.getItem(STORAGE_KEY_PLANS);
     let list: ProjectItem[] = saved ? JSON.parse(saved) : INITIAL_PROPOSED_PLANS;
@@ -616,8 +656,18 @@ export function acceptProposedPlan(planId: string): void {
 
     // Add to active projects
     const currentActive = getActiveProjects();
+    const capacity = getOwnerCapacity();
     const targetId = planId.startsWith("prop-") ? planId.replace("prop-", "proj-").replace("-plan", "") : planId;
     const existingIndex = currentActive.findIndex((p) => p.id === targetId || p.id === planId);
+
+    if (existingIndex < 0 && currentActive.length >= capacity.totalSlots) {
+      alert(
+        `Project Capacity Reached: Your ${capacity.tierName} subscription allows ${capacity.totalSlots} active project${
+          capacity.totalSlots > 1 ? "s" : ""
+        }. Please upgrade your tier in Settings to manage additional concurrent sites.`
+      );
+      return;
+    }
 
     const activatedProject: ProjectItem = {
       id: targetId,
@@ -686,6 +736,19 @@ export function getProjectBriefs(): ProjectBrief[] {
   if (typeof window === "undefined") {
     return INITIAL_BRIEFS;
   }
+
+  // If Demo Mode is OFF, return empty briefs unless user submitted one
+  if (!getIsDemoMode()) {
+    try {
+      const saved = localStorage.getItem("vantaged_custom_project_briefs");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+
   try {
     const saved = localStorage.getItem(STORAGE_KEY_BRIEFS);
     if (saved) {

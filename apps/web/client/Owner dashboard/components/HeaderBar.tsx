@@ -4,6 +4,9 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "../../context/ThemeContext";
+import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useDemoMode } from "../hooks/useDemoMode";
+import { OwnerProfileModal } from "./OwnerProfileModal";
 
 interface HeaderBarProps {
   leftSlot?: React.ReactNode;
@@ -265,6 +268,9 @@ const GLOBAL_SEARCH_ITEMS: SearchItem[] = [
 export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const currentUser = useCurrentUser();
+  const { isDemoMode } = useDemoMode();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -465,7 +471,29 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
             <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
             <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
           </svg>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] ring-1.5 ring-white" />
+          {isDemoMode && (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] ring-1.5 ring-white" />
+          )}
+        </button>
+
+        {/* Owner Profile Avatar Button */}
+        <button
+          type="button"
+          onClick={() => setIsProfileModalOpen(true)}
+          title="Owner Profile &amp; Capacity"
+          className="h-9 px-2.5 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] flex items-center gap-2 cursor-pointer shadow-2xs transition-all group"
+        >
+          <div className="relative shrink-0">
+            <img
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=faces"
+              alt={currentUser.fullName}
+              className="w-6 h-6 rounded-full object-cover border border-white"
+            />
+            <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--vt-color-green-500,#2E9E57)] ring-1 ring-white" />
+          </div>
+          <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-700,#B33C08)] hidden lg:inline max-w-[110px] truncate">
+            {currentUser.firstName}
+          </span>
         </button>
 
         {/* Start Project Primary Button - Links to /owner/find-companies */}
@@ -480,6 +508,12 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
           <span>Start project</span>
         </Link>
       </div>
+
+      {/* Owner Profile Dossier Modal */}
+      <OwnerProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </header>
   );
 }

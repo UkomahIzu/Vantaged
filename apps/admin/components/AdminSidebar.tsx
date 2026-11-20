@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAdminAuth, PRESET_ADMINS } from "../context/AdminAuthContext";
@@ -9,7 +9,6 @@ import {
   IconHome,
   IconVerification,
   IconContractors,
-  IconUsers,
   IconDisputes,
   IconSubscriptions,
   IconPresets,
@@ -28,6 +27,58 @@ export function AdminSidebar({
   const pathname = usePathname();
   const { user, logout, switchRole } = useAdminAuth();
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
+  const [counts, setCounts] = useState<{
+    verifications: string;
+    contractors: string;
+    presets: string;
+    disputes?: string;
+  }>({
+    verifications: "2",
+    contractors: "14",
+    presets: "7",
+    disputes: undefined,
+  });
+
+  useEffect(() => {
+    fetch("/api/verifications")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.success && Array.isArray(d.data)) {
+          const pending = d.data.filter(
+            (s: any) => s.status === "UNDER_REVIEW" || s.status === "SUBMITTED"
+          ).length;
+          setCounts((prev) => ({ ...prev, verifications: String(pending) }));
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/contractors")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.success && Array.isArray(d.data)) {
+          setCounts((prev) => ({ ...prev, contractors: String(d.data.length) }));
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/presets")
+      .then((r) => r.json())
+      .then((d) => {
+        const customCount = d?.success && Array.isArray(d.data) ? d.data.length : 0;
+        setCounts((prev) => ({ ...prev, presets: String(7 + customCount) }));
+      })
+      .catch(() => {});
+
+    fetch("/api/disputes")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.success && Array.isArray(d.data)) {
+          const active = d.data.filter((disp: any) => disp.status !== "RESOLVED").length;
+          setCounts((prev) => ({ ...prev, disputes: active > 0 ? String(active) : undefined }));
+        }
+      })
+      .catch(() => {});
+  }, [pathname]);
 
   const navigation = [
     {
@@ -40,25 +91,19 @@ export function AdminSidebar({
       name: "Verification Queue",
       href: "/verifications",
       icon: IconVerification,
-      badge: "2",
+      badge: counts.verifications,
     },
     {
       name: "Contractor Directory",
       href: "/contractors",
       icon: IconContractors,
-      badge: "14",
-    },
-    {
-      name: "Projects & Support",
-      href: "/projects",
-      icon: IconUsers,
-      badge: "38",
+      badge: counts.contractors,
     },
     {
       name: "Disputes & Risk Radar",
       href: "/disputes",
       icon: IconDisputes,
-      badge: undefined,
+      badge: counts.disputes,
     },
     {
       name: "Subscriptions & Tiers",
@@ -70,7 +115,7 @@ export function AdminSidebar({
       name: "Stage Preset Library",
       href: "/presets",
       icon: IconPresets,
-      badge: "5",
+      badge: counts.presets,
     },
     {
       name: "Platform Audit Trail",

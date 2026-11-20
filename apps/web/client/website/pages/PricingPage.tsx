@@ -186,8 +186,8 @@ export function PricingPage() {
       stakeholderHref: "/stakeholders/contractors",
       stakeholderLabel: "Explore Contractor Operating System",
       extraSlotNotice: {
-        usd: "+$49.99 / month per extra job slot",
-        ngn: "+₦65,000 / month per extra job slot",
+        usd: "+$64.99 / month per extra job slot",
+        ngn: "+₦85,000 / month per extra job slot",
         desc: "Won an unexpected extra tender? Add single job slots anytime without having to jump to the next major tier.",
       },
       tiers: [
@@ -257,7 +257,7 @@ export function PricingPage() {
         },
         {
           q: "What if I need one more project slot without jumping to the next tier?",
-          a: "You can purchase à la carte single job slots for +$49.99/mo (₦65,000/mo) per slot. When that project finishes, simply cancel the add-on.",
+          a: "You can purchase à la carte single job slots for +$64.99/mo (₦85,000/mo) per slot. When that project finishes, simply cancel the add-on.",
         },
         {
           q: "When are milestone payouts disbursed to my corporate account?",

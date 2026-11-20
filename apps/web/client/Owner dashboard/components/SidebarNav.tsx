@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useTheme } from "../../context/ThemeContext";
+import { useDemoMode } from "../hooks/useDemoMode";
+import { getActiveProjects } from "../pages/projects dashboard/projectStore";
+import { OwnerProfileModal } from "./OwnerProfileModal";
 
 interface NavItem {
   id: string;
@@ -18,15 +21,36 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
   const pathname = usePathname();
   const [activeItem, setActiveItem] = useState<string>(currentActiveItem || "home");
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const { fullName, email, role } = useCurrentUser();
   const { theme, toggleTheme } = useTheme();
+  const { isDemoMode, toggleDemoMode } = useDemoMode();
+  const [activeProjectsCount, setActiveProjectsCount] = useState<number>(0);
+
+  useEffect(() => {
+    const updateCount = () => {
+      const list = getActiveProjects();
+      setActiveProjectsCount(list.length);
+    };
+    updateCount();
+    window.addEventListener("vantaged_storage_update", updateCount);
+    window.addEventListener("storage", updateCount);
+    window.addEventListener("vantaged_demo_toggle", updateCount);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", updateCount);
+      window.removeEventListener("storage", updateCount);
+      window.removeEventListener("vantaged_demo_toggle", updateCount);
+    };
+  }, []);
 
   useEffect(() => {
     if (currentActiveItem) {
       setActiveItem(currentActiveItem);
     } else if (pathname?.includes("/transactions")) {
       setActiveItem("transactions");
+    } else if (pathname?.includes("/messages")) {
+      setActiveItem("messages");
     } else if (pathname?.includes("/settings")) {
       setActiveItem("settings");
     } else if (pathname?.includes("/notifications")) {
@@ -52,6 +76,8 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
       router.push("/owner/projects");
     } else if (id === "transactions") {
       router.push("/owner/transactions");
+    } else if (id === "messages") {
+      router.push("/owner/messages");
     } else if (id === "find-companies") {
       router.push("/owner/find-companies");
     } else if (id === "inspectors") {
@@ -89,7 +115,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
     {
       id: "projects",
       label: "Projects",
-      badge: 6,
+      badge: isDemoMode && activeProjectsCount > 0 ? activeProjectsCount : undefined,
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${
@@ -193,7 +219,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
     {
       id: "notifications",
       label: "Notifications",
-      badge: 3,
+      badge: isDemoMode ? 3 : undefined,
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${
@@ -363,6 +389,36 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
                   );
                 })}
               </nav>
+
+              {/* Demo Mode Toggle in Mobile Drawer */}
+              <div className="mt-3 pt-2.5 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] px-1">
+                <div className="p-2.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                      Demo Data
+                    </span>
+                    <span className="text-[10px] text-[var(--vt-color-neutral-500,#7C7894)] truncate font-sans">
+                      {isDemoMode ? "Mock projects" : "Empty state (New user)"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleDemoMode}
+                    role="switch"
+                    aria-checked={isDemoMode}
+                    title={isDemoMode ? "Switch to Empty State" : "Switch to Demo Data"}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      isDemoMode ? "bg-[var(--vt-color-orange-500,#EF5F18)]" : "bg-[var(--vt-color-neutral-300,#CBC8DA)]"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        isDemoMode ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Profile in Drawer */}
@@ -370,7 +426,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
               <div
                 onClick={() => {
                   setIsMobileDrawerOpen(false);
-                  router.push("/owner/settings");
+                  setIsProfileModalOpen(true);
                 }}
                 className="flex items-center gap-2.5 p-2 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] transition-colors cursor-pointer"
               >
@@ -446,6 +502,36 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
               );
             })}
           </nav>
+
+          {/* ── Demo Data / Empty State Mode Toggle (Below Settings) ── */}
+          <div className="mt-2.5 pt-2 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] px-1">
+            <div className="p-2.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-2 shadow-2xs">
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                  Demo Data
+                </span>
+                <span className="text-[10px] text-[var(--vt-color-neutral-500,#7C7894)] truncate font-sans">
+                  {isDemoMode ? "Mock projects" : "Empty state (New user)"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={toggleDemoMode}
+                role="switch"
+                aria-checked={isDemoMode}
+                title={isDemoMode ? "Switch to Empty State" : "Switch to Demo Data"}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isDemoMode ? "bg-[var(--vt-color-orange-500,#EF5F18)]" : "bg-[var(--vt-color-neutral-300,#CBC8DA)]"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                    isDemoMode ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Base: Owner Profile Card with Dropdown */}
@@ -464,7 +550,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
                   type="button"
                   onClick={() => {
                     setIsProfileMenuOpen(false);
-                    router.push("/owner/settings");
+                    setIsProfileModalOpen(true);
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] hover:text-[var(--vt-color-orange-700,#B33C08)] transition-colors cursor-pointer text-left"
                 >
@@ -476,7 +562,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
                   </div>
                   <div>
                     <p className="leading-tight font-bold">Profile</p>
-                    <p className="text-[10px] text-[var(--vt-color-neutral-400,#A3A0B8)] font-normal">Account & credentials</p>
+                    <p className="text-[10px] text-[var(--vt-color-neutral-400,#A3A0B8)] font-normal">Personal details & credentials</p>
                   </div>
                 </button>
 
@@ -509,7 +595,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
           )}
 
           <div
-            onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+            onClick={() => setIsProfileModalOpen(true)}
             className={`p-2.5 rounded-lg border transition-all cursor-pointer group shadow-2xs ${
               isProfileMenuOpen
                 ? "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-400,#F78241)] ring-2 ring-[var(--vt-color-orange-500,#EF5F18)]/20"
@@ -636,6 +722,13 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
           <span className="text-[10px] tracking-tight">More</span>
         </button>
       </nav>
+
+      {/* Owner Profile Dossier Modal */}
+      <OwnerProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        activeProjectsCount={activeProjectsCount}
+      />
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useDemoMode } from "../hooks/useDemoMode";
 
 interface NotificationItem {
   id: string;
@@ -74,7 +75,8 @@ const initialOwnerNotifications: NotificationItem[] = [
 ];
 
 export function NotificationsCard() {
-  const [notifications] = useState(initialOwnerNotifications);
+  const { isDemoMode } = useDemoMode();
+  const notifications = isDemoMode ? initialOwnerNotifications : [];
 
   return (
     <div

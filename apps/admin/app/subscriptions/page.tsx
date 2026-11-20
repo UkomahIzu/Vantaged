@@ -126,8 +126,8 @@ const DEFAULT_ROLES_DATA: Record<RoleKey, RoleConfig> = {
     summary:
       "Commercial company pricing scales strictly by active concurrent construction contracts. Every plan includes unlimited site crew, field photo uploads, and directory verification with zero per-seat penalties. First project is free.",
     extraSlotNotice: {
-      usd: "+$49.99 / month per extra job slot",
-      ngn: "+₦65,000 / month per extra job slot",
+      usd: "+$64.99 / month per extra job slot",
+      ngn: "+₦85,000 / month per extra job slot",
       desc: "Won an unexpected extra tender? Add single job slots anytime without jumping to the next tier.",
     },
     tiers: [
@@ -357,6 +357,19 @@ export default function SubscriptionsTiersPage() {
             updates: editForm,
           }),
         });
+
+        fetch("/api/audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "PRICING_TIER_UPDATED",
+            actionLabel: "Platform Pricing Tier Updated",
+            target: `${rolesData[selectedRole].label} · ${currentTiers[idx].name}`,
+            details: `Updated capacity: ${editForm.capacitySlots ?? currentTiers[idx].capacitySlots} slots. USD: ${editForm.priceMonthlyUSD ?? currentTiers[idx].priceMonthlyUSD}/mo, NGN: ${editForm.priceMonthlyNGN ?? currentTiers[idx].priceMonthlyNGN}/mo.`,
+            level: "INFO",
+          }),
+        }).catch(() => {});
+
         triggerToast(`Updated pricing for ${currentTiers[idx].name}!`);
       } catch (err) {
         console.error("Failed to persist to API:", err);
@@ -396,6 +409,19 @@ export default function SubscriptionsTiersPage() {
           extraSlotNotice: extraSlotForm,
         }),
       });
+
+      fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "EXTRA_SLOT_PRICING_UPDATED",
+          actionLabel: "Extra Project Slot Pricing Adjusted",
+          target: `${rolesData[selectedRole].label} Extra Slot`,
+          details: `Updated extra slot rate: USD ${extraSlotForm.usd}, NGN ${extraSlotForm.ngn}.`,
+          level: "INFO",
+        }),
+      }).catch(() => {});
+
       triggerToast(`Updated extra slot pricing for ${rolesData[selectedRole].label}!`);
     } catch (err) {
       console.error(err);
@@ -418,6 +444,19 @@ export default function SubscriptionsTiersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roles: DEFAULT_ROLES_DATA }),
       });
+
+      fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "PRICING_RESET_DEFAULTS",
+          actionLabel: "Platform Pricing Reset to Defaults",
+          target: "Platform Commercial Tiers",
+          details: "All stakeholder pricing tiers and extra slot rates reset to canonical baseline.",
+          level: "WARNING",
+        }),
+      }).catch(() => {});
+
       triggerToast("Restored default platform pricing.");
     } catch (err) {
       console.error(err);

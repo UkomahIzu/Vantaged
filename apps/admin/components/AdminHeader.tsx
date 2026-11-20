@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAdminAuth } from "../context/AdminAuthContext";
 import { IconExternalLink } from "./AdminIcons";
 import { ThemeToggle } from "./ThemeToggle";
@@ -10,8 +11,21 @@ interface AdminHeaderProps {
 }
 
 export function AdminHeader({ leftSlot }: AdminHeaderProps = {}) {
+  const router = useRouter();
   const { user } = useAdminAuth();
   const [lagosTime, setLagosTime] = useState<string>("");
+  const [globalSearch, setGlobalSearch] = useState<string>("");
+
+  const handleGlobalSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!globalSearch.trim()) return;
+    const q = globalSearch.trim();
+    if (q.toUpperCase().startsWith("VTG") || q.toLowerCase().startsWith("sub_")) {
+      router.push(`/verifications?search=${encodeURIComponent(q)}`);
+    } else {
+      router.push(`/contractors?search=${encodeURIComponent(q)}`);
+    }
+  };
 
   useEffect(() => {
     const updateTime = () => {
@@ -48,7 +62,7 @@ export function AdminHeader({ leftSlot }: AdminHeaderProps = {}) {
       </div>
 
       {/* Center: Global Search Bar matching Owner Dashboard */}
-      <div className="relative flex-1 max-w-md min-w-0">
+      <form onSubmit={handleGlobalSearch} className="relative flex-1 max-w-md min-w-0">
         <svg
           className="w-4 h-4 text-[var(--vt-color-neutral-400,#A3A0B8)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"
           viewBox="0 0 24 24"
@@ -64,10 +78,21 @@ export function AdminHeader({ leftSlot }: AdminHeaderProps = {}) {
 
         <input
           type="text"
+          value={globalSearch}
+          onChange={(e) => setGlobalSearch(e.target.value)}
           placeholder="Search CAC RC-number, company, TIN, reference..."
           className="w-full h-9 pl-9 pr-8 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] focus:border-[var(--vt-color-orange-500,#EF5F18)] focus:ring-2 focus:ring-[var(--vt-color-orange-500,#EF5F18)]/15 rounded-md text-xs sm:text-sm text-[var(--vt-color-text-default,#261A66)] placeholder:text-[var(--vt-color-neutral-400,#A3A0B8)] outline-none transition-all shadow-2xs font-sans"
         />
-      </div>
+        {globalSearch && (
+          <button
+            type="button"
+            onClick={() => setGlobalSearch("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--vt-color-neutral-400,#A3A0B8)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
+          >
+            ✕
+          </button>
+        )}
+      </form>
 
       {/* Right: Quick Port Links, Theme Toggle & Alerts */}
       <div className="flex items-center gap-2">

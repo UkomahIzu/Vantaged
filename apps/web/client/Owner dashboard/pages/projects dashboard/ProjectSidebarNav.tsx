@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { getProjectDetail } from "./projectData";
+import { OwnerProfileModal } from "../../components/OwnerProfileModal";
 
 interface ProjectNavItem {
   id: "overview" | "stages" | "transactions" | "disputes" | "change-requests" | "team";
@@ -25,6 +26,7 @@ export function ProjectSidebarNav({
   const router = useRouter();
   const { fullName, email, role } = useCurrentUser();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const project = getProjectDetail(projectId);
 
@@ -516,6 +518,20 @@ export function ProjectSidebarNav({
                 style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
                 className="absolute bottom-16 left-1 right-1 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl shadow-xl p-1.5 z-40 animate-in fade-in slide-in-from-bottom-2 duration-150"
               >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    setIsProfileModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] hover:text-[var(--vt-color-orange-700,#B33C08)] cursor-pointer text-left"
+                >
+                  <svg className="w-4 h-4 text-[var(--vt-color-orange-500,#EF5F18)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span>Owner Profile</span>
+                </button>
                 <Link
                   href="/owner/dashboard"
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] cursor-pointer text-left"
@@ -524,7 +540,7 @@ export function ProjectSidebarNav({
                 </Link>
                 <Link
                   href="/owner/settings"
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] cursor-pointer text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] cursor-pointer text-left"
                 >
                   <span>Account Settings</span>
                 </Link>
@@ -650,6 +666,12 @@ export function ProjectSidebarNav({
           <span className="text-[10px] tracking-tight">More</span>
         </button>
       </nav>
+
+      {/* ── Owner Profile Dossier Modal ── */}
+      <OwnerProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </>
   );
 }

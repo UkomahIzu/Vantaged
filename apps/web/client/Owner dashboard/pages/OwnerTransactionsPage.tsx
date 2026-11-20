@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { SidebarNav } from "../components/SidebarNav";
@@ -9,6 +9,8 @@ import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { VantagedSelect } from "../components/VantagedSelect";
 import { DownloadPaymentSummaryModal } from "../components/DownloadPaymentSummaryModal";
 import { openPrintStatementWindow } from "../components/paymentSummaryGenerator";
+import { useDemoMode } from "../hooks/useDemoMode";
+import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
 
 export interface TransactionItem {
   id: string;
@@ -348,9 +350,55 @@ export function OwnerTransactionsPage() {
   const searchParams = useSearchParams();
   const searchParam = searchParams?.get("search");
   const scrollRef = useScrollRestoration<HTMLElement>("owner_transactions");
+  const { isDemoMode } = useDemoMode();
+  const subscription = useOwnerSubscription();
 
-  const [transactions, setTransactions] = useState<TransactionItem[]>(INITIAL_TRANSACTIONS);
-  const [projectSummaries, setProjectSummaries] = useState<ProjectFinancialSummary[]>(INITIAL_PROJECT_SUMMARIES);
+  const getSourceData = useCallback(() => {
+    if (!isDemoMode) {
+      return {
+        summaries: [] as ProjectFinancialSummary[],
+        txs: [] as TransactionItem[],
+      };
+    }
+    // If on starter tier ("owner-private"), strictly limit to 1 project!
+    if (subscription.tierId === "owner-private") {
+      const singleProj = INITIAL_PROJECT_SUMMARIES.slice(0, 1);
+      const singleProjTxs = INITIAL_TRANSACTIONS.filter(
+        (t) => t.projectId === "proj-lekki" || t.projectTitle === "Lekki Phase 1 Luxury Villa"
+      );
+      return {
+        summaries: singleProj,
+        txs: singleProjTxs,
+      };
+    }
+    const cappedSummaries = INITIAL_PROJECT_SUMMARIES.slice(0, subscription.totalSlots);
+    const cappedProjIds = new Set(cappedSummaries.map((s) => s.id));
+    const cappedTxs = INITIAL_TRANSACTIONS.filter((t) => cappedProjIds.has(t.projectId));
+    return {
+      summaries: cappedSummaries,
+      txs: cappedTxs,
+    };
+  }, [isDemoMode, subscription.tierId, subscription.totalSlots]);
+
+  const [transactions, setTransactions] = useState<TransactionItem[]>(() => getSourceData().txs);
+  const [projectSummaries, setProjectSummaries] = useState<ProjectFinancialSummary[]>(() => getSourceData().summaries);
+
+  useEffect(() => {
+    const sync = () => {
+      const data = getSourceData();
+      setTransactions(data.txs);
+      setProjectSummaries(data.summaries);
+    };
+    sync();
+    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener("vantaged_demo_toggle", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener("vantaged_demo_toggle", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [getSourceData]);
   
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState(searchParam || "");
@@ -740,166 +788,197 @@ export function OwnerTransactionsPage() {
             </div>
           </div>
         </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Left 2 Cols: Monthly Spending & Future Costs Graph */}
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-                    Money Spent Month-by-Month & What's Coming Next
-                  </h3>
-                  <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                    How much you spent each month and what you will need to pay over the next 3 months
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)]" />
-                    <span className="text-[var(--vt-color-neutral-600,#5E5A7D)] font-semibold">Money Paid</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[var(--vt-color-indigo-400,#7768B4)]" />
-                    <span className="text-[var(--vt-color-neutral-600,#5E5A7D)] font-semibold">Coming Up (Estimated)</span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Visual Graph */}
-              <div className="h-56 w-full pt-4 flex flex-col justify-end">
-                <div className="grid grid-cols-9 h-full items-end gap-2 sm:gap-4 px-2 border-b border-[var(--vt-color-border-default,#E2E0EC)] pb-2">
-                  {/* May */}
-                  <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">₦35M</span>
-                    <div style={{ height: "30%" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
-                    <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">May</span>
-                  </div>
-                  {/* Jun */}
-                  <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">₦48M</span>
-                    <div style={{ height: "42%" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
-                    <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Jun</span>
-                  </div>
-                  {/* Jul */}
-                  <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">₦58M</span>
-                    <div style={{ height: "50%" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
-                    <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Jul</span>
-                  </div>
-                  {/* Aug */}
-                  <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">₦72M</span>
-                    <div style={{ height: "65%" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
-                    <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Aug</span>
-                  </div>
-                  {/* Sep */}
-                  <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">₦92M</span>
-                    <div style={{ height: "82%" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
-                    <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Sep</span>
-                  </div>
-                  {/* Oct (Current) */}
-                  <div className="flex flex-col items-center gap-1.5 h-full justify-end group relative">
-                    <div className="absolute -top-3 px-1.5 py-0.5 rounded bg-[var(--vt-color-orange-500,#EF5F18)] text-white text-[9px] font-extrabold">This Month</div>
-                    <span className="text-[10px] font-bold text-[var(--vt-color-orange-600,#D84C0B)]">₦80M</span>
-                    <div style={{ height: "70%" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)] rounded-t-md shadow-xs ring-2 ring-[var(--vt-color-orange-200,#FDCAA9)]" />
-                    <span className="text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)]">Oct</span>
-                  </div>
-                  {/* Nov (Projected) */}
-                  <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-[var(--vt-color-indigo-600,#483699)] opacity-0 group-hover:opacity-100 transition-opacity">₦65M est</span>
-                    <div style={{ height: "58%" }} className="w-full max-w-[28px] bg-[var(--vt-color-indigo-300,#ADA5DE)]/60 border-t-2 border-dashed border-[var(--vt-color-indigo-600,#483699)] rounded-t-md" />
-                    <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Nov (est)</span>
-                  </div>
-                  {/* Dec (Projected) */}
-                  <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-[var(--vt-color-indigo-600,#483699)] opacity-0 group-hover:opacity-100 transition-opacity">₦52M est</span>
-                    <div style={{ height: "46%" }} className="w-full max-w-[28px] bg-[var(--vt-color-indigo-300,#ADA5DE)]/60 border-t-2 border-dashed border-[var(--vt-color-indigo-600,#483699)] rounded-t-md" />
-                    <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Dec (est)</span>
-                  </div>
-                  {/* Jan (Projected) */}
-                  <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-[var(--vt-color-indigo-600,#483699)] opacity-0 group-hover:opacity-100 transition-opacity">₦40M est</span>
-                    <div style={{ height: "35%" }} className="w-full max-w-[28px] bg-[var(--vt-color-indigo-300,#ADA5DE)]/60 border-t-2 border-dashed border-[var(--vt-color-indigo-600,#483699)] rounded-t-md" />
-                    <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Jan (est)</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] font-medium">
-                  <span>* Estimates are based on the next stages scheduled by your builders</span>
-                  <span>Average monthly spend: ₦64.2M</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Col: Where Your Money Is Going */}
-            <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Left 2 Cols: Monthly Spending & Future Costs Graph */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-                  Where Your Money Is Going
+                  Money Spent Month-by-Month &amp; What&apos;s Coming Next
                 </h3>
                 <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                  How every Naira is spent across your building projects
+                  How much you spent each month and what you will need to pay over the next 3 months
                 </p>
+              </div>
+              <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)]" />
+                  <span className="text-[var(--vt-color-neutral-600,#5E5A7D)] font-semibold">Money Paid</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[var(--vt-color-indigo-400,#7768B4)]" />
+                  <span className="text-[var(--vt-color-neutral-600,#5E5A7D)] font-semibold">Coming Up (Estimated)</span>
+                </div>
+              </div>
+            </div>
 
-                {/* Progress Bars with Plain English Categories */}
-                <div className="flex flex-col gap-3.5 mt-5">
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-[var(--vt-color-indigo-900,#261A66)]">Walls & Concrete Decking</span>
-                      <span className="text-[var(--vt-color-neutral-500,#7C7894)]">42% (₦268.8M)</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
-                      <div style={{ width: "42%" }} className="h-full bg-[var(--vt-color-orange-500,#EF5F18)] rounded-full" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-[var(--vt-color-indigo-900,#261A66)]">Foundation & Ground Digging</span>
-                      <span className="text-[var(--vt-color-neutral-500,#7C7894)]">26% (₦166.4M)</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
-                      <div style={{ width: "26%" }} className="h-full bg-[var(--vt-color-indigo-900,#261A66)] rounded-full" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-[var(--vt-color-indigo-900,#261A66)]">Pipes, Wiring & Plumbing</span>
-                      <span className="text-[var(--vt-color-neutral-500,#7C7894)]">18% (₦115.2M)</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
-                      <div style={{ width: "18%" }} className="h-full bg-[var(--vt-color-indigo-500,#5E4DB2)] rounded-full" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-[var(--vt-color-indigo-900,#261A66)]">Finishing: Painting, Tiles & Windows</span>
-                      <span className="text-[var(--vt-color-neutral-500,#7C7894)]">10% (₦64.0M)</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
-                      <div style={{ width: "10%" }} className="h-full bg-[var(--vt-color-green-600,#248246)] rounded-full" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-[var(--vt-color-indigo-900,#261A66)]">Extra Work Added Later</span>
-                      <span className="text-[var(--vt-color-neutral-500,#7C7894)]">4% (₦25.6M)</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
-                      <div style={{ width: "4%" }} className="h-full bg-[var(--vt-color-orange-400,#FA8747)] rounded-full" />
-                    </div>
-                  </div>
+            {/* Visual Graph */}
+            <div className="h-56 w-full pt-4 flex flex-col justify-end">
+              <div className="grid grid-cols-9 h-full items-end gap-2 sm:gap-4 px-2 border-b border-[var(--vt-color-border-default,#E2E0EC)] pb-2">
+                {/* May */}
+                <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    {projectSummaries.length > 0 ? "₦35M" : "₦0"}
+                  </span>
+                  <div style={{ height: projectSummaries.length > 0 ? "30%" : "3px" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
+                  <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">May</span>
+                </div>
+                {/* Jun */}
+                <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    {projectSummaries.length > 0 ? "₦48M" : "₦0"}
+                  </span>
+                  <div style={{ height: projectSummaries.length > 0 ? "42%" : "3px" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
+                  <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Jun</span>
+                </div>
+                {/* Jul */}
+                <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    {projectSummaries.length > 0 ? "₦58M" : "₦0"}
+                  </span>
+                  <div style={{ height: projectSummaries.length > 0 ? "50%" : "3px" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
+                  <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Jul</span>
+                </div>
+                {/* Aug */}
+                <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    {projectSummaries.length > 0 ? "₦72M" : "₦0"}
+                  </span>
+                  <div style={{ height: projectSummaries.length > 0 ? "65%" : "3px" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
+                  <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Aug</span>
+                </div>
+                {/* Sep */}
+                <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <span className="text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    {projectSummaries.length > 0 ? "₦92M" : "₦0"}
+                  </span>
+                  <div style={{ height: projectSummaries.length > 0 ? "82%" : "3px" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)]/80 rounded-t-md transition-all group-hover:bg-[var(--vt-color-orange-500,#EF5F18)]" />
+                  <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Sep</span>
+                </div>
+                {/* Oct (Current) */}
+                <div className="flex flex-col items-center gap-1.5 h-full justify-end group relative">
+                  {projectSummaries.length > 0 && (
+                    <div className="absolute -top-3 px-1.5 py-0.5 rounded bg-[var(--vt-color-orange-500,#EF5F18)] text-white text-[9px] font-extrabold">This Month</div>
+                  )}
+                  <span className="text-[10px] font-bold text-[var(--vt-color-orange-600,#D84C0B)]">
+                    {projectSummaries.length > 0 ? "₦80M" : "₦0"}
+                  </span>
+                  <div style={{ height: projectSummaries.length > 0 ? "70%" : "3px" }} className="w-full max-w-[28px] bg-[var(--vt-color-orange-500,#EF5F18)] rounded-t-md shadow-xs ring-2 ring-[var(--vt-color-orange-200,#FDCAA9)]" />
+                  <span className="text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)]">Oct</span>
+                </div>
+                {/* Nov (Projected) */}
+                <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <span className="text-[10px] font-bold text-[var(--vt-color-indigo-600,#483699)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    {projectSummaries.length > 0 ? "₦65M est" : "₦0"}
+                  </span>
+                  <div style={{ height: projectSummaries.length > 0 ? "58%" : "3px" }} className="w-full max-w-[28px] bg-[var(--vt-color-indigo-300,#ADA5DE)]/60 border-t-2 border-dashed border-[var(--vt-color-indigo-600,#483699)] rounded-t-md" />
+                  <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Nov (est)</span>
+                </div>
+                {/* Dec (Projected) */}
+                <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <span className="text-[10px] font-bold text-[var(--vt-color-indigo-600,#483699)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    {projectSummaries.length > 0 ? "₦52M est" : "₦0"}
+                  </span>
+                  <div style={{ height: projectSummaries.length > 0 ? "46%" : "3px" }} className="w-full max-w-[28px] bg-[var(--vt-color-indigo-300,#ADA5DE)]/60 border-t-2 border-dashed border-[var(--vt-color-indigo-600,#483699)] rounded-t-md" />
+                  <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Dec (est)</span>
+                </div>
+                {/* Jan (Projected) */}
+                <div className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <span className="text-[10px] font-bold text-[var(--vt-color-indigo-600,#483699)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    {projectSummaries.length > 0 ? "₦40M est" : "₦0"}
+                  </span>
+                  <div style={{ height: projectSummaries.length > 0 ? "35%" : "3px" }} className="w-full max-w-[28px] bg-[var(--vt-color-indigo-300,#ADA5DE)]/60 border-t-2 border-dashed border-[var(--vt-color-indigo-600,#483699)] rounded-t-md" />
+                  <span className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">Jan (est)</span>
                 </div>
               </div>
 
-              <div className="pt-4 mt-2 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
-                <span>Total Spent So Far</span>
-                <span className="font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">{formatNaira(totalDisbursed)}</span>
+              <div className="flex items-center justify-between pt-2 text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] font-medium">
+                <span>* Estimates are based on the next stages scheduled by your builders</span>
+                <span>Average monthly spend: {projectSummaries.length > 0 ? "₦64.2M" : "₦0"}</span>
               </div>
             </div>
+          </div>
+
+          {/* Right Col: Where Your Money Is Going */}
+          <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs flex flex-col justify-between">
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                Where Your Money Is Going
+              </h3>
+              <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                How every Naira is spent across your building projects
+              </p>
+
+              {/* Progress Bars with Plain English Categories */}
+              <div className="flex flex-col gap-3.5 mt-5">
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span className="text-[var(--vt-color-indigo-900,#261A66)]">Walls &amp; Concrete Decking</span>
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)]">
+                      {projectSummaries.length > 0 ? "42% (₦268.8M)" : "0% (₦0)"}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
+                    <div style={{ width: projectSummaries.length > 0 ? "42%" : "0%" }} className="h-full bg-[var(--vt-color-orange-500,#EF5F18)] rounded-full transition-all duration-300" />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span className="text-[var(--vt-color-indigo-900,#261A66)]">Foundation &amp; Ground Digging</span>
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)]">
+                      {projectSummaries.length > 0 ? "26% (₦166.4M)" : "0% (₦0)"}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
+                    <div style={{ width: projectSummaries.length > 0 ? "26%" : "0%" }} className="h-full bg-[var(--vt-color-indigo-900,#261A66)] rounded-full transition-all duration-300" />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span className="text-[var(--vt-color-indigo-900,#261A66)]">Pipes, Wiring &amp; Plumbing</span>
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)]">
+                      {projectSummaries.length > 0 ? "18% (₦115.2M)" : "0% (₦0)"}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
+                    <div style={{ width: projectSummaries.length > 0 ? "18%" : "0%" }} className="h-full bg-[var(--vt-color-indigo-500,#5E4DB2)] rounded-full transition-all duration-300" />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span className="text-[var(--vt-color-indigo-900,#261A66)]">Finishing: Painting, Tiles &amp; Windows</span>
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)]">
+                      {projectSummaries.length > 0 ? "10% (₦64.0M)" : "0% (₦0)"}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
+                    <div style={{ width: projectSummaries.length > 0 ? "10%" : "0%" }} className="h-full bg-[var(--vt-color-green-600,#248246)] rounded-full transition-all duration-300" />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span className="text-[var(--vt-color-indigo-900,#261A66)]">Extra Work Added Later</span>
+                    <span className="text-[var(--vt-color-neutral-500,#7C7894)]">
+                      {projectSummaries.length > 0 ? "4% (₦25.6M)" : "0% (₦0)"}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden">
+                    <div style={{ width: projectSummaries.length > 0 ? "4%" : "0%" }} className="h-full bg-[var(--vt-color-orange-400,#FA8747)] rounded-full transition-all duration-300" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 mt-2 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
+              <span>Total Spent So Far</span>
+              <span className="font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">{formatNaira(totalDisbursed)}</span>
+            </div>
+          </div>
 
             {/* ── Full Payment History & Receipts Section (Directly under Month-by-Month Spending) ── */}
             <div
@@ -1029,15 +1108,64 @@ export function OwnerTransactionsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--vt-color-border-default,#E2E0EC)]/70">
-                    {filteredTransactions.length === 0 ? (
+                    {transactions.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-16 text-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                          <svg className="w-10 h-10 mx-auto mb-2.5 text-[var(--vt-color-neutral-300,#CBC8DA)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <td colSpan={5} className="py-14 text-center">
+                          <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center justify-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                              <rect x="2" y="5" width="20" height="14" rx="2" />
+                              <line x1="2" y1="10" x2="22" y2="10" />
+                            </svg>
+                          </div>
+                          <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">No payment history yet</p>
+                          <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1 max-w-sm mx-auto mb-4">
+                            Once you deposit funds to escrow or release milestone payouts to verified builders, receipts and transaction records will appear here.
+                          </p>
+                          <div className="flex items-center justify-center gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDepositStep("form");
+                                setIsDepositModalOpen(true);
+                              }}
+                              className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] flex items-center gap-1.5 font-sans cursor-pointer"
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                              </svg>
+                              <span>Deposit Funds</span>
+                            </button>
+                            <Link
+                              href="/owner/projects"
+                              className="h-9 px-3.5 rounded-md bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] flex items-center gap-2 shadow-2xs transition-all cursor-pointer active:scale-98 font-sans"
+                            >
+                              <span>View Projects</span>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : filteredTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-14 text-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                          <svg className="w-10 h-10 mx-auto mb-2 text-[var(--vt-color-neutral-300,#CBC8DA)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <circle cx="11" cy="11" r="8" />
                             <line x1="21" y1="21" x2="16.65" y2="16.65" />
                           </svg>
-                          <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">No payments found</p>
-                          <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1">Try clearing your filters or search keywords.</p>
+                          <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">No matching payments found</p>
+                          <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1 mb-3">Try adjusting or clearing your search and filters.</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedProjectFilter("All Buildings");
+                              setSelectedTypeFilter("All Payment Types");
+                              setSelectedStatusFilter("All Statuses");
+                              setSearchQuery("");
+                            }}
+                            className="h-9 px-4 rounded-md bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] shadow-2xs transition-all cursor-pointer font-sans inline-flex items-center gap-1.5"
+                          >
+                            <span>Clear All Filters</span>
+                          </button>
                         </td>
                       </tr>
                     ) : (
@@ -1162,42 +1290,63 @@ export function OwnerTransactionsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--vt-color-border-default,#E2E0EC)]/70">
-                    {projectSummaries.map((p) => (
-                      <tr key={p.id} className="hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/50">
-                        <td className="py-3.5 px-3.5 font-bold text-[var(--vt-color-indigo-900,#261A66)]">{p.title}</td>
-                        <td className="py-3.5 px-3.5 font-medium text-[var(--vt-color-neutral-600,#5E5A7D)]">{p.contractor}</td>
-                        <td className="py-3.5 px-3.5 text-right font-semibold">{formatNaira(p.originalBudget)}</td>
-                        <td className="py-3.5 px-3.5 text-right font-semibold text-[var(--vt-color-orange-600,#D84C0B)]">
-                          {p.approvedVariations > 0 ? `+${formatNaira(p.approvedVariations)}` : "—"}
-                        </td>
-                        <td className="py-3.5 px-3.5 text-right font-black text-[var(--vt-color-indigo-900,#261A66)]">
-                          {formatNaira(p.currentContractValue)}
-                        </td>
-                        <td className="py-3.5 px-3.5 text-right">
-                          <div className="font-bold text-[var(--vt-color-green-700,#1F6B3E)]">{formatNaira(p.disbursedAmount)}</div>
-                          <div className="text-[10px] text-[var(--vt-color-neutral-400,#A3A0B8)]">{p.percentDisbursed}% paid</div>
-                        </td>
-                        <td className="py-3.5 px-3.5 text-right font-bold text-[var(--vt-color-orange-600,#D84C0B)]">
-                          {p.inEscrowAmount > 0 ? formatNaira(p.inEscrowAmount) : "—"}
-                        </td>
-                        <td className="py-3.5 px-3.5 text-right font-medium text-[var(--vt-color-neutral-600,#5E5A7D)]">
-                          {formatNaira(p.retainageAmount)}
-                        </td>
-                        <td className="py-3.5 px-3.5 text-center">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${
-                              p.health === "Going Well"
-                                ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)]"
-                                : p.health === "Payment Coming Up"
-                                ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)]"
-                                : "bg-blue-50 text-blue-700"
-                            }`}
-                          >
-                            {p.health}
-                          </span>
+                    {projectSummaries.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-12 text-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                          <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">No building projects yet</p>
+                          <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1 mb-4">Start your first building project to see stage-by-stage contract values, paid milestones, and retention holds.</p>
+                          <div className="flex justify-center">
+                            <Link
+                              href="/owner/projects"
+                              className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] flex items-center gap-1.5 font-sans cursor-pointer"
+                            >
+                              <span>Start a Building Project</span>
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                                <polyline points="12 5 19 12 12 19" />
+                              </svg>
+                            </Link>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      projectSummaries.map((p) => (
+                        <tr key={p.id} className="hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/50">
+                          <td className="py-3.5 px-3.5 font-bold text-[var(--vt-color-indigo-900,#261A66)]">{p.title}</td>
+                          <td className="py-3.5 px-3.5 font-medium text-[var(--vt-color-neutral-600,#5E5A7D)]">{p.contractor}</td>
+                          <td className="py-3.5 px-3.5 text-right font-semibold">{formatNaira(p.originalBudget)}</td>
+                          <td className="py-3.5 px-3.5 text-right font-semibold text-[var(--vt-color-orange-600,#D84C0B)]">
+                            {p.approvedVariations > 0 ? `+${formatNaira(p.approvedVariations)}` : "—"}
+                          </td>
+                          <td className="py-3.5 px-3.5 text-right font-black text-[var(--vt-color-indigo-900,#261A66)]">
+                            {formatNaira(p.currentContractValue)}
+                          </td>
+                          <td className="py-3.5 px-3.5 text-right">
+                            <div className="font-bold text-[var(--vt-color-green-700,#1F6B3E)]">{formatNaira(p.disbursedAmount)}</div>
+                            <div className="text-[10px] text-[var(--vt-color-neutral-400,#A3A0B8)]">{p.percentDisbursed}% paid</div>
+                          </td>
+                          <td className="py-3.5 px-3.5 text-right font-bold text-[var(--vt-color-orange-600,#D84C0B)]">
+                            {p.inEscrowAmount > 0 ? formatNaira(p.inEscrowAmount) : "—"}
+                          </td>
+                          <td className="py-3.5 px-3.5 text-right font-medium text-[var(--vt-color-neutral-600,#5E5A7D)]">
+                            {formatNaira(p.retainageAmount)}
+                          </td>
+                          <td className="py-3.5 px-3.5 text-center">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${
+                                p.health === "Going Well"
+                                  ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)]"
+                                  : p.health === "Payment Coming Up"
+                                  ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)]"
+                                  : "bg-blue-50 text-blue-700"
+                              }`}
+                            >
+                              {p.health}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

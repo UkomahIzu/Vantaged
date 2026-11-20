@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-29T18:05:00.000Z",
+  "updatedAt": "2026-11-01T01:17:52.665Z",
   "roles": {
     "owner": {
       "key": "owner",
@@ -79,8 +79,8 @@
       "heroHeadline": "Commercial Company Tiers · Unlimited Crew & 1st Project Free",
       "summary": "Commercial company pricing scales strictly by active concurrent construction contracts. Every plan includes unlimited site crew, field photo uploads, and directory verification with zero per-seat penalties. Your first project is 100% free.",
       "extraSlotNotice": {
-        "usd": "+$49.99 / month per extra job slot",
-        "ngn": "+₦65,000 / month per extra job slot",
+        "usd": "+$64.99 / month per extra job slot",
+        "ngn": "+₦85,000 / month per extra job slot",
         "desc": "Won an unexpected extra tender? Add single job slots anytime without having to jump to the next major tier."
       },
       "tiers": [

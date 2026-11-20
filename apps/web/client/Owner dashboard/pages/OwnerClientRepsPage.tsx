@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { VantagedSelect } from "../components/VantagedSelect";
+import { useDemoMode } from "../hooks/useDemoMode";
+import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
 
 export interface ClientRepItem {
   id: string;
@@ -525,21 +527,46 @@ function normalizeRep(raw: any, index: number = 0): ClientRepItem {
 export function OwnerClientRepsPage() {
   const scrollRef = useScrollRestoration<HTMLElement>("owner_reps");
   const storageKey = "vantaged_client_reps_list";
+  const { isDemoMode } = useDemoMode();
+  const subscription = useOwnerSubscription();
 
-  const [reps, setReps] = useState<ClientRepItem[]>(INITIAL_CLIENT_REPS);
-
-  useEffect(() => {
+  const getSourceReps = useCallback((): ClientRepItem[] => {
+    if (!isDemoMode) return [];
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const normalized = parsed.map((item: any, idx: number) => normalizeRep(item, idx));
-          setReps(normalized);
+          if (subscription.tierId === "owner-private") {
+            return normalized.slice(0, 2);
+          }
+          return normalized;
         }
       }
     } catch {}
-  }, []);
+    if (subscription.tierId === "owner-private") {
+      return INITIAL_CLIENT_REPS.slice(0, 2);
+    }
+    return INITIAL_CLIENT_REPS;
+  }, [isDemoMode, subscription.tierId]);
+
+  const [reps, setReps] = useState<ClientRepItem[]>(() => getSourceReps());
+
+  useEffect(() => {
+    const sync = () => {
+      setReps(getSourceReps());
+    };
+    sync();
+    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener("vantaged_demo_toggle", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener("vantaged_demo_toggle", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [getSourceReps]);
 
   const persistReps = (updated: ClientRepItem[]) => {
     setReps(updated);
@@ -1306,6 +1333,54 @@ export function OwnerClientRepsPage() {
             </div>
 
             {/* Grid: 1 col on mobile, 2 col on tablet, 3-4 col on desktop (Exact match to Find Companies) */}
+            {filteredReps.length === 0 ? (
+              <div className="w-full bg-white rounded-2xl border border-dashed border-[var(--vt-color-border-default,#E2E0EC)] p-8 sm:p-14 shadow-2xs flex flex-col items-center justify-center text-center my-4">
+                <div className="w-16 h-16 rounded-2xl bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center mb-4 border border-[var(--vt-color-orange-200,#FDCAA9)] shadow-xs">
+                  <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <line x1="19" y1="8" x2="19" y2="14" />
+                    <line x1="22" y1="11" x2="16" y2="11" />
+                  </svg>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                  {reps.length === 0 ? "No Appointed Representatives Yet" : "No Representatives Match Filters"}
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-500,#7C7894)] max-w-md mt-1.5 leading-relaxed">
+                  {reps.length === 0
+                    ? "You haven't appointed any client representatives yet. Invite a registered civil engineer, clerk of works, or trusted family proxy to oversee site operations and approve milestone progress."
+                    : "Try resetting your discipline or state filters to display your authorized representatives."}
+                </p>
+                <div className="mt-5 flex items-center gap-3">
+                  {reps.length === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsInviteModalOpen(true)}
+                      className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] flex items-center gap-1.5 font-sans cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      <span>Invite a Representative</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDiscipline("All");
+                        setSelectedState("All States");
+                        setOnlyVerified(false);
+                        setOnlyFavorites(false);
+                      }}
+                      className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] flex items-center gap-1.5 font-sans cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 pb-12">
               {filteredReps.map((rep) => {
                 const isFeatured = rep.isFeatured;
@@ -1437,6 +1512,7 @@ export function OwnerClientRepsPage() {
                 );
               })}
             </div>
+            )}
           </div>
         </div>
         </>

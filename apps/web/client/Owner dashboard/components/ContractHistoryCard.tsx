@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useDemoMode } from "../hooks/useDemoMode";
 
 interface CompletedContract {
   id: string;
@@ -48,14 +49,15 @@ const pastContracts: CompletedContract[] = [
 ];
 
 export function ContractHistoryCard() {
-  const displayedContracts = pastContracts.slice(0, 4);
+  const { isDemoMode } = useDemoMode();
+  const displayedContracts = isDemoMode ? pastContracts.slice(0, 4) : [];
 
   return (
     <div
       className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.05)] flex flex-col justify-between font-sans select-none min-h-[360px]"
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
     >
-      {/* 1. Header Bar: Title (without completed count badge) */}
+      {/* 1. Header Bar: Title */}
       <div className="shrink-0 mb-3">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-md bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] border border-[var(--vt-color-orange-200,#FDCAA9)] flex items-center justify-center shrink-0">
@@ -78,43 +80,58 @@ export function ContractHistoryCard() {
         </div>
       </div>
 
-      {/* 2. Construction Contracts List: Shows most recent 4, links to /owner/projects?tab=history */}
-      <div className="divide-y divide-[var(--vt-color-neutral-100,#EFEEF5)]">
-        {displayedContracts.map((contract) => (
-          <Link
-            key={contract.id}
-            href="/owner/projects?tab=history"
-            className="py-3 sm:py-3.5 flex items-center justify-between gap-4 group hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/60 px-2 rounded-lg transition-colors cursor-pointer"
-          >
-            {/* Left: Project Title & Contractor */}
-            <div className="min-w-0 flex-1">
-              <h3 className="text-xs sm:text-sm font-bold text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors truncate">
-                {contract.title}
-              </h3>
-              <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
-                <span className="font-medium text-[var(--vt-color-neutral-600,#5E5A7D)]">{contract.contractor}</span>
-                <span className="mx-1.5 text-[var(--vt-color-neutral-300,#CBC8DA)]">·</span>
-                <span>{contract.location}</span>
-              </p>
-            </div>
+      {/* 2. Construction Contracts List */}
+      {displayedContracts.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 my-auto">
+          <div className="w-12 h-12 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-neutral-400,#A3A0B8)] flex items-center justify-center mb-2.5">
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+          <h4 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)]">No completed projects yet</h4>
+          <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] max-w-xs mt-0.5">
+            As your active construction milestones reach 100% sign-off, completed building archives and warranty deeds will be stored here.
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-[var(--vt-color-neutral-100,#EFEEF5)]">
+          {displayedContracts.map((contract) => (
+            <Link
+              key={contract.id}
+              href="/owner/projects?tab=history"
+              className="py-3 sm:py-3.5 flex items-center justify-between gap-4 group hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/60 px-2 rounded-lg transition-colors cursor-pointer"
+            >
+              {/* Left: Project Title & Contractor */}
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs sm:text-sm font-bold text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors truncate">
+                  {contract.title}
+                </h3>
+                <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
+                  <span className="font-medium text-[var(--vt-color-neutral-600,#5E5A7D)]">{contract.contractor}</span>
+                  <span className="mx-1.5 text-[var(--vt-color-neutral-300,#CBC8DA)]">·</span>
+                  <span>{contract.location}</span>
+                </p>
+              </div>
 
-            {/* Right: Total Value & Date */}
-            <div className="text-right shrink-0">
-              <span className="text-xs sm:text-sm font-extrabold text-[var(--vt-color-green-700,#1F6B3E)] block leading-tight">
-                {contract.totalValue}
-              </span>
-              <span className="text-[10px] text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5 block">
-                {contract.completedDate}
-              </span>
-            </div>
-          </Link>
-        ))}
-      </div>
+              {/* Right: Total Value & Date */}
+              <div className="text-right shrink-0">
+                <span className="text-xs sm:text-sm font-extrabold text-[var(--vt-color-green-700,#1F6B3E)] block leading-tight">
+                  {contract.totalValue}
+                </span>
+                <span className="text-[10px] text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5 block">
+                  {contract.completedDate}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
-      {/* 3. Bottom Summary Strip: Disbursed amount on left, Orange Previous Projects button on right */}
+      {/* 3. Bottom Summary Strip */}
       <div className="shrink-0 mt-3 pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center justify-between gap-3 text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
         <Link href="/owner/transactions" className="hover:text-[var(--vt-color-indigo-900,#261A66)] transition-colors">
-          Total Historical Escrow Disbursed: <strong className="font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">₦501,500,000</strong>
+          Total Historical Escrow Disbursed: <strong className="font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">{isDemoMode ? "₦501,500,000" : "₦0"}</strong>
         </Link>
 
         <Link

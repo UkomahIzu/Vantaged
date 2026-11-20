@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useDemoMode } from "../hooks/useDemoMode";
+import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
 
 export interface ActiveProject {
   id: string;
@@ -230,13 +232,98 @@ interface ActiveProjectProgressCardProps {
 }
 
 export function ActiveProjectProgressCard({
-  projects = OWNER_ACTIVE_PROJECTS,
+  projects: initialProjects = OWNER_ACTIVE_PROJECTS,
 }: ActiveProjectProgressCardProps) {
+  const { isDemoMode } = useDemoMode();
+  const subscription = useOwnerSubscription();
+
+  // Enforce tier subscription project limit:
+  // Starter tier ("owner-private" - 1 slot) only gets 1 project!
+  const projects = isDemoMode
+    ? initialProjects.slice(0, Math.max(1, subscription.totalSlots))
+    : [];
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasMultipleProjects = projects.length > 1;
   const currentProject = projects[currentIndex] || projects[0];
+
+  // If Demo Mode is OFF (Empty state for new user):
+  if (!isDemoMode || projects.length === 0) {
+    return (
+      <div
+        style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+        className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl p-6 sm:p-8 shadow-[0_4px_20px_rgba(38,26,102,0.04)] select-none font-sans flex flex-col md:flex-row items-center justify-between gap-6"
+      >
+        <div className="flex-1 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
+              {subscription.tierName.toUpperCase()} · {subscription.totalSlots} PROJECT SLOT READY
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              100% Escrow Protection Active
+            </span>
+          </div>
+
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight">
+            Ready to break ground on your first construction site?
+          </h2>
+
+          <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-600,#5E5A7D)] max-w-2xl leading-relaxed">
+            Your platform account includes <strong>{subscription.totalSlots} active project slot</strong> with bank escrow custody, daily visual site photos, and independent COREN milestone inspection audits. Connect with verified builders or submit your architectural brief to start.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+              <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] block mb-0.5">
+                🛡️ Bank Escrow Custody
+              </span>
+              <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
+                Funds released strictly upon your explicit sign-off
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+              <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] block mb-0.5">
+                📷 Daily Visual Logs
+              </span>
+              <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
+                Photo evidence before any concrete casting
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+              <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] block mb-0.5">
+                ⚖️ COREN Inspection
+              </span>
+              <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
+                Accredited engineers audit rebar and soil quality
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 w-full sm:w-auto">
+          <Link
+            href="/owner/find-companies"
+            className="h-11 px-5 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)]"
+          >
+            <span>Find Verified Builders</span>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </Link>
+
+          <Link
+            href="/owner/client-reps"
+            className="h-11 px-5 rounded-xl bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-2xs"
+          >
+            <span>Invite Representative</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Handle horizontal scroll sync
   const handleScroll = () => {
