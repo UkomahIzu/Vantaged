@@ -50,8 +50,52 @@ function writeOverrides(overrides: Record<string, Partial<ContractorRecord>>): v
   }
 }
 
-export async function GET() {
+function getProjectsPath(): string | null {
+  const p = path.join(getDbDir(), "contractor-projects.json");
+  return fs.existsSync(/*turbopackIgnore: true*/ p) ? p : null;
+}
+
+function readDynamicProjects(): any[] {
   try {
+    const filePath = getProjectsPath();
+    if (filePath && fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8");
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch (err) {
+    console.error("Failed to read dynamic contractor projects:", err);
+  }
+  return [];
+}
+
+function formatActiveSlotsLabel(plan: ContractorRecord["plan"], slotsUsed: number, slotsMax: number): string {
+  if (slotsMax === 999) {
+    return `${slotsUsed} / Unlimited`;
+  }
+  if (plan === "Starter Builder") {
+    return slotsUsed === 0 ? "0 / 1 (Free Slot Available)" : `${slotsUsed} / 1 (Active Free Slot)`;
+  }
+  return `${slotsUsed} / ${slotsMax}`;
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const projectsFor = searchParams.get("projectsFor");
+    const dynamicProjects = readDynamicProjects();
+
+    if (projectsFor) {
+      const filtered = dynamicProjects.filter(
+        (p) => p.contractorId === projectsFor
+      );
+      return NextResponse.json({
+        success: true,
+        count: filtered.length,
+        data: filtered,
+      });
+    }
+
     const overrides = readOverrides();
     let contractors: ContractorRecord[] = [...INITIAL_CONTRACTORS];
 
@@ -61,20 +105,47 @@ export async function GET() {
       const raw = fs.readFileSync(subPath, "utf-8");
       const submissions: any[] = JSON.parse(raw);
 
-      // Merge verified submissions into contractor list
+      // Merge verified submissions into contractor list (starting with 0 projects / clean slate)
       submissions.forEach((sub) => {
         if (sub.status === "VERIFIED") {
           const existing = contractors.find(
-            (c) => c.id === sub.id || c.rcNumber.toLowerCase() === (sub.rcNumber || "").toLowerCase()
+            (c) =>
+              c.id === sub.id ||
+              (sub.rcNumber &&
+                sub.rcNumber !== "TRADE-INDIVIDUAL" &&
+                c.rcNumber.toLowerCase() === sub.rcNumber.toLowerCase())
           );
 
           if (!existing) {
-            const planName =
-              sub.selectedPlan === "consortium" || sub.selectedPlan === "Prime Consortium"
-                ? "Prime Consortium"
-                : sub.selectedPlan === "starter" || sub.selectedPlan === "Starter Builder"
-                ? "Starter Builder"
-                : "Verified Builder";
+            const isTrade =
+              sub.selectedPlan === "trade" || sub.rcNumber === "TRADE-INDIVIDUAL";
+
+            const planName: ContractorRecord["plan"] = isTrade
+              ? "Independent Trade"
+              : sub.selectedPlan === "consortium" || sub.selectedPlan === "Prime Consortium"
+              ? "Prime Consortium"
+              : sub.selectedPlan === "starter" || sub.selectedPlan === "Starter Builder"
+              ? "Starter Builder"
+              : "Verified Builder";
+
+            const slotsMax =
+              planName === "Prime Consortium"
+                ? 999
+                : planName === "Starter Builder" || planName === "Independent Trade"
+                ? 1
+                : 3;
+
+            const createdProjectsCount = dynamicProjects.filter(
+              (p) =>
+                p.contractorId === sub.id ||
+                (p.contractor &&
+                  sub.companyName &&
+                  p.contractor.toLowerCase() === sub.companyName.toLowerCase())
+            ).length;
+
+            const badges = isTrade
+              ? ["ID Verified", "Trade Tier"]
+              : ["COREN Verified", "CAC Certified"];
 
             const newContractor: ContractorRecord = {
               id: sub.id,
@@ -90,11 +161,11 @@ export async function GET() {
               category: sub.category || "General Building & Construction",
               plan: planName,
               status: "VERIFIED",
-              badges: ["COREN Verified", "CAC Certified"],
-              activeSlots: planName === "Starter Builder" ? "1 / 1 (Active Free Slot)" : planName === "Prime Consortium" ? "1 / Unlimited" : "1 / 3",
-              slotsUsed: 1,
-              slotsMax: planName === "Starter Builder" ? 1 : planName === "Prime Consortium" ? 999 : 3,
-              freeSlotUsed: true,
+              badges,
+              activeSlots: formatActiveSlotsLabel(planName, createdProjectsCount, slotsMax),
+              slotsUsed: createdProjectsCount,
+              slotsMax,
+              freeSlotUsed: createdProjectsCount > 0,
               bankName: sub.bankName || "Zenith Bank",
               accountNumber: sub.accountNumber || "0000000000",
               accountName: sub.accountName || sub.companyName || "Corporate Account",
@@ -154,8 +225,8 @@ export async function PATCH(request: Request) {
         ? {
             activeSlots:
               (slotsMax ?? currentOverride.slotsMax ?? 3) === 999
-                ? `${slotsUsed ?? currentOverride.slotsUsed ?? 1} / Unlimited`
-                : `${slotsUsed ?? currentOverride.slotsUsed ?? 1} / ${slotsMax ?? currentOverride.slotsMax ?? 3}`,
+                ? `${slotsUsed ?? currentOverride.slotsUsed ?? 0} / Unlimited`
+                : `${slotsUsed ?? currentOverride.slotsUsed ?? 0} / ${slotsMax ?? currentOverride.slotsMax ?? 3}`,
           }
         : {}),
     };

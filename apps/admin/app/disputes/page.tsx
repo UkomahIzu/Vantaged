@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { IconDisputes, IconShield } from "../../components/AdminIcons";
+import { useDemoMode } from "../../hooks/useDemoMode";
 
 interface DisputeHistory {
   date: string;
@@ -30,6 +31,7 @@ interface DisputeRecord {
 }
 
 export default function DisputesRadarPage() {
+  const { isDemoMode } = useDemoMode();
   const [disputes, setDisputes] = useState<DisputeRecord[]>([]);
   const [selectedDispute, setSelectedDispute] = useState<DisputeRecord | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -52,8 +54,13 @@ export default function DisputesRadarPage() {
   };
 
   useEffect(() => {
+    if (!isDemoMode) {
+      setDisputes([]);
+      setSelectedDispute(null);
+      return;
+    }
     loadDisputes();
-  }, []);
+  }, [isDemoMode]);
 
   const handleAction = async (action: "DISPATCH_INSPECTOR" | "REQUEST_RETEST" | "RELEASE_ESCROW") => {
     if (!selectedDispute) return;
@@ -177,14 +184,28 @@ export default function DisputesRadarPage() {
       <div className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.04)]">
         <div className="flex items-center justify-between pb-3 border-b border-[var(--vt-color-neutral-100,#EFEEF5)] mb-4">
           <h2 className="text-base font-bold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight">Active Platform Alerts</h2>
-          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
+          <span
+            className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+              activeAlerts.length === 0
+                ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border-[var(--vt-color-green-200,#A3D9B1)]"
+                : "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border-[var(--vt-color-orange-200,#FDCAA9)]"
+            }`}
+          >
             {activeAlerts.length} {activeAlerts.length === 1 ? "ADVISORY NOTICE" : "ADVISORY NOTICES"}
           </span>
         </div>
 
         {disputes.length === 0 ? (
-          <div className="p-8 text-center text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
-            No active disputes or escrow warnings on platform.
+          <div className="py-12 px-4 text-center flex flex-col items-center justify-center max-w-md mx-auto">
+            <div className="w-11 h-11 rounded-xl bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)] flex items-center justify-center mb-3">
+              <IconDisputes className="w-5 h-5" />
+            </div>
+            <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">
+              No active disputes or escrow holds
+            </p>
+            <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1 leading-relaxed">
+              All escrow vaults, milestone inspections, and payment confirmations are operating within normal tolerances.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">

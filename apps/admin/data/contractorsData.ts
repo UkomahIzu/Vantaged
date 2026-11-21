@@ -10,8 +10,8 @@ export interface ContractorRecord {
   state: string;
   officeAddress: string;
   category: string;
-  plan: "Starter Builder" | "Verified Builder" | "Prime Consortium";
-  status: "VERIFIED" | "UNDER_REVIEW" | "SUSPENDED";
+  plan: "Starter Builder" | "Verified Builder" | "Prime Consortium" | "Independent Trade";
+  status: "VERIFIED" | "PENDING_REVIEW" | "SUSPENDED";
   badges: string[];
   activeSlots: string;
   slotsUsed: number;

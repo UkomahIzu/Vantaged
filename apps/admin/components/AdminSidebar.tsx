@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAdminAuth, PRESET_ADMINS } from "../context/AdminAuthContext";
+import { useDemoMode } from "../hooks/useDemoMode";
 import { AdminRole } from "../types/admin";
 import {
   IconHome,
@@ -26,6 +27,7 @@ export function AdminSidebar({
 }) {
   const pathname = usePathname();
   const { user, logout, switchRole } = useAdminAuth();
+  const { isDemoMode, toggleDemoMode } = useDemoMode();
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
   const [counts, setCounts] = useState<{
     verifications: string;
@@ -33,19 +35,37 @@ export function AdminSidebar({
     presets: string;
     disputes?: string;
   }>({
-    verifications: "2",
-    contractors: "14",
-    presets: "7",
+    verifications: "0",
+    contractors: "0",
+    presets: "9",
     disputes: undefined,
   });
 
   useEffect(() => {
+    fetch("/api/presets")
+      .then((r) => r.json())
+      .then((d) => {
+        const customCount = d?.success && Array.isArray(d.data) ? d.data.length : 0;
+        setCounts((prev) => ({ ...prev, presets: String(9 + customCount) }));
+      })
+      .catch(() => {});
+
+    if (!isDemoMode) {
+      setCounts((prev) => ({
+        ...prev,
+        verifications: "0",
+        contractors: "0",
+        disputes: undefined,
+      }));
+      return;
+    }
+
     fetch("/api/verifications")
       .then((r) => r.json())
       .then((d) => {
         if (d?.success && Array.isArray(d.data)) {
           const pending = d.data.filter(
-            (s: any) => s.status === "UNDER_REVIEW" || s.status === "SUBMITTED"
+            (s: any) => s.status === "PENDING_REVIEW"
           ).length;
           setCounts((prev) => ({ ...prev, verifications: String(pending) }));
         }
@@ -61,14 +81,6 @@ export function AdminSidebar({
       })
       .catch(() => {});
 
-    fetch("/api/presets")
-      .then((r) => r.json())
-      .then((d) => {
-        const customCount = d?.success && Array.isArray(d.data) ? d.data.length : 0;
-        setCounts((prev) => ({ ...prev, presets: String(7 + customCount) }));
-      })
-      .catch(() => {});
-
     fetch("/api/disputes")
       .then((r) => r.json())
       .then((d) => {
@@ -78,7 +90,7 @@ export function AdminSidebar({
         }
       })
       .catch(() => {});
-  }, [pathname]);
+  }, [pathname, isDemoMode]);
 
   const navigation = [
     {
@@ -91,19 +103,19 @@ export function AdminSidebar({
       name: "Verification Queue",
       href: "/verifications",
       icon: IconVerification,
-      badge: counts.verifications,
+      badge: isDemoMode && Number(counts.verifications) > 0 ? counts.verifications : undefined,
     },
     {
       name: "Contractor Directory",
       href: "/contractors",
       icon: IconContractors,
-      badge: counts.contractors,
+      badge: isDemoMode && Number(counts.contractors) > 0 ? counts.contractors : undefined,
     },
     {
       name: "Disputes & Risk Radar",
       href: "/disputes",
       icon: IconDisputes,
-      badge: counts.disputes,
+      badge: isDemoMode ? counts.disputes : undefined,
     },
     {
       name: "Subscriptions & Tiers",
@@ -144,7 +156,12 @@ export function AdminSidebar({
             <img
               src="/brand/vantaged-measurement-logo.svg"
               alt="Vantaged"
-              className="h-8 w-auto max-w-[155px] object-contain transition-opacity group-hover:opacity-90"
+              className="h-8 w-auto max-w-[155px] object-contain transition-opacity group-hover:opacity-90 dark:hidden"
+            />
+            <img
+              src="/brand/vantaged-measurement-logo-dark.svg"
+              alt="Vantaged"
+              className="hidden dark:block h-8 w-auto max-w-[155px] object-contain transition-opacity group-hover:opacity-90"
             />
             <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--vt-color-orange-500,#EF5F18)] text-white">
               ADMIN
@@ -212,8 +229,40 @@ export function AdminSidebar({
         </nav>
       </div>
 
-      {/* Base: Admin Profile & Role Switcher */}
-      <div className="pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] px-1 relative">
+      {/* Bottom Stack: Demo Data Toggle + Admin Profile & Role Switcher */}
+      <div className="flex flex-col gap-2.5 w-full">
+        {/* Demo Data / Empty State Mode Toggle (Just above User Account) */}
+        <div className="pt-2 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] px-1">
+          <div className="p-2.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-2 shadow-2xs">
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                Demo Data
+              </span>
+              <span className="text-[10px] text-[var(--vt-color-neutral-500,#7C7894)] truncate font-sans">
+                {isDemoMode ? "Mock platform data" : "Empty state (Fresh DB)"}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={toggleDemoMode}
+              role="switch"
+              aria-checked={isDemoMode}
+              title={isDemoMode ? "Switch to Empty State" : "Switch to Demo Data"}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                isDemoMode ? "bg-[var(--vt-color-orange-500,#EF5F18)]" : "bg-[var(--vt-color-neutral-300,#CBC8DA)]"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  isDemoMode ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Base: Admin Profile & Role Switcher */}
+        <div className="pt-2.5 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] px-1 relative">
         {/* Role Switcher Popover */}
         {roleSwitcherOpen && (
           <>
@@ -281,6 +330,7 @@ export function AdminSidebar({
             </button>
           </div>
         )}
+        </div>
       </div>
     </aside>
   );

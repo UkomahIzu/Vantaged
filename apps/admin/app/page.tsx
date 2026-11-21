@@ -3,6 +3,8 @@
 import React from "react";
 import Link from "next/link";
 import { useAdminAuth } from "../context/AdminAuthContext";
+import { useDemoMode } from "../hooks/useDemoMode";
+import { ALL_PROJECTS } from "../data/contractorsData";
 import {
   IconVerification,
   IconContractors,
@@ -16,21 +18,41 @@ import {
 
 export default function AdminDashboardPage() {
   const { user } = useAdminAuth();
+  const { isDemoMode } = useDemoMode();
   const [stats, setStats] = React.useState({
-    pendingVerifications: 2,
-    verifiedContractors: 14,
-    ongoingBuilds: 38,
-    activeDisputes: 1,
-    totalPresets: 7,
+    pendingVerifications: 0,
+    verifiedContractors: 0,
+    ongoingBuilds: 0,
+    activeDisputes: 0,
+    totalPresets: 9,
   });
 
   React.useEffect(() => {
+    fetch("/api/presets")
+      .then((res) => res.json())
+      .then((data) => {
+        const customCount = data?.success && Array.isArray(data.data) ? data.data.length : 0;
+        setStats((prev) => ({ ...prev, totalPresets: 9 + customCount }));
+      })
+      .catch(() => {});
+
+    if (!isDemoMode) {
+      setStats((prev) => ({
+        ...prev,
+        pendingVerifications: 0,
+        verifiedContractors: 0,
+        ongoingBuilds: 0,
+        activeDisputes: 0,
+      }));
+      return;
+    }
+
     fetch("/api/verifications")
       .then((res) => res.json())
       .then((data) => {
         if (data?.success && Array.isArray(data.data)) {
           const pending = data.data.filter(
-            (s: any) => s.status === "UNDER_REVIEW" || s.status === "SUBMITTED"
+            (s: any) => s.status === "PENDING_REVIEW"
           ).length;
           setStats((prev) => ({ ...prev, pendingVerifications: pending }));
         }
@@ -41,7 +63,15 @@ export default function AdminDashboardPage() {
       .then((res) => res.json())
       .then((data) => {
         if (data?.success && Array.isArray(data.data)) {
-          setStats((prev) => ({ ...prev, verifiedContractors: data.data.length }));
+          const activeBuilds = data.data.reduce(
+            (sum: number, c: any) => sum + (typeof c.slotsUsed === "number" ? c.slotsUsed : 0),
+            0
+          );
+          setStats((prev) => ({
+            ...prev,
+            verifiedContractors: data.data.length,
+            ongoingBuilds: Math.max(activeBuilds, ALL_PROJECTS.length),
+          }));
         }
       })
       .catch(() => {});
@@ -55,15 +85,7 @@ export default function AdminDashboardPage() {
         }
       })
       .catch(() => {});
-
-    fetch("/api/presets")
-      .then((res) => res.json())
-      .then((data) => {
-        const customCount = data?.success && Array.isArray(data.data) ? data.data.length : 0;
-        setStats((prev) => ({ ...prev, totalPresets: 7 + customCount }));
-      })
-      .catch(() => {});
-  }, []);
+  }, [isDemoMode]);
 
   return (
     <div

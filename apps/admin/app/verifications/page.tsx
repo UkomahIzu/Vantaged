@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import initialSubmissions from "../../../../packages/db/data/contractor-submissions.json";
+import { useDemoMode } from "../../hooks/useDemoMode";
 import {
   IconVerification,
   IconSearch,
@@ -37,7 +38,7 @@ interface ContractorSubmission {
   id: string;
   referenceNumber: string;
   submittedAt: string;
-  status: "UNDER_REVIEW" | "SUBMITTED" | "VERIFIED" | "REJECTED";
+  status: "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
   companyName: string;
   rcNumber: string;
   tin: string;
@@ -67,9 +68,8 @@ interface ContractorSubmission {
 }
 
 export default function VerificationQueuePage() {
-  const [submissions, setSubmissions] = useState<ContractorSubmission[]>(
-    initialSubmissions as unknown as ContractorSubmission[]
-  );
+  const { isDemoMode } = useDemoMode();
+  const [submissions, setSubmissions] = useState<ContractorSubmission[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedSub, setSelectedSub] = useState<ContractorSubmission | null>(null);
@@ -83,6 +83,13 @@ export default function VerificationQueuePage() {
       if (q) setSearchTerm(q);
     }
 
+    if (!isDemoMode) {
+      setSubmissions([]);
+      setSelectedSub(null);
+      return;
+    }
+
+    setSubmissions(initialSubmissions as unknown as ContractorSubmission[]);
     fetch("/api/verifications")
       .then((res) => res.json())
       .then((data) => {
@@ -91,7 +98,7 @@ export default function VerificationQueuePage() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [isDemoMode]);
 
   // Approval / Rejection modal state
   const [isApproveOpen, setIsApproveOpen] = useState<boolean>(false);
@@ -106,8 +113,11 @@ export default function VerificationQueuePage() {
     actionText?: string;
   } | null>(null);
 
+  // Queue excludes already-verified companies (which move straight to Contractor Directory)
+  const queueSubmissions = submissions.filter((s) => s.status !== "VERIFIED");
+
   // Filter logic
-  const filtered = submissions.filter((sub) => {
+  const filtered = queueSubmissions.filter((sub) => {
     const matchesStatus =
       statusFilter === "ALL" ? true : sub.status === statusFilter;
     const term = searchTerm.toLowerCase().trim();
@@ -122,10 +132,9 @@ export default function VerificationQueuePage() {
   });
 
   // Status counts
-  const countUnderReview = submissions.filter((s) => s.status === "UNDER_REVIEW").length;
-  const countSubmitted = submissions.filter((s) => s.status === "SUBMITTED").length;
+  const countPendingReview = queueSubmissions.filter((s) => s.status === "PENDING_REVIEW").length;
   const countVerified = submissions.filter((s) => s.status === "VERIFIED").length;
-  const countRejected = submissions.filter((s) => s.status === "REJECTED").length;
+  const countRejected = queueSubmissions.filter((s) => s.status === "REJECTED").length;
 
   // Actions
   const handleToggleDocVerified = async (docId: string, currentVerified?: boolean) => {
@@ -154,23 +163,25 @@ export default function VerificationQueuePage() {
 
   const handleApprove = async () => {
     if (!selectedSub) return;
+    const approvedCompany = selectedSub;
     const updatedSub: ContractorSubmission = {
-      ...selectedSub,
+      ...approvedCompany,
       status: "VERIFIED",
       verifiedAt: new Date().toISOString(),
     };
 
     setSubmissions((prev) =>
-      prev.map((s) => (s.id === selectedSub.id ? updatedSub : s))
+      prev.map((s) => (s.id === approvedCompany.id ? updatedSub : s))
     );
-    setSelectedSub(updatedSub);
+    // Close drawer & modal since verified firms move directly into Contractor Directory
+    setSelectedSub(null);
     setIsApproveOpen(false);
 
     try {
       await fetch("/api/verifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedSub.id, status: "VERIFIED" }),
+        body: JSON.stringify({ id: approvedCompany.id, status: "VERIFIED" }),
       });
 
       fetch("/api/audit", {
@@ -179,7 +190,7 @@ export default function VerificationQueuePage() {
         body: JSON.stringify({
           action: "CONTRACTOR_VERIFIED",
           actionLabel: "Contractor Firm Approved & Accredited",
-          target: `${selectedSub.companyName} (${selectedSub.rcNumber})`,
+          target: `${approvedCompany.companyName} (${approvedCompany.rcNumber})`,
           details: `All regulatory documents and automated CAC/TIN checks verified. Added to Contractor Directory.`,
           level: "SUCCESS",
         }),
@@ -188,10 +199,10 @@ export default function VerificationQueuePage() {
 
     setToastMessage({
       type: "success",
-      title: "Contractor Firm Approved & Credentialed",
-      description: `${selectedSub.companyName} is now fully verified. Enterprise credentials dispatched for login portal.`,
-      actionUrl: "http://localhost:3000/contractor/login",
-      actionText: "Open Contractor Login",
+      title: "Contractor Verified & Moved to Directory",
+      description: `${approvedCompany.companyName} has been approved, credentialed, and moved out of the queue into the Contractor Directory.`,
+      actionUrl: "/contractors",
+      actionText: "View in Directory",
     });
   };
 
@@ -273,17 +284,25 @@ export default function VerificationQueuePage() {
             </div>
           </div>
           <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-            {toastMessage.actionUrl && (
-              <a
-                href={toastMessage.actionUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] transition-all shadow-2xs"
-              >
-                <span>{toastMessage.actionText || "View"}</span>
-                <IconExternalLink className="w-3.5 h-3.5 text-[var(--vt-color-orange-500,#EF5F18)]" />
-              </a>
-            )}
+            {toastMessage.actionUrl &&
+              (toastMessage.actionUrl.startsWith("/") ? (
+                <Link
+                  href={toastMessage.actionUrl}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] transition-all shadow-2xs"
+                >
+                  <span>{toastMessage.actionText || "View"}</span>
+                </Link>
+              ) : (
+                <a
+                  href={toastMessage.actionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] transition-all shadow-2xs"
+                >
+                  <span>{toastMessage.actionText || "View"}</span>
+                  <IconExternalLink className="w-3.5 h-3.5 text-[var(--vt-color-orange-500,#EF5F18)]" />
+                </a>
+              ))}
             <button
               type="button"
               onClick={() => setToastMessage(null)}
@@ -345,61 +364,60 @@ export default function VerificationQueuePage() {
           }`}
         >
           <div className="text-[11px] font-semibold text-[var(--vt-color-neutral-500,#7C7894)]">
-            Total Submissions
+            In Queue
           </div>
           <div className="text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-1">
-            {submissions.length.toString().padStart(2, "0")}
+            {queueSubmissions.length.toString().padStart(2, "0")}
           </div>
         </div>
 
         <div
-          onClick={() => setStatusFilter("UNDER_REVIEW")}
+          onClick={() => setStatusFilter("PENDING_REVIEW")}
           className={`p-4 rounded-xl border bg-white cursor-pointer transition-all shadow-2xs ${
-            statusFilter === "UNDER_REVIEW"
+            statusFilter === "PENDING_REVIEW"
               ? "border-[var(--vt-color-orange-500,#EF5F18)] ring-2 ring-[var(--vt-color-orange-500,#EF5F18)]/15"
               : "border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)]"
           }`}
         >
           <div className="text-[11px] font-semibold text-[var(--vt-color-orange-700,#B33C08)] flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] animate-pulse" />
-            Under Review
+            Pending Review
           </div>
           <div className="text-2xl font-extrabold text-[var(--vt-color-orange-600,#D84C0B)] mt-1">
-            {countUnderReview.toString().padStart(2, "0")}
+            {countPendingReview.toString().padStart(2, "0")}
           </div>
         </div>
 
         <div
-          onClick={() => setStatusFilter("SUBMITTED")}
+          onClick={() => setStatusFilter("REJECTED")}
           className={`p-4 rounded-xl border bg-white cursor-pointer transition-all shadow-2xs ${
-            statusFilter === "SUBMITTED"
+            statusFilter === "REJECTED"
               ? "border-[var(--vt-color-orange-500,#EF5F18)] ring-2 ring-[var(--vt-color-orange-500,#EF5F18)]/15"
               : "border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)]"
           }`}
         >
-          <div className="text-[11px] font-semibold text-[var(--vt-color-indigo-700,#43379A)]">
-            New Submissions
+          <div className="text-[11px] font-semibold text-rose-700">
+            Rejected
           </div>
-          <div className="text-2xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-1">
-            {countSubmitted.toString().padStart(2, "0")}
+          <div className="text-2xl font-extrabold text-rose-700 mt-1">
+            {countRejected.toString().padStart(2, "0")}
           </div>
         </div>
 
-        <div
-          onClick={() => setStatusFilter("VERIFIED")}
-          className={`p-4 rounded-xl border bg-white cursor-pointer transition-all shadow-2xs ${
-            statusFilter === "VERIFIED"
-              ? "border-[var(--vt-color-orange-500,#EF5F18)] ring-2 ring-[var(--vt-color-orange-500,#EF5F18)]/15"
-              : "border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)]"
-          }`}
+        <Link
+          href="/contractors"
+          className="p-4 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-green-300,#A3D9B1)] bg-white cursor-pointer transition-all shadow-2xs group block"
         >
-          <div className="text-[11px] font-semibold text-[var(--vt-color-green-700,#1F6B3E)]">
-            Verified & Credentialed
+          <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--vt-color-green-700,#1F6B3E)]">
+            <span>Verified (In Directory)</span>
+            <span className="text-[10px] font-bold opacity-75 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
+              View →
+            </span>
           </div>
           <div className="text-2xl font-extrabold text-[var(--vt-color-green-700,#1F6B3E)] mt-1">
             {countVerified.toString().padStart(2, "0")}
           </div>
-        </div>
+        </Link>
       </section>
 
       {/* Search & Status Filters Bar */}
@@ -421,10 +439,8 @@ export default function VerificationQueuePage() {
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {[
-            { id: "ALL", label: `All (${submissions.length})` },
-            { id: "UNDER_REVIEW", label: `Review (${countUnderReview})` },
-            { id: "SUBMITTED", label: `Submitted (${countSubmitted})` },
-            { id: "VERIFIED", label: `Verified (${countVerified})` },
+            { id: "ALL", label: `All in Queue (${queueSubmissions.length})` },
+            { id: "PENDING_REVIEW", label: `Pending Review (${countPendingReview})` },
             { id: "REJECTED", label: `Rejected (${countRejected})` },
           ].map((tab) => (
             <button
@@ -458,22 +474,38 @@ export default function VerificationQueuePage() {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={4} className="py-16 text-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                  <svg className="w-10 h-10 mx-auto mb-2.5 text-[var(--vt-color-neutral-300,#CBC8DA)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">No contractor packets found</p>
-                  <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1">Try clearing your filters or search keywords.</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStatusFilter("ALL");
-                      setSearchTerm("");
-                    }}
-                    className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--vt-color-orange-500,#EF5F18)] hover:underline"
-                  >
-                    Clear all filters
-                  </button>
+                  {queueSubmissions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto px-4">
+                      <div className="w-11 h-11 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-500,#EF5F18)] border border-[var(--vt-color-orange-200,#FDCAA9)] flex items-center justify-center mb-3">
+                        <IconVerification className="w-5 h-5" />
+                      </div>
+                      <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">
+                        No verification packets in queue
+                      </p>
+                      <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1 leading-relaxed">
+                        Submitted contractor registration packets and compliance documents will appear here for review.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <svg className="w-10 h-10 mx-auto mb-2.5 text-[var(--vt-color-neutral-300,#CBC8DA)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">No contractor packets found</p>
+                      <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1">Try clearing your filters or search keywords.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter("ALL");
+                          setSearchTerm("");
+                        }}
+                        className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--vt-color-orange-500,#EF5F18)] hover:underline cursor-pointer"
+                      >
+                        Clear all filters
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ) : (
@@ -528,22 +560,10 @@ export default function VerificationQueuePage() {
 
                   {/* Status Pill */}
                   <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
-                    {item.status === "VERIFIED" && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-green-500,#2E9E57)]" />
-                        VERIFIED
-                      </span>
-                    )}
-                    {item.status === "UNDER_REVIEW" && (
+                    {item.status === "PENDING_REVIEW" && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
                         <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] animate-pulse" />
-                        UNDER REVIEW
-                      </span>
-                    )}
-                    {item.status === "SUBMITTED" && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--vt-color-indigo-50,#F4F3FC)] text-[var(--vt-color-indigo-700,#43379A)] border border-[var(--vt-color-indigo-200,#D7D3F3)]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-indigo-500,#43379A)]" />
-                        SUBMITTED
+                        PENDING REVIEW
                       </span>
                     )}
                     {item.status === "REJECTED" && (
@@ -862,24 +882,24 @@ export default function VerificationQueuePage() {
               </button>
 
               <div className="flex items-center gap-2.5">
-                {selectedSub.status !== "REJECTED" && (
-                  <button
-                    type="button"
-                    onClick={() => setIsRejectOpen(true)}
-                    className="h-9 px-4 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all"
-                  >
-                    Reject Submission
-                  </button>
-                )}
+                {selectedSub.status === "PENDING_REVIEW" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsRejectOpen(true)}
+                      className="h-9 px-4 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Reject Submission
+                    </button>
 
-                {selectedSub.status !== "VERIFIED" && (
-                  <button
-                    type="button"
-                    onClick={() => setIsApproveOpen(true)}
-                    className="h-9 px-5 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] flex items-center gap-2"
-                  >
-                    <span>Approve Firm & Issue Credentials</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsApproveOpen(true)}
+                      className="h-9 px-5 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>Approve Firm & Issue Credentials</span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>

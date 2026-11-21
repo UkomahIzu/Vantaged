@@ -17,15 +17,25 @@ import {
   ContractorRecord,
   ProjectRecord,
 } from "../../../../data/contractorsData";
+import { useDemoMode } from "../../../../hooks/useDemoMode";
 
 export default function ContractorProjectsPage() {
   const params = useParams();
   const router = useRouter();
   const contractorId = (params?.id as string) || "";
+  const { isDemoMode } = useDemoMode();
 
   const [liveContractor, setLiveContractor] = useState<ContractorRecord | null>(null);
 
+  const [liveProjects, setLiveProjects] = useState<ProjectRecord[]>([]);
+
   useEffect(() => {
+    if (!isDemoMode) {
+      setLiveContractor(null);
+      setLiveProjects([]);
+      return;
+    }
+
     fetch("/api/contractors")
       .then((res) => res.json())
       .then((data) => {
@@ -39,10 +49,22 @@ export default function ContractorProjectsPage() {
         }
       })
       .catch(() => {});
-  }, [contractorId]);
+
+    if (contractorId) {
+      fetch(`/api/contractors?projectsFor=${encodeURIComponent(contractorId)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.success && Array.isArray(data.data)) {
+            setLiveProjects(data.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [contractorId, isDemoMode]);
 
   // Lookup contractor (static or live API)
   const contractor = useMemo(() => {
+    if (!isDemoMode) return null;
     if (liveContractor) return liveContractor;
     return (
       INITIAL_CONTRACTORS.find((c) => c.id === contractorId) ||
@@ -51,17 +73,20 @@ export default function ContractorProjectsPage() {
       ) ||
       null
     );
-  }, [contractorId, liveContractor]);
+  }, [contractorId, liveContractor, isDemoMode]);
 
-  // Lookup contractor's projects
+  // Lookup contractor's projects (seeded + dynamically created projects, clean slate for new firms)
   const initialList = useMemo(() => {
-    if (!contractor) return [];
-    return ALL_PROJECTS.filter(
-      (p) =>
-        p.contractorId === contractor.id ||
-        p.contractor.toLowerCase() === contractor.name.toLowerCase()
-    );
-  }, [contractor]);
+    if (!isDemoMode || !contractor) return [];
+    const seeded = ALL_PROJECTS.filter((p) => p.contractorId === contractor.id);
+    const merged = [...seeded];
+    liveProjects.forEach((lp) => {
+      if (!merged.some((m) => m.id === lp.id)) {
+        merged.push(lp);
+      }
+    });
+    return merged;
+  }, [contractor, liveProjects, isDemoMode]);
 
   const [contractorProjects, setContractorProjects] = useState<ProjectRecord[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -178,7 +203,7 @@ export default function ContractorProjectsPage() {
         </p>
         <Link
           href="/contractors"
-          className="inline-flex items-center gap-2 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] px-4 py-2 text-xs font-bold text-white transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)]"
+          className="inline-flex items-center gap-2 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] h-9 px-4 text-xs font-bold text-white transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)]"
         >
           <span>← Return to Contractor Directory</span>
         </Link>
@@ -211,76 +236,49 @@ export default function ContractorProjectsPage() {
           <span className="text-[var(--vt-color-orange-600,#D84C0B)] font-bold">Active Projects</span>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-center">
-          {toastMessage && (
-            <div className="animate-in fade-in slide-in-from-top-1 px-3 py-1.5 rounded-lg bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] text-xs font-bold shadow-2xs flex items-center gap-1.5">
-              <span>✓</span>
-              <span>{toastMessage}</span>
-            </div>
-          )}
-
-          <Link
-            href="/contractors"
-            className="h-8 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] transition-all flex items-center gap-1.5"
-          >
-            <span>← All Contractors</span>
-          </Link>
-          <Link
-            href="/subscriptions"
-            className="h-8 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] transition-all flex items-center gap-1.5"
-          >
-            <span>Quota & Slots</span>
-          </Link>
-        </div>
+        {toastMessage && (
+          <div className="animate-in fade-in slide-in-from-top-1 px-3 py-1.5 rounded-lg bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] text-xs font-bold shadow-2xs flex items-center gap-1.5 self-start sm:self-center">
+            <span>✓</span>
+            <span>{toastMessage}</span>
+          </div>
+        )}
       </div>
 
       {/* ── Contractor Overview Banner ── */}
       <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 sm:p-6 shadow-2xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          {/* Company Details */}
-          <div className="flex items-start gap-4">
+          {/* Company Details (Clean, zero-badge layout) */}
+          <div className="flex items-center gap-4 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] text-white font-extrabold text-xl flex items-center justify-center shadow-[0_4px_12px_rgba(239,95,24,0.25)] shrink-0">
               {contractor.name.charAt(0)}
             </div>
 
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs font-bold text-[var(--vt-color-orange-600,#D84C0B)] bg-[var(--vt-color-orange-50,#FFF4EE)] px-2 py-0.5 rounded border border-[var(--vt-color-orange-200,#FDCAA9)]">
-                  {contractor.rcNumber}
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-indigo-50,#F4F3FC)] text-[var(--vt-color-indigo-700,#43379A)] border border-[var(--vt-color-indigo-200,#D7D3F3)]">
-                  {contractor.plan}
-                </span>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  Verified Legal Entity
-                </span>
-              </div>
-
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[var(--vt-color-indigo-900,#261A66)]">
+            <div className="min-w-0 space-y-1">
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[var(--vt-color-indigo-900,#261A66)] truncate">
                 {contractor.name}
               </h1>
 
-              <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] pt-0.5">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
                 <span>
-                  Lead Director: <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{contractor.director}</strong> ({contractor.directorRole})
+                  Director: <strong className="font-semibold text-[var(--vt-color-indigo-900,#261A66)]">{contractor.director}</strong>
                 </span>
-                <span>·</span>
+                <span className="text-[var(--vt-color-neutral-300,#CBC8DA)]">·</span>
                 <span>{contractor.state}</span>
-                <span>·</span>
-                <span>Bank: <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{contractor.bankName}</strong> ({contractor.accountNumber})</span>
               </div>
             </div>
           </div>
 
-          {/* Active Capacity Pill */}
-          <div className="flex sm:items-center gap-4 border-t lg:border-t-0 lg:border-l border-[var(--vt-color-neutral-100,#EFEEF5)] pt-4 lg:pt-0 lg:pl-6 shrink-0">
+          {/* Active Capacity */}
+          <div className="flex sm:items-center border-t lg:border-t-0 lg:border-l border-[var(--vt-color-neutral-100,#EFEEF5)] pt-4 lg:pt-0 lg:pl-6 shrink-0">
             <div className="space-y-0.5">
               <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] font-bold">
                 Project Slot Quota
               </div>
               <div className="text-xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                {contractor.slotsUsed} <span className="text-xs text-[var(--vt-color-neutral-400,#A3A0B8)] font-semibold">/ {contractor.slotsMax === 999 ? "Unlimited" : contractor.slotsMax} Slots</span>
+                {contractor.slotsUsed}{" "}
+                <span className="text-xs text-[var(--vt-color-neutral-400,#A3A0B8)] font-semibold">
+                  / {contractor.slotsMax === 999 ? "Unlimited" : contractor.slotsMax} Slots
+                </span>
               </div>
               <div className="text-[11px] text-[var(--vt-color-orange-600,#D84C0B)] font-bold">
                 {contractor.slotsMax === 999
@@ -415,20 +413,26 @@ export default function ContractorProjectsPage() {
                     <circle cx="11" cy="11" r="8" />
                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                   </svg>
-                  <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">No projects found</p>
-                  <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
-                    No active sites match the selected criteria for this contractor.
+                  <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">
+                    {contractorProjects.length === 0 ? "No projects created yet" : "No projects found"}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStatusFilter("ALL");
-                      setSearchQuery("");
-                    }}
-                    className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--vt-color-orange-500,#EF5F18)] hover:underline cursor-pointer"
-                  >
-                    Clear search filter
-                  </button>
+                  <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
+                    {contractorProjects.length === 0
+                      ? `${contractor.name} is starting with a clean slate. Projects will appear here once they create or accept a build.`
+                      : "No active sites match the selected criteria for this contractor."}
+                  </p>
+                  {contractorProjects.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter("ALL");
+                        setSearchQuery("");
+                      }}
+                      className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--vt-color-orange-500,#EF5F18)] hover:underline cursor-pointer"
+                    >
+                      Clear search filter
+                    </button>
+                  )}
                 </td>
               </tr>
             ) : (

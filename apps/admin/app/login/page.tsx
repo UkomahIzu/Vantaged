@@ -79,7 +79,12 @@ export default function AdminLoginPage() {
           <img
             src="/brand/vantaged-measurement-logo.svg"
             alt="Vantaged"
-            className="h-8.5 w-auto max-w-[175px] object-contain"
+            className="h-8.5 w-auto max-w-[175px] object-contain dark:hidden"
+          />
+          <img
+            src="/brand/vantaged-measurement-logo-dark.svg"
+            alt="Vantaged"
+            className="hidden dark:block h-8.5 w-auto max-w-[175px] object-contain"
           />
           <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--vt-color-orange-500,#EF5F18)] text-white">
             ADMIN

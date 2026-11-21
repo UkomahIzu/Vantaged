@@ -8,8 +8,8 @@
 
 ## Immediate Housekeeping (Before Starting New Features)
 
-- [ ] **Create a Git Checkpoint Commit** — Commit the current batch of completed Owner Dashboard & Admin Dashboard work (empty states, Messages page, Owner Profile modal, live `/api/pricing` sync, Admin API routes, and Turbopack fixes) so we have a clean rollback point.
-- [ ] **Clean Up Legacy/Unused Files** — Confirm whether `apps/admin/app/projects/page.tsx` can be removed now that contractor projects live under `apps/admin/app/contractors/[id]/projects/page.tsx`, and verify `apps/web/data/contractor-submissions.json` is not duplicated against `packages/db/data/contractor-submissions.json`.
+- [X] **Create a Git Checkpoint Commit** — Commit the current batch of completed Owner Dashboard & Admin Dashboard work (empty states, Messages page, Owner Profile modal, live `/api/pricing` sync, Admin API routes, and Turbopack fixes) so we have a clean rollback point.
+- [X] **Clean Up Legacy/Unused Files** — Confirm whether `apps/admin/app/projects/page.tsx` can be removed now that contractor projects live under `apps/admin/app/contractors/[id]/projects/page.tsx`, and verify `apps/web/data/contractor-submissions.json` is not duplicated against `packages/db/data/contractor-submissions.json`.
 
 ---
 

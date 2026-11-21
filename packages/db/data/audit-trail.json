@@ -1,5 +1,27 @@
 [
   {
+    "id": "AUD-252698",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "CONTRACTOR_REJECTED",
+    "actionLabel": "Contractor Verification Packet Rejected",
+    "target": "hgg (TRADE-INDIVIDUAL)",
+    "details": "Reason: COREN_EXPIRED. Notes: Standard compliance rejection.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "WARNING"
+  },
+  {
+    "id": "AUD-909245",
+    "timestamp": "Just now",
+    "actor": "Platform Admin",
+    "action": "CONTRACTOR_VERIFIED",
+    "actionLabel": "Contractor Firm Approved & Accredited",
+    "target": "hgg (TRADE-INDIVIDUAL)",
+    "details": "All regulatory documents and automated CAC/TIN checks verified. Added to Contractor Directory.",
+    "ipAddress": "102.89.34.19 (Lagos, NG)",
+    "level": "SUCCESS"
+  },
+  {
     "id": "AUD-872696",
     "timestamp": "Just now",
     "actor": "Platform Admin",

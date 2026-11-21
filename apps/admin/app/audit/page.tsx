@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { IconAudit, IconSearch } from "../../components/AdminIcons";
+import { useDemoMode } from "../../hooks/useDemoMode";
 
 interface AuditLog {
   id: string;
@@ -16,6 +17,7 @@ interface AuditLog {
 }
 
 export default function AuditTrailPage() {
+  const { isDemoMode } = useDemoMode();
   const [filterType, setFilterType] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -27,6 +29,11 @@ export default function AuditTrailPage() {
   };
 
   useEffect(() => {
+    if (!isDemoMode) {
+      setLogs([]);
+      return;
+    }
+
     fetch("/api/audit")
       .then((res) => res.json())
       .then((data) => {
@@ -35,7 +42,7 @@ export default function AuditTrailPage() {
         }
       })
       .catch((err) => console.warn("Failed to load audit logs:", err));
-  }, []);
+  }, [isDemoMode]);
 
   const handleExportJSON = () => {
     if (typeof window !== "undefined") {
@@ -138,8 +145,24 @@ export default function AuditTrailPage() {
       {/* Log Feed */}
       <div className="rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] bg-white divide-y divide-[var(--vt-color-neutral-100,#EFEEF5)] overflow-hidden shadow-[0_4px_16px_rgba(38,26,102,0.04)]">
         {filtered.length === 0 ? (
-          <div className="p-12 text-center text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
-            No audit records match your search criteria.
+          <div className="py-14 px-4 text-center flex flex-col items-center justify-center max-w-md mx-auto">
+            {logs.length === 0 ? (
+              <>
+                <div className="w-11 h-11 rounded-xl bg-[var(--vt-color-indigo-50,#F4F3FC)] text-[var(--vt-color-indigo-700,#43379A)] border border-[var(--vt-color-indigo-200,#D7D3F3)] flex items-center justify-center mb-3">
+                  <IconAudit className="w-5 h-5" />
+                </div>
+                <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">
+                  No audit events logged yet
+                </p>
+                <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1 leading-relaxed">
+                  Compliance verifications, contractor approvals, credential dispatches, and dispute rulings will appear here automatically.
+                </p>
+              </>
+            ) : (
+              <span className="text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
+                No audit records match your search criteria.
+              </span>
+            )}
           </div>
         ) : (
           filtered.map((log) => (

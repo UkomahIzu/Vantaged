@@ -100,7 +100,12 @@ export function PublicShareLinkPage({ token }: PublicShareLinkPageProps) {
             <img
               src="/brand/vantaged-measurement-logo.svg"
               alt="Vantaged"
-              className="h-7 w-auto max-w-[140px] object-contain transition-opacity group-hover:opacity-90"
+              className="h-7 w-auto max-w-[140px] object-contain transition-opacity group-hover:opacity-90 dark:hidden"
+            />
+            <img
+              src="/brand/vantaged-measurement-logo-dark.svg"
+              alt="Vantaged"
+              className="hidden dark:block h-7 w-auto max-w-[140px] object-contain transition-opacity group-hover:opacity-90"
             />
           </Link>
 

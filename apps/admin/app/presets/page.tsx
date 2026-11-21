@@ -18,6 +18,7 @@ export interface StagePreset {
   typicalDuration: string;
   description: string;
   isCustom?: boolean;
+  isModified?: boolean;
   stages: StageItem[];
 }
 
@@ -167,29 +168,34 @@ const BUILT_IN_PRESETS: StagePreset[] = [
 
 type CategoryFilter = "All" | "Residential" | "Commercial" | "Infrastructure" | "Industrial" | "Specialized" | "Custom";
 
+const DEFAULT_MODAL_STAGES: StageItem[] = [
+  { order: 1, title: "Site Mobilization & Substructure", evidence: "Survey benchmarks, excavation log, blinding concrete & foundation rebar photos" },
+  { order: 2, title: "Superstructure Frame & Masonry", evidence: "Column formwork, lintel beams, concrete cube test certificates" },
+  { order: 3, title: "Roof Trusses, MEP Rough-in & Plastering", evidence: "Roof covering watertightness check, plumbing pressure gauge test (5 bar), wall screeding" },
+  { order: 4, title: "Architectural Finishes & Final Snagging", evidence: "Tiling inspection, sanitary/electrical fixtures check, client handover checklist" },
+];
+
 export default function StagePresetsPage() {
   const [customPresets, setCustomPresets] = useState<StagePreset[]>([]);
+  const [presetOverrides, setPresetOverrides] = useState<Record<string, StagePreset>>({});
   const [selectedPresetId, setSelectedPresetId] = useState<string>("preset_duplex");
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Manual Preset Creation Modal State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  // Manual Preset Create / Edit Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [editingIsCustom, setEditingIsCustom] = useState<boolean>(false);
   const [modalForm, setModalForm] = useState({
     name: "",
     category: "Residential" as StagePreset["category"],
     typicalDuration: "",
     description: "",
-    stages: [
-      { order: 1, title: "Site Mobilization & Substructure", evidence: "Survey benchmarks, excavation log, blinding concrete & foundation rebar photos" },
-      { order: 2, title: "Superstructure Frame & Masonry", evidence: "Column formwork, lintel beams, concrete cube test certificates" },
-      { order: 3, title: "Roof Trusses, MEP Rough-in & Plastering", evidence: "Roof covering watertightness check, plumbing pressure gauge test (5 bar), wall screeding" },
-      { order: 4, title: "Architectural Finishes & Final Snagging", evidence: "Tiling inspection, sanitary/electrical fixtures check, client handover checklist" },
-    ],
+    stages: DEFAULT_MODAL_STAGES.map((s) => ({ ...s })),
   });
 
-  // Load custom presets from server API or LocalStorage on mount
+  // Load custom presets and built-in overrides from server API or LocalStorage on mount
   useEffect(() => {
     fetch("/api/presets")
       .then((res) => res.json())
@@ -200,6 +206,12 @@ export default function StagePresetsPage() {
           const stored = localStorage.getItem("vantaged_admin_custom_stage_presets");
           if (stored) setCustomPresets(JSON.parse(stored));
         }
+        if (data?.success && data.overrides && typeof data.overrides === "object") {
+          setPresetOverrides(data.overrides);
+        } else if (typeof window !== "undefined") {
+          const storedOverrides = localStorage.getItem("vantaged_admin_preset_overrides");
+          if (storedOverrides) setPresetOverrides(JSON.parse(storedOverrides));
+        }
       })
       .catch(() => {
         if (typeof window !== "undefined") {
@@ -209,8 +221,13 @@ export default function StagePresetsPage() {
               const parsed = JSON.parse(stored);
               if (Array.isArray(parsed)) setCustomPresets(parsed);
             }
+            const storedOverrides = localStorage.getItem("vantaged_admin_preset_overrides");
+            if (storedOverrides) {
+              const parsedOv = JSON.parse(storedOverrides);
+              if (parsedOv && typeof parsedOv === "object") setPresetOverrides(parsedOv);
+            }
           } catch (err) {
-            console.error("Failed to load custom presets:", err);
+            console.error("Failed to load presets:", err);
           }
         }
       });
@@ -223,10 +240,13 @@ export default function StagePresetsPage() {
     }, 3500);
   };
 
-  // Combine built-in presets and custom presets
+  // Combine custom presets and built-in presets (with saved overrides applied)
   const allPresets = useMemo(() => {
-    return [...customPresets, ...BUILT_IN_PRESETS];
-  }, [customPresets]);
+    const mergedBuiltIn = BUILT_IN_PRESETS.map((bp) =>
+      presetOverrides[bp.id] ? { ...bp, ...presetOverrides[bp.id], isModified: true } : bp
+    );
+    return [...customPresets, ...mergedBuiltIn];
+  }, [customPresets, presetOverrides]);
 
   // Options for VantagedSelect typology filter
   const categoryOptions = useMemo(() => [
@@ -310,7 +330,88 @@ export default function StagePresetsPage() {
     });
   };
 
-  const handleSaveCustomPreset = (e: React.FormEvent) => {
+  const handleMoveStageInModal = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= modalForm.stages.length) return;
+    setModalForm((prev) => {
+      const next = [...prev.stages];
+      const temp = next[index]!;
+      next[index] = next[targetIndex]!;
+      next[targetIndex] = temp;
+      return {
+        ...prev,
+        stages: next.map((stg, idx) => ({ ...stg, order: idx + 1 })),
+      };
+    });
+  };
+
+  const openCreateModal = () => {
+    setEditingPresetId(null);
+    setEditingIsCustom(false);
+    setModalForm({
+      name: "",
+      category: "Residential",
+      typicalDuration: "",
+      description: "",
+      stages: DEFAULT_MODAL_STAGES.map((s) => ({ ...s })),
+    });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (preset: StagePreset) => {
+    setEditingPresetId(preset.id);
+    setEditingIsCustom(Boolean(preset.isCustom));
+    setModalForm({
+      name: preset.name,
+      category: preset.category,
+      typicalDuration: preset.typicalDuration,
+      description: preset.description,
+      stages: preset.stages.map((s, idx) => ({
+        order: idx + 1,
+        title: s.title,
+        evidence: s.evidence,
+      })),
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleResetBuiltInPreset = (presetId: string, presetName: string) => {
+    if (typeof window === "undefined") return;
+    const confirmReset = window.confirm(`Restore "${presetName}" back to the original platform default template?`);
+    if (!confirmReset) return;
+
+    const updatedOverrides = { ...presetOverrides };
+    delete updatedOverrides[presetId];
+    setPresetOverrides(updatedOverrides);
+
+    try {
+      localStorage.setItem("vantaged_admin_preset_overrides", JSON.stringify(updatedOverrides));
+    } catch (err) {
+      console.error("Failed to reset preset override:", err);
+    }
+
+    fetch("/api/presets", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: presetId, resetBuiltIn: true }),
+    }).catch(() => {});
+
+    fetch("/api/audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "STAGE_PRESET_RESET",
+        actionLabel: "Built-In Stage Preset Restored to Default",
+        target: presetName,
+        details: `Administrator restored template to original baseline specification.`,
+        level: "INFO",
+      }),
+    }).catch(() => {});
+
+    showToast(`"${presetName}" restored to default.`);
+  };
+
+  const handleSavePreset = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!modalForm.name.trim()) {
@@ -324,20 +425,81 @@ export default function StagePresetsPage() {
       return;
     }
 
+    const normalizedStages: StageItem[] = modalForm.stages.map((stg, idx) => ({
+      order: idx + 1,
+      title: stg.title.trim(),
+      evidence: stg.evidence.trim() || "Site photos, signed field inspection report, quality testing certificates.",
+    }));
+
+    if (editingPresetId) {
+      const updatedPreset: StagePreset = {
+        id: editingPresetId,
+        name: modalForm.name.trim(),
+        category: modalForm.category,
+        typicalDuration: modalForm.typicalDuration.trim() || "Flexible Schedule",
+        stagesCount: normalizedStages.length,
+        description: modalForm.description.trim() || "Milestone inspection preset configured by platform admin.",
+        ...(editingIsCustom ? { isCustom: true } : { isModified: true }),
+        stages: normalizedStages,
+      };
+
+      if (editingIsCustom) {
+        const updatedCustom = customPresets.map((p) => (p.id === editingPresetId ? updatedPreset : p));
+        setCustomPresets(updatedCustom);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("vantaged_admin_custom_stage_presets", JSON.stringify(updatedCustom));
+          } catch (err) {
+            console.error("Failed to persist custom preset:", err);
+          }
+        }
+      } else {
+        const updatedOverrides = { ...presetOverrides, [editingPresetId]: updatedPreset };
+        setPresetOverrides(updatedOverrides);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("vantaged_admin_preset_overrides", JSON.stringify(updatedOverrides));
+          } catch (err) {
+            console.error("Failed to persist built-in preset override:", err);
+          }
+        }
+      }
+
+      fetch("/api/presets", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingPresetId, preset: updatedPreset }),
+      }).catch(() => {});
+
+      fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "STAGE_PRESET_UPDATED",
+          actionLabel: "Stage Preset Template Updated",
+          target: updatedPreset.name,
+          details: `Updated preset with ${updatedPreset.stages.length} inspection milestones in ${updatedPreset.category} category.`,
+          level: "INFO",
+        }),
+      }).catch(() => {});
+
+      setSelectedPresetId(editingPresetId);
+      setIsModalOpen(false);
+      setEditingPresetId(null);
+      showToast(`Preset "${updatedPreset.name}" updated!`);
+      return;
+    }
+
     const newPresetId = `preset_custom_${Date.now()}`;
     const newPreset: StagePreset = {
       id: newPresetId,
       name: modalForm.name.trim(),
       category: modalForm.category,
       typicalDuration: modalForm.typicalDuration.trim() || "Flexible Schedule",
-      stagesCount: modalForm.stages.length,
+      stagesCount: normalizedStages.length,
       description: modalForm.description.trim() || "Custom project milestone preset configured by platform admin.",
       isCustom: true,
-      stages: modalForm.stages.map((stg, idx) => ({
-        order: idx + 1,
-        title: stg.title.trim(),
-        evidence: stg.evidence.trim() || "Site photos, signed field inspection report, quality testing certificates.",
-      })),
+      stages: normalizedStages,
     };
 
     const updatedCustom = [newPreset, ...customPresets];
@@ -370,22 +532,8 @@ export default function StagePresetsPage() {
     }).catch(() => {});
 
     setSelectedPresetId(newPresetId);
-    setIsCreateModalOpen(false);
+    setIsModalOpen(false);
     showToast(`Custom preset "${newPreset.name}" created successfully!`);
-
-    // Reset form
-    setModalForm({
-      name: "",
-      category: "Residential",
-      typicalDuration: "",
-      description: "",
-      stages: [
-        { order: 1, title: "Site Mobilization & Substructure", evidence: "Survey benchmarks, excavation log, blinding concrete & foundation rebar photos" },
-        { order: 2, title: "Superstructure Frame & Masonry", evidence: "Column formwork, lintel beams, concrete cube test certificates" },
-        { order: 3, title: "Roof Trusses, MEP Rough-in & Plastering", evidence: "Roof covering watertightness check, plumbing pressure gauge test (5 bar), wall screeding" },
-        { order: 4, title: "Architectural Finishes & Final Snagging", evidence: "Tiling inspection, sanitary/electrical fixtures check, client handover checklist" },
-      ],
-    });
   };
 
   const handleDeleteCustomPreset = (presetId: string, presetName: string) => {
@@ -465,7 +613,7 @@ export default function StagePresetsPage() {
 
           <button
             type="button"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={openCreateModal}
             className="inline-flex items-center gap-2 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] px-4 py-2 text-xs font-bold text-white transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] cursor-pointer active:scale-98"
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -552,7 +700,7 @@ export default function StagePresetsPage() {
               </p>
               <button
                 type="button"
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={openCreateModal}
                 className="mt-3 text-xs font-bold text-[var(--vt-color-orange-600,#D84C0B)] hover:underline"
               >
                 + Create Custom Preset
@@ -638,7 +786,20 @@ export default function StagePresetsPage() {
                     {currentPreset.typicalDuration}
                   </span>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(currentPreset)}
+                      className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] hover:bg-[var(--vt-color-orange-500,#EF5F18)] hover:text-white border border-[var(--vt-color-orange-200,#FDCAA9)] hover:border-[var(--vt-color-orange-500,#EF5F18)] transition-colors cursor-pointer flex items-center gap-1"
+                      title="Edit preset stages, title, or evidence requirements"
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                      <span>Edit Preset</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => handleExportPresetJSON(currentPreset)}
@@ -651,6 +812,17 @@ export default function StagePresetsPage() {
                       </svg>
                       <span>Export JSON</span>
                     </button>
+
+                    {!currentPreset.isCustom && currentPreset.isModified && (
+                      <button
+                        type="button"
+                        onClick={() => handleResetBuiltInPreset(currentPreset.id, currentPreset.name)}
+                        className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] border border-[var(--vt-color-border-default,#E2E0EC)] transition-colors cursor-pointer"
+                        title="Restore original built-in template"
+                      >
+                        Reset Default
+                      </button>
+                    )}
 
                     {currentPreset.isCustom && (
                       <button
@@ -708,23 +880,28 @@ export default function StagePresetsPage() {
         </div>
       </div>
 
-      {/* ── MODAL: CREATE CUSTOM STAGE PRESET MANUALLY (Smooth Single-Pane Scrolling) ── */}
-      {isCreateModalOpen && (
+      {/* ── MODAL: CREATE / EDIT STAGE PRESET TEMPLATE (Smooth Single-Pane Scrolling) ── */}
+      {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between bg-[var(--vt-color-neutral-50,#F7F7FA)] shrink-0">
               <div>
                 <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                  Create Custom Stage Preset Template
+                  {editingPresetId ? "Edit Stage Preset Template" : "Create Custom Stage Preset Template"}
                 </h3>
                 <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                  Define a customized milestone sequence and mandatory evidence checkpoints.
+                  {editingPresetId
+                    ? "Modify template details, reorder inspection stages, or update mandatory evidence requirements."
+                    : "Define a customized milestone sequence and mandatory evidence checkpoints."}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setIsCreateModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingPresetId(null);
+                }}
                 className="w-8 h-8 rounded-lg hover:bg-[var(--vt-color-neutral-200,#DDDCE6)] text-[var(--vt-color-neutral-500,#7C7894)] flex items-center justify-center transition-colors cursor-pointer"
               >
                 ✕
@@ -732,7 +909,7 @@ export default function StagePresetsPage() {
             </div>
 
             {/* Modal Form Body (Single smooth scroll container) */}
-            <form onSubmit={handleSaveCustomPreset} className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+            <form onSubmit={handleSavePreset} className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Preset Name */}
                 <div className="sm:col-span-2">
@@ -833,15 +1010,35 @@ export default function StagePresetsPage() {
                           </span>
                         </div>
 
-                        {modalForm.stages.length > 1 && (
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleRemoveStageFromModal(idx)}
-                            className="text-[11px] text-[var(--vt-color-red-600,#C92A2A)] hover:underline cursor-pointer"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveStageInModal(idx, -1)}
+                            className="w-6 h-6 rounded border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-100,#ECEBF3)] disabled:opacity-35 cursor-pointer flex items-center justify-center"
+                            title="Move stage up"
                           >
-                            Remove
+                            ↑
                           </button>
-                        )}
+                          <button
+                            type="button"
+                            disabled={idx === modalForm.stages.length - 1}
+                            onClick={() => handleMoveStageInModal(idx, 1)}
+                            className="w-6 h-6 rounded border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-100,#ECEBF3)] disabled:opacity-35 cursor-pointer flex items-center justify-center"
+                            title="Move stage down"
+                          >
+                            ↓
+                          </button>
+                          {modalForm.stages.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveStageFromModal(idx)}
+                              className="text-[11px] text-[var(--vt-color-red-600,#C92A2A)] hover:underline cursor-pointer ml-1"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -875,7 +1072,10 @@ export default function StagePresetsPage() {
               <div className="mt-2 pt-4 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setEditingPresetId(null);
+                  }}
                   className="h-9 px-4 rounded-xl bg-white hover:bg-[var(--vt-color-neutral-100,#ECEBF3)] text-[var(--vt-color-neutral-600,#5E5A7D)] text-xs font-semibold border border-[var(--vt-color-border-default,#E2E0EC)] transition-colors cursor-pointer"
                 >
                   Cancel
@@ -884,7 +1084,7 @@ export default function StagePresetsPage() {
                   type="submit"
                   className="h-9 px-5 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-sm transition-all cursor-pointer active:scale-98"
                 >
-                  Save Preset to Library
+                  {editingPresetId ? "Save Changes" : "Save Preset to Library"}
                 </button>
               </div>
             </form>

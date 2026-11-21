@@ -14,13 +14,16 @@ import {
   ContractorRecord,
   INITIAL_CONTRACTORS,
 } from "../../data/contractorsData";
+import { useDemoMode } from "../../hooks/useDemoMode";
 
 export default function ContractorsDirectoryPage() {
-  const [contractors, setContractors] = useState<ContractorRecord[]>(INITIAL_CONTRACTORS);
+  const { isDemoMode } = useDemoMode();
+  const [contractors, setContractors] = useState<ContractorRecord[]>([]);
   const [planFilter, setPlanFilter] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedContractor, setSelectedContractor] = useState<ContractorRecord | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingQueueCount, setPendingQueueCount] = useState<number>(0);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -35,6 +38,15 @@ export default function ContractorsDirectoryPage() {
       if (query) setSearchTerm(query);
     }
 
+    if (!isDemoMode) {
+      setContractors([]);
+      setSelectedContractor(null);
+      setPendingQueueCount(0);
+      return;
+    }
+
+    setContractors(INITIAL_CONTRACTORS);
+
     fetch("/api/contractors")
       .then((res) => res.json())
       .then((resData) => {
@@ -43,7 +55,17 @@ export default function ContractorsDirectoryPage() {
         }
       })
       .catch((err) => console.warn("Using default contractors:", err));
-  }, []);
+
+    fetch("/api/verifications")
+      .then((res) => res.json())
+      .then((resData) => {
+        if (resData?.success && Array.isArray(resData.data)) {
+          const pending = resData.data.filter((s: any) => s.status === "PENDING_REVIEW").length;
+          setPendingQueueCount(pending);
+        }
+      })
+      .catch(() => {});
+  }, [isDemoMode]);
 
   const handleToggleSuspend = async (contractor: ContractorRecord) => {
     const nextStatus = contractor.status === "SUSPENDED" ? "VERIFIED" : "SUSPENDED";
@@ -140,7 +162,11 @@ export default function ContractorsDirectoryPage() {
             className="inline-flex items-center gap-2 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] px-4 py-2.5 text-xs font-bold text-white transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)]"
           >
             <span>Open Verification Queue</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/25 font-bold">2</span>
+            {pendingQueueCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/25 font-bold">
+                {pendingQueueCount}
+              </span>
+            )}
           </Link>
           <a
             href="http://localhost:3000/contractor/login"
@@ -280,22 +306,46 @@ export default function ContractorsDirectoryPage() {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-16 text-center text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                  <svg className="w-10 h-10 mx-auto mb-2.5 text-[var(--vt-color-neutral-300,#CBC8DA)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">No contractors found</p>
-                  <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1">Try clearing your filters or search keywords.</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPlanFilter("ALL");
-                      setSearchTerm("");
-                    }}
-                    className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--vt-color-orange-500,#EF5F18)] hover:underline"
-                  >
-                    Clear all filters
-                  </button>
+                  {contractors.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto px-4">
+                      <div className="w-11 h-11 rounded-xl bg-[var(--vt-color-indigo-50,#F4F3FC)] text-[var(--vt-color-indigo-700,#43379A)] border border-[var(--vt-color-indigo-200,#D7D3F3)] flex items-center justify-center mb-3">
+                        <IconContractors className="w-5 h-5" />
+                      </div>
+                      <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">
+                        No accredited contractors yet
+                      </p>
+                      <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1 leading-relaxed">
+                        Verified construction firms approved from the verification queue will appear in this directory.
+                      </p>
+                      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                        <Link
+                          href="/verifications"
+                          className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-xs font-bold text-white transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] flex items-center gap-1.5"
+                        >
+                          <span>Open Verification Queue</span>
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <svg className="w-10 h-10 mx-auto mb-2.5 text-[var(--vt-color-neutral-300,#CBC8DA)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      <p className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">No contractors found</p>
+                      <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1">Try clearing your filters or search keywords.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPlanFilter("ALL");
+                          setSearchTerm("");
+                        }}
+                        className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--vt-color-orange-500,#EF5F18)] hover:underline cursor-pointer"
+                      >
+                        Clear all filters
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ) : (

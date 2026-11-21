@@ -18,7 +18,7 @@ export interface ContractorSubmission {
   id: string;
   referenceNumber: string;
   submittedAt: string;
-  status: "SUBMITTED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
+  status: "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
   companyName: string;
   rcNumber: string;
   tin: string;
@@ -162,7 +162,7 @@ export async function POST(request: Request) {
       id: submissionId,
       referenceNumber,
       submittedAt: new Date().toISOString(),
-      status: "UNDER_REVIEW",
+      status: "PENDING_REVIEW",
       companyName: body.companyName.trim(),
       rcNumber: isTradeTier ? (body.rcNumber?.trim().toUpperCase() || "TRADE-INDIVIDUAL") : body.rcNumber.trim().toUpperCase(),
       tin: isTradeTier ? (body.tin?.trim() || "N/A") : body.tin.trim(),

@@ -63,11 +63,9 @@ export function Navbar({
           aria-label="Vantaged Homepage"
         >
           <img
-            src="/brand/vantaged-measurement-logo.svg"
+            src={theme === "dark" ? "/brand/vantaged-measurement-logo-dark.svg" : "/brand/vantaged-measurement-logo.svg"}
             alt="Vantaged"
-            className={`h-7 sm:h-8 w-auto max-w-[180px] object-contain transition-all duration-200 ${
-              theme === "dark" ? "brightness-0 invert" : ""
-            }`}
+            className="h-7 sm:h-8 w-auto max-w-[180px] object-contain transition-all duration-200"
           />
         </a>
 

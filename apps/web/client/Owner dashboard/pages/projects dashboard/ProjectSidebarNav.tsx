@@ -291,7 +291,12 @@ export function ProjectSidebarNav({
                 <img
                   src="/brand/vantaged-measurement-logo.svg"
                   alt="Vantaged"
-                  className="h-7.5 w-auto max-w-[160px] object-contain"
+                  className="h-7.5 w-auto max-w-[160px] object-contain dark:hidden"
+                />
+                <img
+                  src="/brand/vantaged-measurement-logo-dark.svg"
+                  alt="Vantaged"
+                  className="hidden dark:block h-7.5 w-auto max-w-[160px] object-contain"
                 />
               </Link>
               <button
@@ -429,7 +434,12 @@ export function ProjectSidebarNav({
               <img
                 src="/brand/vantaged-measurement-logo.svg"
                 alt="Vantaged"
-                className="h-8 w-auto max-w-[165px] object-contain transition-opacity group-hover:opacity-90"
+                className="h-8 w-auto max-w-[165px] object-contain transition-opacity group-hover:opacity-90 dark:hidden"
+              />
+              <img
+                src="/brand/vantaged-measurement-logo-dark.svg"
+                alt="Vantaged"
+                className="hidden dark:block h-8 w-auto max-w-[165px] object-contain transition-opacity group-hover:opacity-90"
               />
             </Link>
 

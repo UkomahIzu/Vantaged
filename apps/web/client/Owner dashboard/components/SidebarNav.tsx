@@ -285,7 +285,12 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
           <img
             src="/brand/vantaged-measurement-logo.svg"
             alt="Vantaged"
-            className="h-7.5 w-auto max-w-[160px] object-contain"
+            className="h-7.5 w-auto max-w-[160px] object-contain dark:hidden"
+          />
+          <img
+            src="/brand/vantaged-measurement-logo-dark.svg"
+            alt="Vantaged"
+            className="hidden dark:block h-7.5 w-auto max-w-[160px] object-contain"
           />
           <span className="w-2 h-2 rounded-full bg-[var(--vt-color-green-500,#2E9E57)] shrink-0" title="System online" />
         </Link>
@@ -342,7 +347,12 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
                 <img
                   src="/brand/vantaged-measurement-logo.svg"
                   alt="Vantaged"
-                  className="h-8 w-auto max-w-[170px] object-contain"
+                  className="h-8 w-auto max-w-[170px] object-contain dark:hidden"
+                />
+                <img
+                  src="/brand/vantaged-measurement-logo-dark.svg"
+                  alt="Vantaged"
+                  className="hidden dark:block h-8 w-auto max-w-[170px] object-contain"
                 />
                 <button
                   type="button"
@@ -461,7 +471,12 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
               <img
                 src="/brand/vantaged-measurement-logo.svg"
                 alt="Vantaged"
-                className="h-8 w-auto max-w-[175px] object-contain transition-opacity group-hover:opacity-90"
+                className="h-8 w-auto max-w-[175px] object-contain transition-opacity group-hover:opacity-90 dark:hidden"
+              />
+              <img
+                src="/brand/vantaged-measurement-logo-dark.svg"
+                alt="Vantaged"
+                className="hidden dark:block h-8 w-auto max-w-[175px] object-contain transition-opacity group-hover:opacity-90"
               />
             </button>
             <span className="w-2 h-2 rounded-full bg-[var(--vt-color-green-500,#2E9E57)]" title="System online" />
