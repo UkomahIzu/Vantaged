@@ -33,6 +33,7 @@ interface ProjectFolderCardProps {
   project: ProjectItem;
   variant?: "orange" | "white";
   isSelected?: boolean;
+  hideProgress?: boolean;
   onSelect?: (project: ProjectItem) => void;
 }
 
@@ -40,6 +41,7 @@ export function ProjectFolderCard({
   project,
   variant = "white",
   isSelected = false,
+  hideProgress = false,
   onSelect,
 }: ProjectFolderCardProps) {
   const isOrange = variant === "orange";
@@ -143,18 +145,20 @@ export function ProjectFolderCard({
         </div>
 
         {/* Bottom of paper (revealed when popped up): Progress bar */}
-        <div className={`transition-opacity duration-200 ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`}>
-          <div className="flex items-center justify-between text-[9px] font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] mb-1">
-            <span>Progress: {project.progressPercent}%</span>
-            <span>{project.milestonesCount}/{project.milestonesTotal} Milestones</span>
+        {!hideProgress && (
+          <div className={`transition-opacity duration-200 ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`}>
+            <div className="flex items-center justify-between text-[9px] font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] mb-1">
+              <span>Progress: {project.progressPercent}%</span>
+              <span>{project.milestonesCount}/{project.milestonesTotal} Milestones</span>
+            </div>
+            <div className="w-full h-1 bg-[var(--vt-color-neutral-100,#EFEEF5)] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[var(--vt-color-orange-500,#EF5F18)] rounded-full transition-all duration-500"
+                style={{ width: `${project.progressPercent}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full h-1 bg-[var(--vt-color-neutral-100,#EFEEF5)] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[var(--vt-color-orange-500,#EF5F18)] rounded-full transition-all duration-500"
-              style={{ width: `${project.progressPercent}%` }}
-            />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ── 3. Front Folder Pocket (Matching Reference Asymmetrical Shelf Contour) ── */}

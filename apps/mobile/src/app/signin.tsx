@@ -15,18 +15,30 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { Radius, Tokens, Spacing } from '@/constants/theme';
+import { useOwnerMobile } from '@/pages/owner dashboard';
 
 export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { setUserProfile } = useOwnerMobile();
 
-  const [nin, setNin] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSignIn = () => {
+    if (email.trim()) {
+      const localName = email.trim().split('@')[0]?.replace(/[._-]+/g, ' ') || 'James Robinson';
+      const formattedName = localName
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+      setUserProfile({
+        email: email.trim(),
+        fullName: formattedName,
+      });
+    }
     try {
-      router.push('/explore');
+      router.replace('/dashboard');
     } catch {
       // Fallback
     }
@@ -35,7 +47,7 @@ export default function SignInScreen() {
   const handleGoogleSignIn = () => {
     // Google SSO trigger
     try {
-      router.push('/explore');
+      router.replace('/dashboard');
     } catch {
       // Fallback
     }
@@ -94,23 +106,6 @@ export default function SignInScreen() {
 
         {/* Credentials Form */}
         <View style={styles.form}>
-          {/* NIN (National Identity Number) Field */}
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>NIN (National Identity Number)</Text>
-              <Text style={styles.labelHint}>11 digits</Text>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="11-digit NIN (e.g. 12345678901)"
-              placeholderTextColor="#A3A0B8"
-              value={nin}
-              onChangeText={(text) => setNin(text.replace(/[^0-9]/g, '').slice(0, 11))}
-              keyboardType="number-pad"
-              maxLength={11}
-            />
-          </View>
-
           {/* Email Address Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
@@ -278,27 +273,18 @@ const styles = StyleSheet.create({
   inputGroup: {
     gap: 5,
   },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   label: {
     fontSize: 11.5,
-    fontWeight: '700',
     color: '#261A66',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    includeFontPadding: false,
+    ...(Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
     fontFamily: Platform.select({
       ios: 'Outfit-Bold',
       android: 'Outfit-Bold',
       default: 'Outfit, sans-serif',
     }),
-  },
-  labelHint: {
-    fontSize: 10.5,
-    color: '#A3A0B8',
-    fontWeight: '500',
   },
   input: {
     height: 48,

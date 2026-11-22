@@ -7,7 +7,7 @@ import {
   Pressable,
   Platform,
   KeyboardAvoidingView,
-  ScrollView,
+  Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -15,10 +15,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { Radius, Tokens, Spacing } from '@/constants/theme';
+import { useOwnerMobile } from '@/pages/owner dashboard';
 
 export default function SignUpScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { setUserProfile } = useOwnerMobile();
 
   const [fullName, setFullName] = useState('');
   const [nin, setNin] = useState('');
@@ -26,8 +28,14 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
 
   const handleSignUp = () => {
+    if (fullName.trim() || email.trim()) {
+      setUserProfile({
+        ...(fullName.trim() ? { fullName: fullName.trim() } : {}),
+        ...(email.trim() ? { email: email.trim() } : {}),
+      });
+    }
     try {
-      router.push('/explore');
+      router.replace('/dashboard');
     } catch {
       // Fallback
     }
@@ -35,7 +43,7 @@ export default function SignUpScreen() {
 
   const handleGoogleSignUp = () => {
     try {
-      router.push('/explore');
+      router.replace('/dashboard');
     } catch {
       // Fallback
     }
@@ -46,19 +54,19 @@ export default function SignUpScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.keyboardContainer}>
       <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={[
+      <Pressable
+        style={[
           styles.container,
           {
-            paddingTop: insets.top + Spacing[4],
-            paddingBottom: Math.max(insets.bottom, Spacing[5]) + Spacing[3],
+            paddingTop: Math.max(insets.top, Spacing[3]),
+            paddingBottom: Math.max(insets.bottom, Spacing[3]),
           },
         ]}
-        keyboardShouldPersistTaps="handled">
+        onPress={Platform.OS === 'web' ? undefined : Keyboard.dismiss}>
         {/* Brand Header */}
         <View style={styles.header}>
           <Image
-            source={require('@/assets/images/vantaged-measurement-logo.png')}
+            source={require('../../assets/images/vantaged-measurement-logo.png')}
             style={styles.logo}
             contentFit="contain"
           />
@@ -78,7 +86,7 @@ export default function SignUpScreen() {
           accessibilityRole="button"
           accessibilityLabel="Sign up with Google">
           <Image
-            source={require('@/assets/images/google-icon.svg')}
+            source={require('../../assets/images/google-icon.svg')}
             style={styles.googleIcon}
             contentFit="contain"
           />
@@ -105,7 +113,6 @@ export default function SignUpScreen() {
             />
           </View>
 
-          {/* NIN (National Identity Number) Field */}
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.label}>NIN (National Identity Number)</Text>
@@ -148,7 +155,7 @@ export default function SignUpScreen() {
             />
           </View>
 
-          {/* Sign Up Primary Button (Owner Dashboard border-radius: 10px) */}
+          {/* Sign Up Primary Button */}
           <Pressable
             style={({ pressed }) => [
               styles.signUpButton,
@@ -160,25 +167,26 @@ export default function SignUpScreen() {
             <Text style={styles.signUpButtonText}>Sign Up</Text>
           </Pressable>
 
-          {/* Already have an account row */}
-          <View style={styles.loginRow}>
-            <Text style={styles.alreadyText}>Already have an account? </Text>
+          {/* Footer Links */}
+          <View style={styles.footerLinks}>
+            <View style={styles.loginRow}>
+              <Text style={styles.alreadyText}>Already have an account? </Text>
+              <Pressable
+                onPress={() => router.push('/signin')}
+                accessibilityRole="link"
+                accessibilityLabel="Log In">
+                <Text style={styles.loginLinkText}>Log In</Text>
+              </Pressable>
+            </View>
+
             <Pressable
-              onPress={() => router.push('/signin')}
-              accessibilityRole="link"
-              accessibilityLabel="Log In">
-              <Text style={styles.loginLinkText}>Log In</Text>
+              style={styles.backButton}
+              onPress={() => router.push('/')}>
+              <Text style={styles.backButtonText}>← Back to Welcome</Text>
             </Pressable>
           </View>
-
-          {/* Back to Welcome */}
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.push('/')}>
-            <Text style={styles.backButtonText}>← Back to Welcome</Text>
-          </Pressable>
         </View>
-      </ScrollView>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 }
@@ -189,24 +197,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   container: {
-    flexGrow: 1,
-    paddingHorizontal: Spacing[6],
+    flex: 1,
+    paddingHorizontal: Spacing[5],
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   header: {
     alignItems: 'center',
-    marginBottom: Spacing[4],
+    marginBottom: 12,
   },
   logo: {
-    width: 170,
-    height: 42,
-    marginBottom: Spacing[3],
+    width: 175,
+    height: 44,
+    marginBottom: 6,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 21,
     color: '#261A66',
-    marginBottom: 4,
+    marginBottom: 2,
+    includeFontPadding: false,
+    ...(Platform.OS === 'web' ? { fontWeight: '800' as const } : {}),
     fontFamily: Platform.select({
       ios: 'Outfit-Bold',
       android: 'Outfit-Bold',
@@ -214,11 +224,11 @@ const styles = StyleSheet.create({
     }),
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#7C7894',
     textAlign: 'center',
-    maxWidth: 290,
-    lineHeight: 18,
+    maxWidth: 280,
+    lineHeight: 16,
     fontFamily: Platform.select({
       ios: 'Outfit',
       android: 'Outfit',
@@ -226,16 +236,16 @@ const styles = StyleSheet.create({
     }),
   },
   googleButton: {
-    height: 48,
+    height: 44,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E0EC',
-    borderRadius: Radius.md, // 10px (Owner dashboard rounded-md)
+    borderRadius: Radius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginBottom: Spacing[3],
+    marginBottom: 10,
     shadowColor: '#261A66',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -247,13 +257,14 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
   },
   googleIcon: {
-    width: 19,
-    height: 19,
+    width: 18,
+    height: 18,
   },
   googleButtonText: {
     fontSize: 14,
-    fontWeight: '700',
     color: '#261A66',
+    includeFontPadding: false,
+    ...(Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
     fontFamily: Platform.select({
       ios: 'Outfit-Bold',
       android: 'Outfit-Bold',
@@ -263,7 +274,7 @@ const styles = StyleSheet.create({
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing[3],
+    marginBottom: 10,
   },
   dividerLine: {
     flex: 1,
@@ -271,10 +282,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2E0EC',
   },
   dividerText: {
-    paddingHorizontal: 12,
-    fontSize: 11.5,
+    paddingHorizontal: 10,
+    fontSize: 11,
     color: '#A3A0B8',
-    fontWeight: '500',
     fontFamily: Platform.select({
       ios: 'Outfit',
       android: 'Outfit',
@@ -282,10 +292,10 @@ const styles = StyleSheet.create({
     }),
   },
   form: {
-    gap: Spacing[3],
+    gap: 9,
   },
   inputGroup: {
-    gap: 5,
+    gap: 3,
   },
   labelRow: {
     flexDirection: 'row',
@@ -293,11 +303,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   label: {
-    fontSize: 11.5,
-    fontWeight: '700',
+    fontSize: 11,
     color: '#261A66',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
+    includeFontPadding: false,
+    ...(Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
     fontFamily: Platform.select({
       ios: 'Outfit-Bold',
       android: 'Outfit-Bold',
@@ -305,17 +316,21 @@ const styles = StyleSheet.create({
     }),
   },
   labelHint: {
-    fontSize: 10.5,
+    fontSize: 10,
     color: '#A3A0B8',
-    fontWeight: '500',
+    fontFamily: Platform.select({
+      ios: 'Outfit',
+      android: 'Outfit',
+      default: 'Outfit, sans-serif',
+    }),
   },
   input: {
-    height: 48,
+    height: 42,
     borderWidth: 1,
     borderColor: '#E2E0EC',
-    borderRadius: Radius.md, // 10px (Owner dashboard rounded-md)
-    paddingHorizontal: 14,
-    fontSize: 14,
+    borderRadius: Radius.md,
+    paddingHorizontal: 13,
+    fontSize: 13.5,
     color: '#261A66',
     backgroundColor: '#F7F7FA',
     fontFamily: Platform.select({
@@ -325,12 +340,13 @@ const styles = StyleSheet.create({
     }),
   },
   signUpButton: {
-    backgroundColor: Tokens.color.orange[500], // #EF5F18
-    height: 50,
-    borderRadius: Radius.md, // 10px
+    backgroundColor: Tokens.color.orange[500],
+    height: 46,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing[2],
+    marginTop: 4,
+    paddingHorizontal: Spacing[4],
     shadowColor: Tokens.color.orange[500],
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
@@ -342,25 +358,31 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.985 }],
   },
   signUpButtonText: {
+    width: '100%',
+    textAlign: 'center',
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    includeFontPadding: false,
+    ...(Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
     fontFamily: Platform.select({
       ios: 'Outfit-Bold',
       android: 'Outfit-Bold',
       default: 'Outfit, sans-serif',
     }),
   },
+  footerLinks: {
+    gap: 2,
+    marginTop: 4,
+    alignItems: 'center',
+  },
   loginRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
   },
   alreadyText: {
     color: '#7C7894',
-    fontSize: 13,
+    fontSize: 12.5,
     fontFamily: Platform.select({
       ios: 'Outfit',
       android: 'Outfit',
@@ -369,8 +391,8 @@ const styles = StyleSheet.create({
   },
   loginLinkText: {
     color: Tokens.color.orange[500],
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12.5,
+    ...(Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
     fontFamily: Platform.select({
       ios: 'Outfit-Bold',
       android: 'Outfit-Bold',
@@ -379,13 +401,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignItems: 'center',
-    paddingVertical: 8,
-    marginTop: 2,
+    paddingVertical: 4,
   },
   backButtonText: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: '#7C7894',
-    fontWeight: '600',
     fontFamily: Platform.select({
       ios: 'Outfit-Medium',
       android: 'Outfit-Medium',

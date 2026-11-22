@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   ContractorRoleType,
   contractorRoleCards,
@@ -158,13 +159,12 @@ export function ContractorLoginPage() {
               </div>
 
               <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsLoggedIn(false)}
-                  className="h-10 px-5 text-xs font-bold rounded-md bg-[#1F6B3E] hover:bg-[#185330] text-white transition-all cursor-pointer shadow-sm"
+                <Link
+                  href="/contractor/dashboard"
+                  className="inline-flex items-center justify-center h-10 px-5 text-xs font-bold rounded-md bg-[#1F6B3E] hover:bg-[#185330] text-white transition-all cursor-pointer shadow-sm"
                 >
-                  Return to Login Screen
-                </button>
+                  Continue to Dashboard →
+                </Link>
               </div>
             </div>
           ) : (

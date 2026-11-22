@@ -1,0 +1,49 @@
+[
+  {
+    "id": "preset_company_1795303579850",
+    "name": "4-Bedroom Detached Duplex (Company Edition)",
+    "category": "Residential",
+    "typicalDuration": "6 to 9 Months",
+    "stagesCount": 7,
+    "description": "Standard residential milestone framework with foundation soil signoff, casting cube tests, and roof covering stages.",
+    "isCustom": true,
+    "source": "company",
+    "stages": [
+      {
+        "order": 1,
+        "title": "Substructure & Foundationjk,",
+        "evidence": "Excavation depth log, blind concrete photo, rebar cage inspection, cube compressive test result"
+      },
+      {
+        "order": 2,
+        "title": "Superstructure Frame (Ground Floor)",
+        "evidence": "Column formwork, lintel rebar inspection, German floor / slab casting photos"
+      },
+      {
+        "order": 3,
+        "title": "First Floor Suspended Slab & Columns",
+        "evidence": "Props and decking inspection, electrical conduit placement, concrete pour certificate"
+      },
+      {
+        "order": 4,
+        "title": "Roof Framing, Trusses & Covering",
+        "evidence": "Hardwood/steel truss alignment, aluminium/stone-coated sheet installation, rainwater gutter test"
+      },
+      {
+        "order": 5,
+        "title": "Wall Blockwork & External Plastering",
+        "evidence": "Wall plumb lines, lintels over openings, screeding & exterior rendering photos"
+      },
+      {
+        "order": 6,
+        "title": "MEP Rough-in & Piping Pressure Test",
+        "evidence": "PEX plumbing pressure gauge test, conduit wiring continuity, septic/soakaway installation"
+      },
+      {
+        "order": 7,
+        "title": "Architectural Finishes, Snagging & Handover",
+        "evidence": "Floor tiling, sanitary fixtures, doors/glazing, snagging resolution checklist"
+      }
+    ]
+  }
+]

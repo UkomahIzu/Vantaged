@@ -274,33 +274,6 @@ export function ActiveProjectProgressCard({
           <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-600,#5E5A7D)] max-w-2xl leading-relaxed">
             Your platform account includes <strong>{subscription.totalSlots} active project slot</strong> with bank escrow custody, daily visual site photos, and independent COREN milestone inspection audits. Connect with verified builders or submit your architectural brief to start.
           </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-            <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-              <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] block mb-0.5">
-                🛡️ Bank Escrow Custody
-              </span>
-              <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
-                Funds released strictly upon your explicit sign-off
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-              <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] block mb-0.5">
-                📷 Daily Visual Logs
-              </span>
-              <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
-                Photo evidence before any concrete casting
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-              <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] block mb-0.5">
-                ⚖️ COREN Inspection
-              </span>
-              <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
-                Accredited engineers audit rebar and soil quality
-              </p>
-            </div>
-          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 w-full sm:w-auto">

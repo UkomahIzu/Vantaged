@@ -28,22 +28,22 @@ export const WELCOME_SLIDES: WelcomeSlide[] = [
   {
     id: 'track-construction',
     title: 'Track Your Construction\nFrom Anywhere',
-    image: require('@/assets/images/welcome-slide-1.jpg'),
+    image: require('../../../assets/images/welcome-slide-1.jpg'),
   },
   {
     id: 'verified-engineers',
     title: 'Verified & Certified\nCOREN Engineers',
-    image: require('@/assets/images/welcome-slide-2.jpg'),
+    image: require('../../../assets/images/welcome-slide-2.jpg'),
   },
   {
     id: 'escrow-milestones',
     title: 'Escrow Protection\nFor Every Milestone',
-    image: require('@/assets/images/welcome-slide-3.jpg'),
+    image: require('../../../assets/images/welcome-slide-3.jpg'),
   },
   {
     id: 'site-intelligence',
     title: 'Live Site Intelligence,\nZero Blind Spots',
-    image: require('@/assets/images/welcome-slide-4.jpg'),
+    image: require('../../../assets/images/welcome-slide-4.jpg'),
   },
 ];
 
@@ -63,13 +63,13 @@ export function WelcomePage({
   const { width, height } = useWindowDimensions();
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlatList<WelcomeSlide>>(null);
 
   const isLastSlide = activeIndex === slides.length - 1;
 
-  // Handle scroll events to keep activeIndex updated
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (width <= 0) return;
       const offsetX = e.nativeEvent.contentOffset.x;
       const index = Math.round(offsetX / width);
       if (index >= 0 && index < slides.length && index !== activeIndex) {
@@ -79,7 +79,6 @@ export function WelcomePage({
     [width, slides.length, activeIndex]
   );
 
-  // Navigate to next slide or proceed to Sign Up
   const handleNext = () => {
     if (isLastSlide) {
       if (onFinish) {
@@ -101,7 +100,6 @@ export function WelcomePage({
     }
   };
 
-  // Skip straight to Sign In
   const handleSkip = () => {
     if (onSkip) {
       onSkip();
@@ -110,7 +108,6 @@ export function WelcomePage({
     }
   };
 
-  // Jump directly to a slide when tapping its dot
   const handleDotPress = (index: number) => {
     flatListRef.current?.scrollToIndex({
       index,
@@ -123,7 +120,7 @@ export function WelcomePage({
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Top Bar: Skip Button at Top Right (No logo at top left) */}
+      {/* Top Bar: Skip Button at Top Right */}
       <View
         style={[
           styles.topBar,
@@ -134,7 +131,6 @@ export function WelcomePage({
         ]}>
         <View style={styles.topBarSpacer} />
 
-        {/* Skip Button (hidden on the final slide) */}
         {!isLastSlide ? (
           <Pressable
             style={({ pressed }) => [
@@ -154,6 +150,7 @@ export function WelcomePage({
       {/* Horizontal Slider of 4 Pages */}
       <FlatList
         ref={flatListRef}
+        style={styles.slider}
         data={slides}
         keyExtractor={(item) => item.id}
         horizontal
@@ -163,30 +160,38 @@ export function WelcomePage({
         decelerationRate="fast"
         snapToInterval={width}
         snapToAlignment="start"
+        removeClippedSubviews={false}
+        initialNumToRender={slides.length}
+        getItemLayout={(_, index) => ({
+          length: width,
+          offset: width * index,
+          index,
+        })}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         renderItem={({ item }) => (
           <View style={[styles.slide, { width, height }]}>
-            {/* Background Image of Black Construction Workers / Engineers */}
+            {/* Background Photo with Explicit Width & Height for Expo Image / Fabric */}
             <Image
               source={item.image}
-              style={StyleSheet.absoluteFill}
+              style={[styles.backgroundImage, { width, height }]}
               contentFit="cover"
+              contentPosition="center"
               priority="high"
-              transition={200}
             />
 
             {/* Cinematic Gradient Scrim */}
             <LinearGradient
+              pointerEvents="none"
               colors={[
-                'rgba(0, 0, 0, 0.45)',
-                'rgba(0, 0, 0, 0.1)',
-                'rgba(18, 16, 31, 0.55)',
+                'rgba(18, 16, 31, 0.25)',
+                'rgba(18, 16, 31, 0.08)',
+                'rgba(18, 16, 31, 0.45)',
                 'rgba(18, 16, 31, 0.88)',
                 Tokens.color.neutral[950],
               ]}
-              locations={[0, 0.25, 0.6, 0.82, 1.0]}
-              style={StyleSheet.absoluteFill}
+              locations={[0, 0.3, 0.58, 0.82, 1.0]}
+              style={[styles.backgroundGradient, { width, height }]}
             />
 
             {/* Slide Content: Headline centered in lower portion */}
@@ -203,7 +208,7 @@ export function WelcomePage({
         )}
       />
 
-      {/* Bottom Floating Controls: 4 Dots, Action Button, and Log In Text */}
+      {/* Bottom Floating Controls */}
       <View
         style={[
           styles.bottomControls,
@@ -231,7 +236,7 @@ export function WelcomePage({
           })}
         </View>
 
-        {/* Primary Button: 'Next' for slides 1-3, 'Sign Up' for final slide (Owner Dashboard border-radius: 10px) */}
+        {/* Primary Button */}
         <Pressable
           style={({ pressed }) => [
             styles.actionButton,
@@ -240,12 +245,12 @@ export function WelcomePage({
           onPress={handleNext}
           accessibilityRole="button"
           accessibilityLabel={isLastSlide ? 'Sign Up' : 'Next'}>
-          <Text style={styles.actionButtonText} numberOfLines={1}>
+          <Text style={styles.actionButtonText}>
             {isLastSlide ? 'Sign Up' : 'Next'}
           </Text>
         </Pressable>
 
-        {/* Final Slide Footer: Already have an account? Log In */}
+        {/* Final Slide Footer */}
         {isLastSlide ? (
           <View style={styles.loginRow}>
             <Text style={styles.alreadyText}>Already have an account? </Text>
@@ -267,7 +272,10 @@ export function WelcomePage({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Tokens.color.neutral[950], // #12101F
+    backgroundColor: Tokens.color.neutral[950],
+  },
+  slider: {
+    flex: 1,
   },
   topBar: {
     position: 'absolute',
@@ -285,7 +293,7 @@ const styles = StyleSheet.create({
   skipButton: {
     paddingHorizontal: 16,
     paddingVertical: 7,
-    borderRadius: Radius.md, // 10px (Owner dashboard rounded-md)
+    borderRadius: Radius.md,
     backgroundColor: 'rgba(255, 255, 255, 0.16)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.28)',
@@ -303,8 +311,8 @@ const styles = StyleSheet.create({
   skipButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    includeFontPadding: false,
+    ...(Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
     fontFamily: Platform.select({
       ios: 'Outfit-Bold',
       android: 'Outfit-Bold',
@@ -312,24 +320,37 @@ const styles = StyleSheet.create({
     }),
   },
   slide: {
-    flex: 1,
     position: 'relative',
     justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   slideContent: {
+    position: 'relative',
+    zIndex: 2,
     paddingHorizontal: Spacing[6],
     alignItems: 'center',
   },
   headline: {
-    fontSize: Tokens.font.size['4xl'], // 36px
+    fontSize: Tokens.font.size['4xl'],
     lineHeight: 44,
-    fontWeight: '800',
     color: Tokens.color.white,
     textAlign: 'center',
     letterSpacing: -0.6,
+    includeFontPadding: false,
+    ...(Platform.OS === 'web' ? { fontWeight: '800' as const } : {}),
     fontFamily: Platform.select({
-      ios: 'Outfit-Bold',
-      android: 'Outfit-Bold',
+      ios: 'Outfit-ExtraBold',
+      android: 'Outfit-ExtraBold',
       default: 'Outfit, sans-serif',
     }),
     textShadowColor: 'rgba(0, 0, 0, 0.55)',
@@ -342,7 +363,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 35,
-    paddingHorizontal: Spacing[6], // 24px
+    paddingHorizontal: Spacing[6],
   },
   dotsContainer: {
     flexDirection: 'row',
@@ -357,16 +378,18 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 22,
-    backgroundColor: Tokens.color.orange[500], // #EF5F18 Vantaged Primary Orange
+    backgroundColor: Tokens.color.orange[500],
   },
   dotInactive: {
     width: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.35)',
   },
   actionButton: {
-    backgroundColor: Tokens.color.orange[500], // #EF5F18 Vantaged Primary Orange
-    height: 52, // Standard owner dashboard button height
-    borderRadius: Radius.md, // 10px (matching Owner dashboard rounded-md)
+    width: '100%',
+    backgroundColor: Tokens.color.orange[500],
+    height: 52,
+    paddingHorizontal: Spacing[4],
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: Tokens.color.orange[500],
@@ -380,10 +403,12 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.985 }],
   },
   actionButtonText: {
+    width: '100%',
     color: Tokens.color.white,
-    fontSize: Tokens.font.size.md, // 16px
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontSize: Tokens.font.size.md,
+    textAlign: 'center',
+    includeFontPadding: false,
+    ...(Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
     fontFamily: Platform.select({
       ios: 'Outfit-Bold',
       android: 'Outfit-Bold',
@@ -407,9 +432,9 @@ const styles = StyleSheet.create({
     }),
   },
   loginLinkText: {
-    color: Tokens.color.orange[500], // #EF5F18
+    color: Tokens.color.orange[500],
     fontSize: 13.5,
-    fontWeight: '800',
+    ...(Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
     fontFamily: Platform.select({
       ios: 'Outfit-Bold',
       android: 'Outfit-Bold',

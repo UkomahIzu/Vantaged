@@ -11,12 +11,13 @@ import {
 } from '@expo-google-fonts/outfit';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { OwnerMobileProvider } from '@/pages/owner dashboard';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Outfit: Outfit_400Regular,
     'Outfit-Regular': Outfit_400Regular,
     'Outfit-Medium': Outfit_500Medium,
@@ -25,15 +26,29 @@ export default function RootLayout() {
     'Outfit-ExtraBold': Outfit_800ExtraBold,
   });
 
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="signin" />
-        <Stack.Screen name="signup" />
-        <Stack.Screen name="explore" />
-      </Stack>
+      <OwnerMobileProvider>
+        <AnimatedSplashOverlay />
+        <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="signin" />
+          <Stack.Screen name="signup" />
+          <Stack.Screen name="dashboard" />
+          <Stack.Screen name="projects" />
+          <Stack.Screen name="transactions" />
+          <Stack.Screen name="representatives" />
+          <Stack.Screen name="find-companies" />
+          <Stack.Screen name="inspectors" />
+          <Stack.Screen name="notifications" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="explore" />
+        </Stack>
+      </OwnerMobileProvider>
     </ThemeProvider>
   );
 }

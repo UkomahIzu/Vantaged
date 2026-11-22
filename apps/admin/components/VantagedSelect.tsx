@@ -87,7 +87,7 @@ export function VantagedSelect({
         style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
         className={`w-full flex items-center justify-between text-left transition-all cursor-pointer ${
           className ||
-          "h-9 px-3.5 rounded-xl bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)] shadow-2xs"
+          "h-9 pl-3.5 pr-2.5 rounded-xl bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:border-[var(--vt-color-orange-400,#F78241)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] shadow-2xs"
         } ${
           isOpen
             ? "border-[var(--vt-color-orange-500,#EF5F18)] ring-2 ring-[var(--vt-color-orange-500,#EF5F18)]/15 bg-white"
@@ -103,19 +103,27 @@ export function VantagedSelect({
             </span>
           )}
         </span>
-        <svg
-          className={`w-3.5 h-3.5 shrink-0 text-[var(--vt-color-neutral-400,#A3A0B8)] transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-[var(--vt-color-orange-600,#EF5F18)]" : ""
+        <span
+          className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+            isOpen
+              ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#EF5F18)]"
+              : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-indigo-900,#261A66)]"
           }`}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
         >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
+          <svg
+            className={`w-3.5 h-3.5 transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
       </button>
 
       {/* Dropdown Menu Panel */}
