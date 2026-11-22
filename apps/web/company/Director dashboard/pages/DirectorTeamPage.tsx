@@ -7,6 +7,7 @@ import { DirectorHeaderBar } from "../components/DirectorHeaderBar";
 import { useScrollRestoration } from "../../../client/Owner dashboard/hooks/useScrollRestoration";
 import { VantagedSelect } from "../../../client/Owner dashboard/components/VantagedSelect";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { readLocalData, writeLocalData } from "../utils/localPersistence";
 
 export type TeamRole =
   | "Director"
@@ -187,8 +188,12 @@ export function DirectorTeamPage() {
   const [onlyStarred, setOnlyStarred] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const [demoRoster, setDemoRoster] = useState<TeamPersonnelCardItem[]>(INITIAL_PERSONNEL);
-  const [customRoster, setCustomRoster] = useState<TeamPersonnelCardItem[]>([]);
+  const [demoRoster, setDemoRoster] = useState<TeamPersonnelCardItem[]>(() =>
+    readLocalData("vantaged_director_team_demo_roster", INITIAL_PERSONNEL)
+  );
+  const [customRoster, setCustomRoster] = useState<TeamPersonnelCardItem[]>(() =>
+    readLocalData("vantaged_director_team_custom_roster", [])
+  );
   const [selectedPerson, setSelectedPerson] = useState<TeamPersonnelCardItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -232,23 +237,31 @@ export function DirectorTeamPage() {
 
   const handleToggleStar = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setDemoRoster((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, isStarred: !m.isStarred } : m))
+    const nextDemo = demoRoster.map((m) =>
+      m.id === id ? { ...m, isStarred: !m.isStarred } : m
     );
-    setCustomRoster((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, isStarred: !m.isStarred } : m))
+    const nextCustom = customRoster.map((m) =>
+      m.id === id ? { ...m, isStarred: !m.isStarred } : m
     );
+    setDemoRoster(nextDemo);
+    setCustomRoster(nextCustom);
+    writeLocalData("vantaged_director_team_demo_roster", nextDemo);
+    writeLocalData("vantaged_director_team_custom_roster", nextCustom);
   };
 
   const handleToggleStatus = (person: TeamPersonnelCardItem) => {
     const nextStatus: "ON_SITE" | "ACTIVE" =
       person.status === "ON_SITE" ? "ACTIVE" : "ON_SITE";
-    setDemoRoster((prev) =>
-      prev.map((m) => (m.id === person.id ? { ...m, status: nextStatus } : m))
+    const nextDemo = demoRoster.map((m) =>
+      m.id === person.id ? { ...m, status: nextStatus } : m
     );
-    setCustomRoster((prev) =>
-      prev.map((m) => (m.id === person.id ? { ...m, status: nextStatus } : m))
+    const nextCustom = customRoster.map((m) =>
+      m.id === person.id ? { ...m, status: nextStatus } : m
     );
+    setDemoRoster(nextDemo);
+    setCustomRoster(nextCustom);
+    writeLocalData("vantaged_director_team_demo_roster", nextDemo);
+    writeLocalData("vantaged_director_team_custom_roster", nextCustom);
     setSelectedPerson((prev) =>
       prev && prev.id === person.id ? { ...prev, status: nextStatus } : prev
     );
@@ -286,7 +299,9 @@ export function DirectorTeamPage() {
         : ["Site Execution", "Safety Compliance"],
     };
 
-    setCustomRoster((prev) => [created, ...prev]);
+    const nextCustom = [created, ...customRoster];
+    setCustomRoster(nextCustom);
+    writeLocalData("vantaged_director_team_custom_roster", nextCustom);
     setIsAddModalOpen(false);
     setNewMember({
       name: "",
@@ -728,7 +743,7 @@ export function DirectorTeamPage() {
                   {selectedPerson.assignedProjectName}
                 </p>
                 <p>
-                  <strong className="text-[var(--vt-color-indigo-900,#261A66)]">Corridor:</strong>{" "}
+                  <strong className="text-[var(--vt-color-indigo-900,#261A66)]">Location:</strong>{" "}
                   {selectedPerson.location}
                 </p>
                 <p>
@@ -863,7 +878,7 @@ export function DirectorTeamPage() {
                 </div>
                 <div>
                   <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                    Location / Corridor
+                    Location
                   </label>
                   <input
                     type="text"

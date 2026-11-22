@@ -20,6 +20,7 @@ import {
   StageItem,
   StagePreset,
 } from "../data/stagePresetsData";
+import { readLocalData, writeLocalData } from "../utils/localPersistence";
 
 const DEFAULT_NEW_PRESET_STAGES: StageItem[] = [
   {
@@ -98,22 +99,26 @@ export function DirectorRequestsPage() {
   const { isDemoMode } = useDirectorDemoMode();
 
   const [viewMode, setViewMode] = useState<"requests" | "plans">("requests");
-  const [requests, setRequests] = useState<DirectorProjectRequestItem[]>(
-    DEMO_DIRECTOR_PROJECT_REQUESTS
+  const [requests, setRequests] = useState<DirectorProjectRequestItem[]>(() =>
+    readLocalData("vantaged_director_requests", DEMO_DIRECTOR_PROJECT_REQUESTS)
   );
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [activeRequest, setActiveRequest] = useState<DirectorProjectRequestItem | null>(null);
-  const [sentPresetByRequest, setSentPresetByRequest] = useState<Record<string, string>>({
-    "req-guzape-04": "4-Bedroom Detached Duplex (7 stages)",
-  });
+  const [sentPresetByRequest, setSentPresetByRequest] = useState<Record<string, string>>(() =>
+    readLocalData("vantaged_director_sent_preset_labels", {
+      "req-guzape-04": "4-Bedroom Detached Duplex (7 stages)",
+    })
+  );
   const [sentPresetDetailsByRequest, setSentPresetDetailsByRequest] = useState<
     Record<string, { preset: StagePreset; proposedBudget: string }>
-  >({
-    "req-guzape-04": {
-      preset: BUILT_IN_PLATFORM_PRESETS[0]!,
-      proposedBudget: "₦195,000,000",
-    },
-  });
+  >(() =>
+    readLocalData("vantaged_director_sent_preset_details", {
+      "req-guzape-04": {
+        preset: BUILT_IN_PLATFORM_PRESETS[0]!,
+        proposedBudget: "₦195,000,000",
+      },
+    })
+  );
 
   // Milestone Proposal Popup State (Select Preset OR Create New Preset & Send)
   const [proposalTarget, setProposalTarget] = useState<DirectorProjectRequestItem | null>(null);
@@ -270,9 +275,11 @@ export function DirectorRequestsPage() {
     id: string,
     nextStatus: DirectorProjectRequestItem["status"]
   ) => {
-    setRequests((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: nextStatus } : item))
+    const next = requests.map((item) =>
+      item.id === id ? { ...item, status: nextStatus } : item
     );
+    setRequests(next);
+    writeLocalData("vantaged_director_requests", next);
     setActiveRequest((prev) =>
       prev && prev.id === id ? { ...prev, status: nextStatus } : prev
     );
@@ -999,17 +1006,21 @@ export function DirectorRequestsPage() {
                       disabled={!activeSelectedPreset}
                       onClick={() => {
                         if (!activeSelectedPreset) return;
-                        setSentPresetByRequest((prev) => ({
-                          ...prev,
+                        const nextLabels = {
+                          ...sentPresetByRequest,
                           [proposalTarget.id]: `${activeSelectedPreset.name.split("(")[0].trim()} (${activeSelectedPreset.stages.length} stages)`,
-                        }));
-                        setSentPresetDetailsByRequest((prev) => ({
-                          ...prev,
+                        };
+                        const nextDetails = {
+                          ...sentPresetDetailsByRequest,
                           [proposalTarget.id]: {
                             preset: activeSelectedPreset,
                             proposedBudget: proposedBudget || proposalTarget.estimatedBudget,
                           },
-                        }));
+                        };
+                        setSentPresetByRequest(nextLabels);
+                        setSentPresetDetailsByRequest(nextDetails);
+                        writeLocalData("vantaged_director_sent_preset_labels", nextLabels);
+                        writeLocalData("vantaged_director_sent_preset_details", nextDetails);
                         updateRequestStatus(proposalTarget.id, "Proposal Ready");
                         showToast(
                           `Sent "${activeSelectedPreset.name.split("(")[0].trim()}" to ${proposalTarget.ownerName}!`
@@ -1062,17 +1073,21 @@ export function DirectorRequestsPage() {
                   }).catch(() => {});
 
                   setAllPresets((prev) => [createdPreset, ...prev]);
-                  setSentPresetByRequest((prev) => ({
-                    ...prev,
+                  const nextLabels = {
+                    ...sentPresetByRequest,
                     [proposalTarget.id]: `${createdPreset.name} (${createdPreset.stages.length} stages)`,
-                  }));
-                  setSentPresetDetailsByRequest((prev) => ({
-                    ...prev,
+                  };
+                  const nextDetails = {
+                    ...sentPresetDetailsByRequest,
                     [proposalTarget.id]: {
                       preset: createdPreset,
                       proposedBudget: proposedBudget || proposalTarget.estimatedBudget,
                     },
-                  }));
+                  };
+                  setSentPresetByRequest(nextLabels);
+                  setSentPresetDetailsByRequest(nextDetails);
+                  writeLocalData("vantaged_director_sent_preset_labels", nextLabels);
+                  writeLocalData("vantaged_director_sent_preset_details", nextDetails);
                   updateRequestStatus(proposalTarget.id, "Proposal Ready");
                   showToast(
                     `Created "${createdPreset.name}" and sent to ${proposalTarget.ownerName}!`

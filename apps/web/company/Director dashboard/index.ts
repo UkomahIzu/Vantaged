@@ -4,6 +4,8 @@ export { DirectorRequestsPage } from "./pages/DirectorRequestsPage";
 export { DirectorPresetsPage } from "./pages/DirectorPresetsPage";
 export { DirectorTeamPage } from "./pages/DirectorTeamPage";
 export { DirectorNotificationsPage } from "./pages/DirectorNotificationsPage";
+export { DirectorTransactionsPage } from "./pages/DirectorTransactionsPage";
+export { DirectorRewardsPage } from "./pages/DirectorRewardsPage";
 export { DirectorSidebarNav } from "./components/DirectorSidebarNav";
 export { DirectorHeaderBar } from "./components/DirectorHeaderBar";
 export { DirectorHeroGreeting } from "./components/DirectorHeroGreeting";
