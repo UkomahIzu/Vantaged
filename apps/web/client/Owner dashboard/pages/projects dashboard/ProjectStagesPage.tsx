@@ -10,6 +10,7 @@ import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { IconArrowRight, IconCheck, IconClose } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { markProjectAsCompleted } from "./projectStore";
+import { syncOwnerStageDecisionToContractor } from "../../../../shared/vantagedSyncBridge";
 
 interface ProjectStagesPageProps {
   projectId?: string;
@@ -84,6 +85,13 @@ export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPag
       return s;
     });
     persistStages(next);
+    syncOwnerStageDecisionToContractor({
+      projectId,
+      stageId: selectedStage.id,
+      stageNumber: selectedStage.stageNumber,
+      stageTitle: selectedStage.title,
+      decision: "APPROVED",
+    });
     if (next.every((s) => s.status === "Approved")) {
       markProjectAsCompleted(projectId);
     }

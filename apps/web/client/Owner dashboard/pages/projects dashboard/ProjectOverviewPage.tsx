@@ -12,6 +12,7 @@ import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { IconArrowRight, IconCheck, IconClose } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { markProjectAsCompleted } from "./projectStore";
+import { syncOwnerStageDecisionToContractor } from "../../../../shared/vantagedSyncBridge";
 
 interface ProjectOverviewPageProps {
   projectId?: string;
@@ -82,6 +83,13 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
     setStages(nextStages);
     try {
       localStorage.setItem(storageKey, JSON.stringify(nextStages));
+      syncOwnerStageDecisionToContractor({
+        projectId,
+        stageId: reviewingStage.id,
+        stageNumber: reviewingStage.stageNumber,
+        stageTitle: reviewingStage.title,
+        decision: "APPROVED",
+      });
       window.dispatchEvent(new Event("vantaged_storage_update"));
     } catch {}
 

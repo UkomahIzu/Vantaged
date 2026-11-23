@@ -17,6 +17,7 @@ import {
 } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { VantagedSelect } from "../../components/VantagedSelect";
+import { syncOwnerChangeRequestsToContractor } from "../../../../shared/vantagedSyncBridge";
 
 interface ProjectChangeRequestsPageProps {
   projectId?: string;
@@ -78,6 +79,7 @@ export function ProjectChangeRequestsPage({ projectId = "proj-lekki" }: ProjectC
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(storageKey, JSON.stringify(updated));
+        syncOwnerChangeRequestsToContractor(projectId, updated);
         window.dispatchEvent(new Event("vantaged_storage_update"));
       } catch {}
     }

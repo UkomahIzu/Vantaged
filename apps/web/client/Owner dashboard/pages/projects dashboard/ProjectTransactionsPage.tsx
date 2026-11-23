@@ -62,6 +62,37 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
   useEffect(() => {
     const handleSync = () => {
       try {
+        const txSaved = localStorage.getItem(`vantaged_tranches_${projectId}`);
+        const confMapRaw = localStorage.getItem(`vantaged_receipt_confirmations_${projectId}`);
+        const confMap: Record<string, { stageTitle: string; bankSessionId: string; confirmedAt: string }> =
+          confMapRaw ? JSON.parse(confMapRaw) : {};
+
+        const baseTx: ProjectTransactionTranche[] = txSaved
+          ? JSON.parse(txSaved)
+          : project.transactions;
+
+        if (Array.isArray(baseTx) && baseTx.length > 0) {
+          const syncedTx = baseTx.map((t) => {
+            const matchByRef = t.bankSessionId ? confMap[t.bankSessionId] : undefined;
+            const matchByStage = Object.values(confMap).find(
+              (c) =>
+                t.stageLinked?.toLowerCase().includes(c.stageTitle.toLowerCase()) ||
+                c.stageTitle.toLowerCase().includes(t.title.toLowerCase())
+            );
+            const matched = matchByRef || matchByStage;
+            if (matched) {
+              return {
+                ...t,
+                contractorConfirmed: true,
+                contractorConfirmedDate: matched.confirmedAt,
+                bankSessionId: matched.bankSessionId || t.bankSessionId,
+              };
+            }
+            return t;
+          });
+          setTransactions(syncedTx);
+        }
+
         const crSaved = localStorage.getItem(`vantaged_cr_${projectId}`);
         if (crSaved) {
           const parsed = JSON.parse(crSaved);
@@ -76,13 +107,15 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
     };
 
     handleSync();
+    window.addEventListener("vantaged_storage_update", handleSync);
     window.addEventListener("storage", handleSync);
     window.addEventListener("focus", handleSync);
     return () => {
+      window.removeEventListener("vantaged_storage_update", handleSync);
       window.removeEventListener("storage", handleSync);
       window.removeEventListener("focus", handleSync);
     };
-  }, [projectId]);
+  }, [projectId, project.transactions]);
 
   const formatNaira = (val: number) => {
     if (val >= 1000000000) {
@@ -1101,17 +1134,32 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${
-                            trx.status === "Paid to Builder"
-                              ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)]"
-                              : trx.status === "Ready for Your Approval"
-                              ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]"
-                              : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
-                          }`}
-                        >
-                          {trx.status}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${
+                              trx.status === "Paid to Builder"
+                                ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)]"
+                                : trx.status === "Ready for Your Approval"
+                                ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]"
+                                : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
+                            }`}
+                          >
+                            {trx.status}
+                          </span>
+                          {trx.status === "Paid to Builder" && (
+                            <span
+                              className={`text-[10px] font-bold ${
+                                trx.contractorConfirmed
+                                  ? "text-[var(--vt-color-green-700,#1F6B3E)]"
+                                  : "text-[var(--vt-color-orange-600,#D84C0B)]"
+                              }`}
+                            >
+                              {trx.contractorConfirmed
+                                ? "✓ Builder Confirmed Receipt"
+                                : "Waiting for Builder Confirmation (3d)"}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-4 text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">

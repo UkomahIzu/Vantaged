@@ -7,6 +7,7 @@ import { HeaderBar } from "../components/HeaderBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { useDemoMode } from "../hooks/useDemoMode";
 import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
+import { readOwnerLiveNotifications } from "../../../shared/vantagedSyncBridge";
 
 export interface OwnerNotification {
   id: string;
@@ -100,24 +101,24 @@ export function OwnerNotificationsPage() {
   const subscription = useOwnerSubscription();
 
   const getSourceNotifications = useCallback((): OwnerNotification[] => {
-    if (!isDemoMode) return [];
+    const liveNotifs = readOwnerLiveNotifications() as OwnerNotification[];
+    if (!isDemoMode) return liveNotifs;
+    let base: OwnerNotification[] = INITIAL_NOTIFICATIONS;
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // Constrain by tier capacity: starter tier only gets Lekki project notifs
-          if (subscription.tierId === "owner-private") {
-            return parsed.filter((n: OwnerNotification) => n.projectTitle === "Lekki Phase 1 Luxury Villa");
-          }
-          return parsed;
+          base = parsed;
         }
       }
     } catch {}
-    if (subscription.tierId === "owner-private") {
-      return INITIAL_NOTIFICATIONS.filter((n) => n.projectTitle === "Lekki Phase 1 Luxury Villa");
-    }
-    return INITIAL_NOTIFICATIONS;
+    const filteredBase =
+      subscription.tierId === "owner-private"
+        ? base.filter((n: OwnerNotification) => n.projectTitle === "Lekki Phase 1 Luxury Villa")
+        : base;
+    const seen = new Set(liveNotifs.map((n) => n.id));
+    return [...liveNotifs, ...filteredBase.filter((n) => !seen.has(n.id))];
   }, [isDemoMode, subscription.tierId]);
 
   const [notifications, setNotifications] = useState<OwnerNotification[]>(() => getSourceNotifications());

@@ -40,7 +40,7 @@ export function DirectorPortfolioAndQueue() {
             </p>
           </div>
           <Link
-            href="/contractor/projects"
+            href={`/contractor/projects/${activeDisputeProject.id}/disputes`}
             className="h-8 px-3.5 rounded-md bg-white border border-rose-200 hover:border-rose-300 text-xs font-bold text-rose-700 transition-colors flex items-center justify-center shrink-0 whitespace-nowrap"
           >
             Review Evidence →
@@ -206,7 +206,7 @@ export function DirectorPortfolioAndQueue() {
                   return (
                     <Link
                       key={project.id}
-                      href="/contractor/projects"
+                      href={`/contractor/projects/${project.id}`}
                       className="py-4 px-2 -mx-2 rounded-lg hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/70 transition-colors group flex flex-col gap-2.5"
                     >
                       <div className="flex items-start justify-between gap-4">

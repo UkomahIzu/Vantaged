@@ -11,9 +11,16 @@ import {
   ProjectBrief,
   getProjectBriefs,
   saveProjectBrief,
+  STORAGE_KEY_ACTIVE,
   STORAGE_KEY_PLANS,
 } from "./projects dashboard/projectStore";
 import { ProjectItem } from "../components/ProjectFolderCard";
+import {
+  CompanySentOwnerRequest,
+  broadcastPortalSync,
+  readCompanySentRequests,
+  saveCompanySentRequests,
+} from "../../../shared/vantagedSyncBridge";
 
 export interface CompanyItem {
   id: string;
@@ -289,7 +296,9 @@ export function OwnerFindCompaniesPage() {
   const scrollRef = useScrollRestoration<HTMLElement>("owner_find_companies");
   const [companies, setCompanies] = useState<CompanyItem[]>(INITIAL_COMPANIES);
   const [projectBriefs, setProjectBriefs] = useState<ProjectBrief[]>([]);
-  const [activeTab, setActiveTab] = useState<"directory" | "my-briefs">("directory");
+  const [incomingCompanyRequests, setIncomingCompanyRequests] = useState<CompanySentOwnerRequest[]>([]);
+  const [activeTab, setActiveTab] = useState<"directory" | "my-briefs" | "incoming">("directory");
+  const [incomingToast, setIncomingToast] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedState, setSelectedState] = useState<string>("All States");
@@ -297,19 +306,96 @@ export function OwnerFindCompaniesPage() {
   const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
 
-  // Load and listen to project briefs from shared store
+  // Load and listen to project briefs & incoming company requests from shared store
   useEffect(() => {
-    setProjectBriefs(getProjectBriefs());
-    const handleUpdate = () => {
+    const syncAll = () => {
       setProjectBriefs(getProjectBriefs());
+      setIncomingCompanyRequests(readCompanySentRequests());
     };
-    window.addEventListener("vantaged_storage_update", handleUpdate);
-    window.addEventListener("storage", handleUpdate);
+    syncAll();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam === "incoming") setActiveTab("incoming");
+      else if (tabParam === "my-briefs") setActiveTab("my-briefs");
+    }
+    window.addEventListener("vantaged_storage_update", syncAll);
+    window.addEventListener("storage", syncAll);
     return () => {
-      window.removeEventListener("vantaged_storage_update", handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("vantaged_storage_update", syncAll);
+      window.removeEventListener("storage", syncAll);
     };
   }, []);
+
+  const handleRespondToCompanyRequest = (
+    req: CompanySentOwnerRequest,
+    decision: "Accepted" | "Declined"
+  ) => {
+    const newProjId = `proj-${Date.now().toString().slice(-6)}`;
+    const updatedReqs = incomingCompanyRequests.map((item) =>
+      item.id === req.id
+        ? { ...item, status: decision, ...(decision === "Accepted" ? { projectId: newProjId } : {}) }
+        : item
+    );
+    setIncomingCompanyRequests(updatedReqs);
+    saveCompanySentRequests(updatedReqs);
+
+    if (decision === "Accepted" && typeof window !== "undefined") {
+      const folderCategory: ProjectItem["category"] =
+        req.category === "Commercial"
+          ? "Commercial"
+          : req.category === "Waterfront"
+          ? "Waterfront"
+          : "Residential";
+      const createdProject: ProjectItem = {
+        id: newProjId,
+        jobId: req.id.replace("REQ-", "JOB-"),
+        title: req.title,
+        category: folderCategory,
+        location: req.location,
+        specs: req.notes || `${req.category} construction project`,
+        status: "In progress",
+        milestonesCount: 0,
+        milestonesTotal: 7,
+        progressPercent: 0,
+        escrowAmount: req.budget,
+        contractor: {
+          name: req.companyName,
+          rating: "4.9 ★ Verified",
+          assignedRep: req.directorName,
+        },
+        currentScope: "Stage 1: Site Mobilization & Setting Out",
+        stageSubtitle: "Stage 1: Ready to begin",
+        snippetLines: [
+          `Company: ${req.companyName}`,
+          `${req.location}`,
+          `Agreed Budget: ${req.budget}`,
+        ],
+        lastUpdated: "Just now",
+      };
+
+      try {
+        const ownerRaw = localStorage.getItem(STORAGE_KEY_ACTIVE);
+        const ownerList: ProjectItem[] = ownerRaw ? JSON.parse(ownerRaw) : [];
+        localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify([createdProject, ...ownerList]));
+
+        const compRaw = localStorage.getItem("vantaged_company_accepted_projects");
+        const compList: ProjectItem[] = compRaw ? JSON.parse(compRaw) : [];
+        localStorage.setItem(
+          "vantaged_company_accepted_projects",
+          JSON.stringify([createdProject, ...compList])
+        );
+        broadcastPortalSync();
+      } catch {}
+    }
+
+    setIncomingToast(
+      decision === "Accepted"
+        ? `Accepted "${req.title}" from ${req.companyName}. Added to Active Projects!`
+        : `Declined project request "${req.title}".`
+    );
+    setTimeout(() => setIncomingToast(null), 4000);
+  };
 
   // Selected company for detailed dossier modal
   const [selectedCompany, setSelectedCompany] = useState<CompanyItem | null>(null);
@@ -469,18 +555,20 @@ export function OwnerFindCompaniesPage() {
             <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] font-medium mt-0.5">
               {activeTab === "directory"
                 ? "Find verified construction companies, architects, and builders with proven track records."
-                : "Builders currently reviewing your project requests. Compare offers, prices, and timelines."}
+                : activeTab === "my-briefs"
+                ? "Builders currently reviewing your project requests. Compare offers, prices, and timelines."
+                : "Project requests sent to you by verified construction companies via Vantaged."}
             </p>
           </div>
 
-          {/* Action Toolbar: [Companies | My Briefs], [Filter], and [Invite Company] (All matching Start project button size & radius: h-9, rounded-md) */}
+          {/* Action Toolbar: [Companies | My Briefs | Company Requests], [Filter], and [Invite Company] */}
           <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto flex-wrap">
-            {/* View Switcher: Companies vs My Briefs */}
+            {/* View Switcher */}
             <div className="h-9 p-0.5 bg-[var(--vt-color-neutral-100,#EFEEF5)] rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center shadow-2xs font-sans">
               <button
                 type="button"
                 onClick={() => setActiveTab("directory")}
-                className={`h-full px-3.5 rounded text-xs font-bold transition-all cursor-pointer ${
+                className={`h-full px-3 rounded text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "directory"
                     ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-2xs"
                     : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
@@ -491,7 +579,7 @@ export function OwnerFindCompaniesPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("my-briefs")}
-                className={`h-full px-3.5 rounded text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`h-full px-3 rounded text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === "my-briefs"
                     ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-2xs"
                     : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
@@ -506,6 +594,26 @@ export function OwnerFindCompaniesPage() {
                   }`}
                 >
                   {projectBriefs.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("incoming")}
+                className={`h-full px-3 rounded text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "incoming"
+                    ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white shadow-2xs"
+                    : "text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
+                }`}
+              >
+                <span>Company Requests</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                    activeTab === "incoming"
+                      ? "bg-white/25 text-white"
+                      : "bg-white text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-border-default,#E2E0EC)]"
+                  }`}
+                >
+                  {incomingCompanyRequests.filter((r) => r.status === "Pending Owner Review").length}
                 </span>
               </button>
             </div>
@@ -864,6 +972,105 @@ export function OwnerFindCompaniesPage() {
                 })}
               </div>
             </div>
+          </div>
+        ) : activeTab === "incoming" ? (
+          /* ── INCOMING COMPANY PROJECT REQUESTS INBOX ── */
+          <div className="flex flex-col gap-4 pt-1 pb-12 w-full">
+            {incomingToast && (
+              <div className="p-3.5 rounded-xl bg-[var(--vt-color-green-50,#E9F6EC)] border border-[var(--vt-color-green-200,#A3D9B1)] text-[var(--vt-color-green-800,#17512F)] text-xs font-bold">
+                ✓ {incomingToast}
+              </div>
+            )}
+
+            {incomingCompanyRequests.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-12 text-center shadow-2xs">
+                <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                  No Incoming Company Requests Yet
+                </h3>
+                <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1 max-w-md mx-auto">
+                  When a verified construction company sends you a project request using your email or phone number, Vantaged emails you and displays the request here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {incomingCompanyRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-2 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-mono font-bold text-[var(--vt-color-neutral-500,#7C7894)]">
+                          {req.id}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
+                          {req.category}
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${
+                            req.status === "Accepted"
+                              ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border-[var(--vt-color-green-200,#A3D9B1)]"
+                              : req.status === "Declined"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-indigo-50 text-[var(--vt-color-indigo-900,#261A66)] border-indigo-200"
+                          }`}
+                        >
+                          {req.status}
+                        </span>
+                      </div>
+
+                      <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                        {req.title}
+                      </h3>
+
+                      <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)]">
+                        From <strong>{req.companyName}</strong> ({req.directorName}) · Location:{" "}
+                        <strong>{req.location}</strong> · Budget:{" "}
+                        <strong className="text-[var(--vt-color-orange-600,#D84C0B)]">{req.budget}</strong>
+                      </p>
+
+                      {req.notes && (
+                        <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-3">
+                          {req.notes}
+                        </p>
+                      )}
+
+                      <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
+                        Routed by Vantaged · Notification sent to <strong>{req.ownerIdentifier}</strong>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      {req.status === "Pending Owner Review" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleRespondToCompanyRequest(req, "Declined")}
+                            className="h-9 px-4 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold cursor-pointer"
+                          >
+                            Decline
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRespondToCompanyRequest(req, "Accepted")}
+                            className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.28)] cursor-pointer"
+                          >
+                            Accept &amp; Start Project
+                          </button>
+                        </>
+                      ) : req.status === "Accepted" && req.projectId ? (
+                        <Link
+                          href={`/owner/projects/${req.projectId}`}
+                          className="h-9 px-4 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-bold flex items-center justify-center"
+                        >
+                          Open Project →
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           /* ── MY PROJECT BRIEFS TAB (CL-F04) ── */

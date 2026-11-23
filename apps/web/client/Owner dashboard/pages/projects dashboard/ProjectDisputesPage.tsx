@@ -30,6 +30,7 @@ import {
 } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { VantagedSelect } from "../../components/VantagedSelect";
+import { syncOwnerDisputesToContractor } from "../../../../shared/vantagedSyncBridge";
 
 interface ProjectDisputesPageProps {
   projectId?: string;
@@ -270,6 +271,7 @@ export function ProjectDisputesPage({ projectId = "proj-lekki" }: ProjectDispute
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(storageKey, JSON.stringify(updated));
+        syncOwnerDisputesToContractor(projectId, updated);
         window.dispatchEvent(new Event("vantaged_storage_update"));
       } catch {}
     }

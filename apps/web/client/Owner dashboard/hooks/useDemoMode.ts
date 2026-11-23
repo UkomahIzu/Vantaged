@@ -31,7 +31,7 @@ export function setDemoMode(enabled: boolean): void {
 }
 
 export function useDemoMode() {
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => getIsDemoMode());
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
 
   useEffect(() => {
     const sync = () => {

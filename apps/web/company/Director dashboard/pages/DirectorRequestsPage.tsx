@@ -21,6 +21,7 @@ import {
   StagePreset,
 } from "../data/stagePresetsData";
 import { readLocalData, writeLocalData } from "../utils/localPersistence";
+import { SHARED_SYNC_EVENT } from "../../../shared/vantagedSyncBridge";
 
 const DEFAULT_NEW_PRESET_STAGES: StageItem[] = [
   {
@@ -171,6 +172,62 @@ export function DirectorRequestsPage() {
 
   useEffect(() => {
     loadAllPresets();
+  }, []);
+
+  // Merge Owner-submitted briefs from shared vantaged_project_briefs into Company Requests
+  useEffect(() => {
+    const syncOwnerBriefs = () => {
+      if (typeof window === "undefined") return;
+      try {
+        const raw = localStorage.getItem("vantaged_project_briefs");
+        if (!raw) return;
+        const ownerBriefs = JSON.parse(raw);
+        if (!Array.isArray(ownerBriefs)) return;
+
+        setRequests((prev) => {
+          const existingIds = new Set(prev.map((r) => r.id));
+          const mappedNew: DirectorProjectRequestItem[] = ownerBriefs
+            .filter((b: any) => b?.id && !existingIds.has(b.id))
+            .map((b: any) => ({
+              id: b.id,
+              requestCode: String(b.id).toUpperCase().slice(0, 10),
+              ownerName: "Dr. James Arinze (Owner)",
+              ownerVerified: true,
+              title: b.title || "Owner Project Brief",
+              category:
+                b.category === "Commercial"
+                  ? "Commercial"
+                  : b.category === "Industrial"
+                  ? "Industrial"
+                  : b.category === "Waterfront"
+                  ? "Marine & Waterfront"
+                  : "Residential",
+              estimatedBudget: b.estimatedBudget || "₦100M - ₦200M",
+              location: b.location || "Lagos, Nigeria",
+              description: b.description || "Project brief submitted by property owner.",
+              dateSubmitted: b.dateSubmitted || "Just now",
+              status:
+                b.status === "Proposal Ready"
+                  ? "Proposal Ready"
+                  : b.status === "Drafting Milestone Plan"
+                  ? "Drafting Milestone Plan"
+                  : "Under Contractor Review",
+            }));
+          if (mappedNew.length === 0) return prev;
+          const merged = [...mappedNew, ...prev];
+          writeLocalData("vantaged_director_requests", merged);
+          return merged;
+        });
+      } catch {}
+    };
+
+    syncOwnerBriefs();
+    window.addEventListener(SHARED_SYNC_EVENT, syncOwnerBriefs);
+    window.addEventListener("storage", syncOwnerBriefs);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncOwnerBriefs);
+      window.removeEventListener("storage", syncOwnerBriefs);
+    };
   }, []);
 
   const showToast = (msg: string) => {

@@ -67,9 +67,29 @@ interface ContractorSubmission {
   verifiedAt?: string;
 }
 
+interface LegalUpdateRequest {
+  id: string;
+  companyName: string;
+  directorName: string;
+  field: string;
+  currentValue: string;
+  requestedValue: string;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "DECLINED";
+  adminNotes?: string;
+  submittedAt: string;
+  reviewedAt?: string;
+}
+
 export default function VerificationQueuePage() {
   const { isDemoMode } = useDemoMode();
+  const [activeQueueTab, setActiveQueueTab] = useState<"onboarding" | "legal-updates">("onboarding");
   const [submissions, setSubmissions] = useState<ContractorSubmission[]>([]);
+  const [legalRequests, setLegalRequests] = useState<LegalUpdateRequest[]>([]);
+  const [legalFilter, setLegalFilter] = useState<"ALL" | "PENDING" | "APPROVED" | "DECLINED">("ALL");
+  const [legalSearch, setLegalSearch] = useState<string>("");
+  const [declineTarget, setDeclineTarget] = useState<LegalUpdateRequest | null>(null);
+  const [declineNote, setDeclineNote] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedSub, setSelectedSub] = useState<ContractorSubmission | null>(null);
@@ -99,6 +119,63 @@ export default function VerificationQueuePage() {
       })
       .catch(() => {});
   }, [isDemoMode]);
+
+  useEffect(() => {
+    fetch("/api/legal-updates")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setLegalRequests(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleReviewLegalRequest = async (
+    req: LegalUpdateRequest,
+    decision: "APPROVED" | "DECLINED",
+    note = ""
+  ) => {
+    try {
+      const res = await fetch("/api/legal-updates", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: req.id,
+          status: decision,
+          adminNotes: note,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setLegalRequests((prev) =>
+          prev.map((item) => (item.id === req.id ? json.data : item))
+        );
+      }
+    } catch {
+      setLegalRequests((prev) =>
+        prev.map((item) =>
+          item.id === req.id
+            ? { ...item, status: decision, adminNotes: note, reviewedAt: new Date().toISOString() }
+            : item
+        )
+      );
+    }
+
+    setDeclineTarget(null);
+    setDeclineNote("");
+    setToastMessage({
+      type: decision === "APPROVED" ? "success" : "error",
+      title:
+        decision === "APPROVED"
+          ? "Legal Update Approved"
+          : "Legal Update Declined",
+      description:
+        decision === "APPROVED"
+          ? `Approved ${req.companyName}'s request to update ${req.field} to "${req.requestedValue}".`
+          : `Declined ${req.companyName}'s request to update ${req.field}.`,
+    });
+  };
 
   // Approval / Rejection modal state
   const [isApproveOpen, setIsApproveOpen] = useState<boolean>(false);
@@ -353,6 +430,257 @@ export default function VerificationQueuePage() {
         </div>
       </div>
 
+      {/* Queue Type Switcher */}
+      <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveQueueTab("onboarding")}
+          className={`h-10 px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer border ${
+            activeQueueTab === "onboarding"
+              ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white border-[var(--vt-color-orange-500,#EF5F18)] shadow-xs"
+              : "bg-white text-[var(--vt-color-neutral-600,#5E5A7D)] border-[var(--vt-color-border-default,#E2E0EC)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
+          }`}
+        >
+          Onboarding Queue ({queueSubmissions.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveQueueTab("legal-updates")}
+          className={`h-10 px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer border flex items-center gap-2 ${
+            activeQueueTab === "legal-updates"
+              ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white border-[var(--vt-color-orange-500,#EF5F18)] shadow-xs"
+              : "bg-white text-[var(--vt-color-neutral-600,#5E5A7D)] border-[var(--vt-color-border-default,#E2E0EC)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
+          }`}
+        >
+          <span>Legal Update Requests</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
+              activeQueueTab === "legal-updates"
+                ? "bg-white/20 text-white"
+                : "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)]"
+            }`}
+          >
+            {legalRequests.filter((r) => r.status === "PENDING").length}
+          </span>
+        </button>
+      </div>
+
+      {activeQueueTab === "legal-updates" ? (() => {
+        const totalLegal = legalRequests.length;
+        const pendingLegal = legalRequests.filter((r) => r.status === "PENDING").length;
+        const approvedLegal = legalRequests.filter((r) => r.status === "APPROVED").length;
+        const declinedLegal = legalRequests.filter((r) => r.status === "DECLINED").length;
+        const term = legalSearch.toLowerCase().trim();
+        const filteredLegal = legalRequests.filter((r) => {
+          const matchesStatus = legalFilter === "ALL" || r.status === legalFilter;
+          const matchesQuery =
+            !term ||
+            r.companyName.toLowerCase().includes(term) ||
+            r.directorName.toLowerCase().includes(term) ||
+            r.field.toLowerCase().includes(term) ||
+            r.requestedValue.toLowerCase().includes(term) ||
+            r.id.toLowerCase().includes(term);
+          return matchesStatus && matchesQuery;
+        });
+
+        return (
+          <div className="space-y-5">
+            {/* Legal Requests KPI Strip */}
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
+              {[
+                { label: "Total Requests", count: totalLegal, filter: "ALL" as const, accent: "text-[var(--vt-color-indigo-900,#261A66)]" },
+                { label: "Pending Review", count: pendingLegal, filter: "PENDING" as const, accent: "text-[var(--vt-color-orange-600,#D84C0B)]" },
+                { label: "Approved Updates", count: approvedLegal, filter: "APPROVED" as const, accent: "text-[var(--vt-color-green-700,#1F6B3E)]" },
+                { label: "Declined", count: declinedLegal, filter: "DECLINED" as const, accent: "text-rose-700" },
+              ].map((stat) => {
+                const selected = legalFilter === stat.filter;
+                return (
+                  <button
+                    key={stat.label}
+                    type="button"
+                    onClick={() => setLegalFilter(stat.filter)}
+                    className={`p-4 rounded-xl border bg-white text-left cursor-pointer transition-all shadow-2xs ${
+                      selected
+                        ? "border-[var(--vt-color-orange-400,#FBA674)] ring-2 ring-[var(--vt-color-orange-500,#EF5F18)]/15"
+                        : "border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-neutral-300,#CBC8DA)]"
+                    }`}
+                  >
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--vt-color-neutral-500,#7C7894)]">
+                      {stat.label}
+                    </p>
+                    <p className={`text-2xl font-extrabold mt-1 ${stat.accent}`}>{stat.count}</p>
+                  </button>
+                );
+              })}
+            </section>
+
+            {/* Search & Filter Bar */}
+            <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <IconSearch className="w-4 h-4 text-[var(--vt-color-neutral-400,#9E9AB0)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={legalSearch}
+                  onChange={(e) => setLegalSearch(e.target.value)}
+                  placeholder="Search company, director, field, or request ID..."
+                  className="w-full h-9 pl-9 pr-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] text-xs font-medium outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(["ALL", "PENDING", "APPROVED", "DECLINED"] as const).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setLegalFilter(status)}
+                    className={`h-8 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      legalFilter === status
+                        ? "bg-[var(--vt-color-indigo-900,#261A66)] text-white"
+                        : "bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)]"
+                    }`}
+                  >
+                    {status === "ALL" ? "All" : status.charAt(0) + status.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Structured Request Cards */}
+            <section className="space-y-4">
+              {filteredLegal.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-10 text-center">
+                  <p className="text-sm font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                    No matching legal update requests
+                  </p>
+                  <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
+                    Requests submitted by verified companies from Company Settings appear here for review.
+                  </p>
+                </div>
+              ) : (
+                filteredLegal.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs overflow-hidden"
+                  >
+                    {/* Card Header */}
+                    <div className="px-5 py-4 bg-gradient-to-r from-[var(--vt-color-neutral-50,#F7F7FA)] via-white to-[var(--vt-color-orange-50,#FFF4EE)]/30 border-b border-[var(--vt-color-border-default,#E2E0EC)]/70 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="px-2.5 py-1 rounded-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[11px] font-mono font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                          {req.id}
+                        </span>
+                        <div>
+                          <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                            {req.companyName}
+                          </h3>
+                          <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
+                            Submitted by <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{req.directorName}</strong> ·{" "}
+                            {new Date(req.submittedAt).toLocaleDateString("en-NG", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-1 rounded-lg bg-[var(--vt-color-indigo-50,#EEF0FF)] text-[var(--vt-color-indigo-900,#261A66)] text-[11px] font-bold">
+                          {req.field}
+                        </span>
+                        <span
+                          className={`px-3 py-1 rounded-full text-[11px] font-extrabold border ${
+                            req.status === "APPROVED"
+                              ? "bg-[var(--vt-color-green-50,#E9F6EC)] border-[var(--vt-color-green-200,#A3D9B1)] text-[var(--vt-color-green-700,#1F6B3E)]"
+                              : req.status === "DECLINED"
+                              ? "bg-rose-50 border-rose-200 text-rose-700"
+                              : "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-200,#FDCAA9)] text-[var(--vt-color-orange-700,#B33C08)]"
+                          }`}
+                        >
+                          {req.status === "PENDING" ? "Pending Review" : req.status === "APPROVED" ? "Approved" : "Declined"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card Body: Side-by-Side Diff + Reason */}
+                    <div className="p-5 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--vt-color-neutral-500,#7C7894)] mb-1">
+                            Current Verified Value
+                          </p>
+                          <p className="text-sm font-mono font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)]">
+                            {req.currentValue || "Not recorded"}
+                          </p>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)]/60 border border-[var(--vt-color-orange-200,#FDCAA9)]">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--vt-color-orange-700,#B33C08)] mb-1">
+                            Requested New Value
+                          </p>
+                          <p className="text-sm font-mono font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                            {req.requestedValue}
+                          </p>
+                        </div>
+                      </div>
+
+                      {req.reason && (
+                        <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)]/70 border border-[var(--vt-color-border-default,#E2E0EC)]/70 text-xs text-[var(--vt-color-neutral-700,#443E63)]">
+                          <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">Reason: </span>
+                          {req.reason}
+                        </div>
+                      )}
+
+                      {req.adminNotes && (
+                        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                          <span className="font-bold">Admin Note: </span>
+                          {req.adminNotes}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card Footer Actions */}
+                    <div className="px-5 py-3.5 bg-[var(--vt-color-neutral-50,#F7F7FA)]/60 border-t border-[var(--vt-color-border-default,#E2E0EC)]/70 flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
+                        {req.status === "PENDING"
+                          ? "Approving updates the verified company record immediately."
+                          : req.reviewedAt
+                          ? `Reviewed on ${new Date(req.reviewedAt).toLocaleDateString("en-NG", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}`
+                          : "Decision recorded"}
+                      </span>
+
+                      {req.status === "PENDING" && (
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeclineTarget(req);
+                              setDeclineNote("");
+                            }}
+                            className="h-9 px-4 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 text-xs font-bold transition-all cursor-pointer"
+                          >
+                            Decline Request
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReviewLegalRequest(req, "APPROVED")}
+                            className="h-9 px-4 rounded-xl bg-[var(--vt-color-green-500,#2E9E57)] hover:bg-[var(--vt-color-green-600,#248447)] text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+                          >
+                            Approve &amp; Update Profile
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </section>
+          </div>
+        );
+      })() : (
+        <>
       {/* Summary KPI Stat Cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
         <div
@@ -1155,6 +1483,58 @@ export default function VerificationQueuePage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Decline Legal Update Modal */}
+      {declineTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleReviewLegalRequest(declineTarget, "DECLINED", declineNote.trim());
+            }}
+            className="w-full max-w-md bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xl p-6 space-y-4 text-xs"
+          >
+            <div>
+              <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                Decline Legal Update Request
+              </h3>
+              <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                {declineTarget.companyName} · {declineTarget.field}
+              </p>
+            </div>
+            <div>
+              <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                Reason for Declining
+              </label>
+              <textarea
+                rows={3}
+                required
+                placeholder="Explain why this change could not be approved..."
+                value={declineNote}
+                onChange={(e) => setDeclineNote(e.target.value)}
+                className="w-full p-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeclineTarget(null)}
+                className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="h-9 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer"
+              >
+                Confirm Decline
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

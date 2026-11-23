@@ -9,6 +9,12 @@ import { useContractorUser } from "../hooks/useContractorUser";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
 import { DIRECTOR_NAV_ITEMS, DirectorNavId } from "../data/directorData";
 import { DirectorProfileModal } from "./DirectorProfileModal";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  readCompanyLiveNotifications,
+  readSharedConversations,
+} from "../../../shared/vantagedSyncBridge";
 
 function renderNavIcon(id: DirectorNavId, isActive: boolean) {
   const cls = `w-4 h-4 shrink-0 transition-colors ${
@@ -37,6 +43,12 @@ function renderNavIcon(id: DirectorNavId, isActive: boolean) {
         <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 12h-6l-2 3h-4l-2-3H2" />
           <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        </svg>
+      );
+    case "messages":
+      return (
+        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       );
     case "transactions":
@@ -102,6 +114,28 @@ export function DirectorSidebarNav({
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [liveUnreadMessages, setLiveUnreadMessages] = useState(0);
+  const [liveUnreadNotifs, setLiveUnreadNotifs] = useState(0);
+
+  useEffect(() => {
+    const syncCounts = () => {
+      const threads = readSharedConversations();
+      setLiveUnreadMessages(
+        threads.reduce((acc, t) => acc + (t.contractorUnreadCount || 0), 0)
+      );
+      const liveNotifs = readCompanyLiveNotifications();
+      setLiveUnreadNotifs(liveNotifs.filter((n) => n.isUnread).length);
+    };
+    syncCounts();
+    window.addEventListener(SHARED_SYNC_EVENT, syncCounts);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, syncCounts);
+    window.addEventListener("storage", syncCounts);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncCounts);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncCounts);
+      window.removeEventListener("storage", syncCounts);
+    };
+  }, []);
 
   useEffect(() => {
     if (currentActiveItem) {
@@ -117,11 +151,17 @@ export function DirectorSidebarNav({
   }, [currentActiveItem, pathname]);
 
   const getBadge = (id: DirectorNavId): number | undefined => {
+    if (id === "messages") {
+      return liveUnreadMessages > 0 ? liveUnreadMessages : undefined;
+    }
+    if (id === "notifications") {
+      const total = (isDemoMode ? 4 : 0) + liveUnreadNotifs;
+      return total > 0 ? total : undefined;
+    }
     if (!isDemoMode) return undefined;
     if (id === "projects") return 3;
     if (id === "requests") return 1;
     if (id === "transactions") return 1;
-    if (id === "notifications") return 4;
     return undefined;
   };
 

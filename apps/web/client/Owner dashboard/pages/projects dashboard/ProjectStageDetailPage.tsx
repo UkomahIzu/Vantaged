@@ -15,6 +15,7 @@ import {
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { markProjectAsCompleted } from "./projectStore";
+import { syncOwnerStageDecisionToContractor } from "../../../../shared/vantagedSyncBridge";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -168,6 +169,13 @@ export function ProjectStageDetailPage({
               : s
           );
           localStorage.setItem(stagesKey, JSON.stringify(nextStages));
+          syncOwnerStageDecisionToContractor({
+            projectId,
+            stageId,
+            stageNumber: prev.stageNumber,
+            stageTitle: prev.title,
+            decision: "APPROVED",
+          });
           if (nextStages.every((s) => s.status === "Approved")) {
             markProjectAsCompleted(projectId);
           }
@@ -215,6 +223,16 @@ export function ProjectStageDetailPage({
               : s
           );
           localStorage.setItem(stagesKey, JSON.stringify(nextStages));
+          syncOwnerStageDecisionToContractor({
+            projectId,
+            stageId,
+            stageNumber: prev.stageNumber,
+            stageTitle: prev.title,
+            decision: "FIX_REQUESTED",
+            failedChecklistIds,
+            fixNote: rejectionComment,
+            ownerName: "Dr. James Arinze (Owner)",
+          });
         } catch {}
       }
 

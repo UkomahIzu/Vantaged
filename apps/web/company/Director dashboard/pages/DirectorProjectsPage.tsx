@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DirectorSidebarNav } from "../components/DirectorSidebarNav";
 import { DirectorHeaderBar } from "../components/DirectorHeaderBar";
 import {
@@ -12,16 +12,36 @@ import {
 import { useScrollRestoration } from "../../../client/Owner dashboard/hooks/useScrollRestoration";
 import { VantagedSelect } from "../../../client/Owner dashboard/components/VantagedSelect";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { useContractorUser } from "../hooks/useContractorUser";
+import { readLocalData } from "../utils/localPersistence";
+import {
+  CompanySentOwnerRequest,
+  pushOwnerLiveNotification,
+  readCompanySentRequests,
+  saveCompanySentRequests,
+} from "../../../shared/vantagedSyncBridge";
 import {
   DEMO_DIRECTOR_ACTIVE_FOLDER_PROJECTS,
   DEMO_DIRECTOR_HISTORY_FOLDER_PROJECTS,
   DEMO_DIRECTOR_PROJECTS,
 } from "../data/directorData";
 
-const COMPANY_TOTAL_SLOTS = 5;
+const DEFAULT_PLAN_MAP: Record<string, { name: string; slots: number }> = {
+  "contractor-starter": { name: "Starter Contractor", slots: 1 },
+  "contractor-verified": { name: "Verified Builder", slots: 3 },
+  "contractor-prime": { name: "Prime Consortium", slots: 8 },
+};
+
+function normalizePlanId(raw: string): string {
+  if (raw === "starter" || raw === "contractor-starter") return "contractor-starter";
+  if (raw === "enterprise" || raw === "contractor-prime") return "contractor-prime";
+  return "contractor-verified";
+}
+
 const STORAGE_KEY_ACCEPTED_PROJECTS = "vantaged_company_accepted_projects";
 
 export function DirectorProjectsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get("tab");
   const searchParam = searchParams?.get("search");
@@ -58,6 +78,15 @@ export function DirectorProjectsPage() {
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [inspectProject, setInspectProject] = useState<ProjectItem | null>(null);
+  const [isSendRequestOpen, setIsSendRequestOpen] = useState(false);
+  const [ownerIdentifier, setOwnerIdentifier] = useState("");
+  const [reqTitle, setReqTitle] = useState("");
+  const [reqLocation, setReqLocation] = useState("");
+  const [reqCategory, setReqCategory] = useState("Residential");
+  const [reqBudget, setReqBudget] = useState("");
+  const [reqNotes, setReqNotes] = useState("");
+  const [reqError, setReqError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterClient, setFilterClient] = useState<string>("all");
@@ -68,6 +97,7 @@ export function DirectorProjectsPage() {
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
   const { isDemoMode } = useDirectorDemoMode();
+  const contractorUser = useContractorUser();
 
   const activeProjects = useMemo(
     () =>
@@ -156,12 +186,122 @@ export function DirectorProjectsPage() {
     (filterStage !== "all" ? 1 : 0) +
     (sortBy !== "recent" ? 1 : 0);
 
-  const canAddProject = activeProjects.length < COMPANY_TOTAL_SLOTS;
+  const [planMap, setPlanMap] = useState<Record<string, { name: string; slots: number }>>(DEFAULT_PLAN_MAP);
+  const [planId, setPlanId] = useState<string>(() =>
+    normalizePlanId(readLocalData("vantaged_director_plan_id", "contractor-verified"))
+  );
+  const [extraSlotsCount, setExtraSlotsCount] = useState<number>(() =>
+    readLocalData("vantaged_director_extra_slots", 0)
+  );
+
+  useEffect(() => {
+    const syncCapacity = () => {
+      setPlanId(normalizePlanId(readLocalData("vantaged_director_plan_id", "contractor-verified")));
+      setExtraSlotsCount(Math.max(0, Number(readLocalData("vantaged_director_extra_slots", 0)) || 0));
+    };
+    syncCapacity();
+    window.addEventListener("storage", syncCapacity);
+    window.addEventListener("focus", syncCapacity);
+    return () => {
+      window.removeEventListener("storage", syncCapacity);
+      window.removeEventListener("focus", syncCapacity);
+    };
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/pricing")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const tiers = data?.roles?.contractor?.tiers;
+        if (!Array.isArray(tiers)) return;
+        const next: Record<string, { name: string; slots: number }> = { ...DEFAULT_PLAN_MAP };
+        for (const t of tiers) {
+          if (t?.id && typeof t.capacitySlots === "number") {
+            next[t.id] = { name: t.name || t.id, slots: t.capacitySlots };
+          }
+        }
+        setPlanMap(next);
+      })
+      .catch(() => {});
+  }, []);
+
+  const activePlanInfo = planMap[planId] ?? DEFAULT_PLAN_MAP["contractor-verified"];
+  const totalCompanySlots = activePlanInfo.slots + extraSlotsCount;
+  const canAddProject = activeProjects.length < totalCompanySlots;
 
   const inspectMeta = useMemo(() => {
     if (!inspectProject) return null;
     return DEMO_DIRECTOR_PROJECTS.find((p) => p.id === inspectProject.id) ?? null;
   }, [inspectProject]);
+
+  const validateOwnerIdentifier = (val: string): "email" | "phone" | null => {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+    if (isEmail) return "email";
+    const digitsOnly = trimmed.replace(/[\s\-()+]/g, "");
+    const isPhone = /^\d{7,15}$/.test(digitsOnly) && /^[+\d\s\-()]+$/.test(trimmed);
+    if (isPhone) return "phone";
+    return null;
+  };
+
+  const identifierType = validateOwnerIdentifier(ownerIdentifier);
+
+  const handleSendProjectRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canAddProject) {
+      setReqError("All project slots are currently in use. Upgrade your plan or buy extra slots in Settings.");
+      return;
+    }
+    const kind = validateOwnerIdentifier(ownerIdentifier);
+    if (!kind) {
+      setReqError("Enter a valid owner email address or phone number to send this request.");
+      return;
+    }
+    if (!reqTitle.trim() || !reqLocation.trim() || !reqBudget.trim()) {
+      setReqError("Please fill in the project title, site location, and estimated budget.");
+      return;
+    }
+
+    const existing = readCompanySentRequests();
+    const newReq: CompanySentOwnerRequest = {
+      id: `REQ-${Date.now().toString().slice(-6)}`,
+      companyName: contractorUser.companyName,
+      directorName: contractorUser.fullName,
+      ownerIdentifier: ownerIdentifier.trim(),
+      identifierType: kind,
+      title: reqTitle.trim(),
+      location: reqLocation.trim(),
+      category: reqCategory,
+      budget: reqBudget.trim(),
+      notes: reqNotes.trim(),
+      status: "Pending Owner Review",
+      emailNoticeSent: true,
+      sentAt: new Date().toISOString(),
+    };
+    saveCompanySentRequests([newReq, ...existing]);
+
+    pushOwnerLiveNotification({
+      category: "site",
+      projectTitle: newReq.title,
+      title: `New Project Request from ${newReq.companyName}`,
+      description: `${newReq.companyName} sent a project request for "${newReq.title}" (${newReq.budget}). Vantaged also sent an email alert to ${newReq.ownerIdentifier}.`,
+      linkUrl: "/owner/find-companies?tab=incoming",
+    });
+
+    setOwnerIdentifier("");
+    setReqTitle("");
+    setReqLocation("");
+    setReqCategory("Residential");
+    setReqBudget("");
+    setReqNotes("");
+    setReqError(null);
+    setIsSendRequestOpen(false);
+    setToastMessage(
+      `Vantaged sent an email alert to ${newReq.ownerIdentifier} and added the request to their dashboard.`
+    );
+    setTimeout(() => setToastMessage(null), 4200);
+  };
 
   return (
     <div
@@ -244,7 +384,8 @@ export function DirectorProjectsPage() {
                     }`}
                   />
                   <span>
-                    Capacity: {activeProjects.length} / {COMPANY_TOTAL_SLOTS} Slots (Growth Partner)
+                    Capacity: {activeProjects.length} / {totalCompanySlots} Slots ({activePlanInfo.name}
+                    {extraSlotsCount > 0 ? ` + ${extraSlotsCount} Extra` : ""})
                   </span>
                 </div>
               )}
@@ -301,17 +442,21 @@ export function DirectorProjectsPage() {
               </button>
             </div>
 
-            {/* Project Requests / New Plan CTA */}
-            <Link
-              href="/contractor/requests"
-              className="h-9 px-3.5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap"
+            {/* Send Project Request CTA */}
+            <button
+              type="button"
+              onClick={() => {
+                setReqError(null);
+                setIsSendRequestOpen(true);
+              }}
+              className="h-9 px-3.5 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              <span>Project Requests</span>
-            </Link>
+              <span>Send Project Request</span>
+            </button>
 
             {/* Filter Button & Popover */}
             <div className="relative shrink-0">
@@ -630,7 +775,7 @@ export function DirectorProjectsPage() {
                   isSelected={selectedProjectId === project.id}
                   onSelect={(p) => {
                     setSelectedProjectId(p.id);
-                    setInspectProject(p);
+                    router.push(`/contractor/projects/${p.id}`);
                   }}
                 />
               ))}
@@ -729,6 +874,175 @@ export function DirectorProjectsPage() {
               </Link>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast Banner */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-bold shadow-xl">
+          ✓ {toastMessage}
+        </div>
+      )}
+
+      {/* Send Project Request to Owner Modal */}
+      {isSendRequestOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSendProjectRequest}
+            className="w-full max-w-lg bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xl overflow-hidden text-xs"
+          >
+            <div className="px-6 py-4 bg-gradient-to-r from-[var(--vt-color-neutral-50,#F7F7FA)] via-white to-[var(--vt-color-orange-50,#FFF4EE)]/30 border-b border-[var(--vt-color-border-default,#E2E0EC)] flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                  Send Project Request to Owner
+                </h3>
+                <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                  Vantaged will notify the owner via their email/phone and deliver this request to their dashboard inbox &amp; in-app notifications.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSendRequestOpen(false)}
+                className="w-7 h-7 rounded-lg bg-[var(--vt-color-neutral-100,#ECEBF3)] text-[var(--vt-color-neutral-600,#5E5A7D)] font-bold flex items-center justify-center cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {!canAddProject && (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div>
+                    <p className="font-bold">Project Slot Limit Reached ({activeProjects.length} / {totalCompanySlots})</p>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      Your <strong>{activePlanInfo.name}</strong> plan{extraSlotsCount > 0 ? ` (+${extraSlotsCount} extra slot${extraSlotsCount > 1 ? "s" : ""})` : ""} has no free project slots left.
+                    </p>
+                  </div>
+                  <Link
+                    href="/contractor/settings"
+                    className="h-8 px-3 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-[11px] font-bold flex items-center justify-center shrink-0"
+                  >
+                    Upgrade / Buy Slots
+                  </Link>
+                </div>
+              )}
+
+              {reqError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-semibold">
+                  {reqError}
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                    Owner Email or Phone Number *
+                  </label>
+                  {identifierType && (
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--vt-color-green-50,#E9F6EC)] border border-[var(--vt-color-green-200,#A3D9B1)] text-[var(--vt-color-green-700,#1F6B3E)] text-[10px] font-bold">
+                      ✓ Valid {identifierType === "email" ? "Email ID" : "Phone Number"}
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. adebayo@example.com or +234 803 123 4567"
+                  value={ownerIdentifier}
+                  onChange={(e) => {
+                    setOwnerIdentifier(e.target.value);
+                    if (reqError) setReqError(null);
+                  }}
+                  className="w-full h-10 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                />
+                <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
+                  Only an owner matching this email or phone number will receive this request.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Project Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Lekki 4-Bedroom Duplex"
+                    value={reqTitle}
+                    onChange={(e) => setReqTitle(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Category
+                  </label>
+                  <VantagedSelect
+                    value={reqCategory}
+                    onChange={(val) => setReqCategory(val)}
+                    options={["Residential", "Commercial", "Renovation", "Infrastructure"]}
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Site Location *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Lekki Phase 1, Lagos"
+                    value={reqLocation}
+                    onChange={(e) => setReqLocation(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Estimated Budget *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. ₦85,000,000"
+                    value={reqBudget}
+                    onChange={(e) => setReqBudget(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                  Scope / Note to Owner
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Share proposed scope, timeline, or next steps for the property owner..."
+                  value={reqNotes}
+                  onChange={(e) => setReqNotes(e.target.value)}
+                  className="w-full p-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-[var(--vt-color-neutral-50,#F7F7FA)] border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsSendRequestOpen(false)}
+                className="h-9 px-4 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!identifierType || !canAddProject}
+                className="h-9 px-4 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] disabled:opacity-45 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+              >
+                Send Project Request
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

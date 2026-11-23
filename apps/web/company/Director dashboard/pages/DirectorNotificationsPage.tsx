@@ -6,6 +6,12 @@ import { DirectorSidebarNav } from "../components/DirectorSidebarNav";
 import { DirectorHeaderBar } from "../components/DirectorHeaderBar";
 import { useScrollRestoration } from "../../../client/Owner dashboard/hooks/useScrollRestoration";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  readCompanyLiveNotifications,
+  saveCompanyLiveNotifications,
+} from "../../../shared/vantagedSyncBridge";
 
 export interface DirectorNotificationItem {
   id: string;
@@ -93,22 +99,23 @@ export function DirectorNotificationsPage() {
   const { isDemoMode } = useDirectorDemoMode();
 
   const getSourceNotifications = useCallback((): DirectorNotificationItem[] => {
-    if (!isDemoMode) return [];
+    const liveItems: DirectorNotificationItem[] = readCompanyLiveNotifications();
+    if (!isDemoMode) return liveItems;
+    let base: DirectorNotificationItem[] = INITIAL_DIRECTOR_NOTIFICATIONS;
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) base = parsed;
       }
     } catch {
       // ignore
     }
-    return INITIAL_DIRECTOR_NOTIFICATIONS;
+    const liveIds = new Set(liveItems.map((l) => l.id));
+    return [...liveItems, ...base.filter((b) => !liveIds.has(b.id))];
   }, [isDemoMode]);
 
-  const [notifications, setNotifications] = useState<DirectorNotificationItem[]>(() =>
-    getSourceNotifications()
-  );
+  const [notifications, setNotifications] = useState<DirectorNotificationItem[]>([]);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settings, setSettings] = useState({
     pushReceipts: true,
@@ -123,9 +130,13 @@ export function DirectorNotificationsPage() {
     const sync = () => setNotifications(getSourceNotifications());
     sync();
     window.addEventListener("vantaged_director_demo_toggle", sync);
+    window.addEventListener(SHARED_SYNC_EVENT, sync);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener("vantaged_director_demo_toggle", sync);
+      window.removeEventListener(SHARED_SYNC_EVENT, sync);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, [getSourceNotifications]);
@@ -134,7 +145,10 @@ export function DirectorNotificationsPage() {
     setNotifications(updated);
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem(storageKey, JSON.stringify(updated));
+        const liveOnly = updated.filter((u) => u.id.startsWith("comp-notif-"));
+        const baseOnly = updated.filter((u) => !u.id.startsWith("comp-notif-"));
+        saveCompanyLiveNotifications(liveOnly);
+        localStorage.setItem(storageKey, JSON.stringify(baseOnly));
       } catch {
         // ignore
       }

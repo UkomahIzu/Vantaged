@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useDemoMode } from "../hooks/useDemoMode";
+import { readOwnerLiveNotifications } from "../../../shared/vantagedSyncBridge";
 
 interface NotificationItem {
   id: string;
@@ -76,7 +77,33 @@ const initialOwnerNotifications: NotificationItem[] = [
 
 export function NotificationsCard() {
   const { isDemoMode } = useDemoMode();
-  const notifications = isDemoMode ? initialOwnerNotifications : [];
+  const [liveItems, setLiveItems] = useState<NotificationItem[]>([]);
+
+  useEffect(() => {
+    const sync = () => {
+      const live = readOwnerLiveNotifications().map((n) => ({
+        id: n.id,
+        type: "message" as const,
+        title: n.title,
+        subtitle: n.description,
+        timestamp: n.timestamp,
+        urgent: n.isUnread,
+        linkUrl: n.linkUrl || "/owner/notifications",
+      }));
+      setLiveItems(live);
+    };
+    sync();
+    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  const notifications = isDemoMode
+    ? [...liveItems, ...initialOwnerNotifications]
+    : liveItems;
 
   return (
     <div

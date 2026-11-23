@@ -7,6 +7,13 @@ import { HeaderBar } from "../components/HeaderBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { useDemoMode } from "../hooks/useDemoMode";
 import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  appendSharedMessage,
+  markConversationRead,
+  readSharedConversations,
+} from "../../../shared/vantagedSyncBridge";
 
 export interface MessageItem {
   id: string;
@@ -128,18 +135,43 @@ export function OwnerMessagesPage() {
   const subscription = useOwnerSubscription();
 
   const getSourceConversations = useCallback((): ConversationItem[] => {
-    if (!isDemoMode) return [];
-    if (subscription.tierId === "owner-private") {
-      return INITIAL_CONVERSATIONS.filter((c) => c.projectTitle === "Lekki Phase 1 Luxury Villa");
+    const shared = readSharedConversations().map(
+      (t): ConversationItem => ({
+        id: t.id,
+        counterpartName: t.contractorName,
+        counterpartRole: t.contractorRole,
+        counterpartCompany: t.contractorCompany,
+        avatar: t.avatar,
+        isOnline: t.isOnline,
+        projectTitle: t.projectTitle,
+        projectId: t.projectId,
+        lastMessage: t.lastMessage,
+        lastMessageTime: t.lastMessageTime,
+        unreadCount: t.ownerUnreadCount,
+        phone: t.contractorPhone,
+        messages: t.messages.map((m) => ({
+          id: m.id,
+          sender: m.sender === "owner" ? "owner" : "counterpart",
+          senderName: m.senderName,
+          avatar: m.sender === "contractor" ? t.avatar : undefined,
+          text: m.text,
+          timestamp: m.timestamp,
+          status: m.status,
+        })),
+      })
+    );
+
+    if (!isDemoMode) {
+      return shared.filter((c) => c.messages.some((m) => m.timestamp === "Just now"));
     }
-    return INITIAL_CONVERSATIONS;
+    if (subscription.tierId === "owner-private") {
+      return shared.filter((c) => c.projectId === "proj-lekki");
+    }
+    return shared;
   }, [isDemoMode, subscription.tierId]);
 
-  const [conversations, setConversations] = useState<ConversationItem[]>(() => getSourceConversations());
-  const [selectedConvId, setSelectedConvId] = useState<string | null>(() => {
-    const list = getSourceConversations();
-    return list[0]?.id || null;
-  });
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -147,20 +179,23 @@ export function OwnerMessagesPage() {
     const sync = () => {
       const updated = getSourceConversations();
       setConversations(updated);
-      if (!selectedConvId && updated.length > 0) {
-        setSelectedConvId(updated[0]?.id || null);
-      }
+      setSelectedConvId((prev) => {
+        if (prev && updated.some((c) => c.id === prev)) return prev;
+        return updated[0]?.id || null;
+      });
     };
     sync();
-    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener(SHARED_SYNC_EVENT, sync);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, sync);
     window.addEventListener("vantaged_demo_toggle", sync);
     window.addEventListener("storage", sync);
     return () => {
-      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener(SHARED_SYNC_EVENT, sync);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, sync);
       window.removeEventListener("vantaged_demo_toggle", sync);
       window.removeEventListener("storage", sync);
     };
-  }, [getSourceConversations, selectedConvId]);
+  }, [getSourceConversations]);
 
   const activeConversation = useMemo(() => {
     return conversations.find((c) => c.id === selectedConvId) || conversations[0] || null;
@@ -170,27 +205,14 @@ export function OwnerMessagesPage() {
     e.preventDefault();
     if (!inputText.trim() || !activeConversation) return;
 
-    const newMsg: MessageItem = {
-      id: `msg-${Date.now()}`,
+    appendSharedMessage({
+      conversationId: activeConversation.id,
       sender: "owner",
-      senderName: "You",
+      senderName: "Property Owner",
       text: inputText.trim(),
-      timestamp: "Just now",
-      status: "delivered",
-    };
-
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === activeConversation.id
-          ? {
-              ...c,
-              lastMessage: newMsg.text,
-              lastMessageTime: "Just now",
-              messages: [...c.messages, newMsg],
-            }
-          : c
-      )
-    );
+    });
+    markConversationRead(activeConversation.id, "owner");
+    setConversations(getSourceConversations());
     setInputText("");
 
     setTimeout(() => {
