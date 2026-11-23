@@ -15,6 +15,7 @@ import {
   readCompanyLiveNotifications,
   readSharedConversations,
 } from "../../../shared/vantagedSyncBridge";
+import { signOutContractor } from "../../../shared/vantagedAuth";
 
 function renderNavIcon(id: DirectorNavId, isActive: boolean) {
   const cls = `w-4 h-4 shrink-0 transition-colors ${
@@ -116,26 +117,38 @@ export function DirectorSidebarNav({
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [liveUnreadMessages, setLiveUnreadMessages] = useState(0);
   const [liveUnreadNotifs, setLiveUnreadNotifs] = useState(0);
+  const [liveProjectsCount, setLiveProjectsCount] = useState(0);
 
   useEffect(() => {
     const syncCounts = () => {
-      const threads = readSharedConversations();
+      const threads = readSharedConversations(isDemoMode);
       setLiveUnreadMessages(
         threads.reduce((acc, t) => acc + (t.contractorUnreadCount || 0), 0)
       );
       const liveNotifs = readCompanyLiveNotifications();
       setLiveUnreadNotifs(liveNotifs.filter((n) => n.isUnread).length);
+      try {
+        const raw = localStorage.getItem("vantaged_company_accepted_projects");
+        const parsed = raw ? JSON.parse(raw) : [];
+        setLiveProjectsCount(Array.isArray(parsed) ? parsed.length : 0);
+      } catch {
+        setLiveProjectsCount(0);
+      }
     };
     syncCounts();
     window.addEventListener(SHARED_SYNC_EVENT, syncCounts);
     window.addEventListener(CONTRACTOR_SYNC_EVENT, syncCounts);
+    window.addEventListener("vantaged_company_projects_update", syncCounts);
+    window.addEventListener("vantaged_director_demo_toggle", syncCounts);
     window.addEventListener("storage", syncCounts);
     return () => {
       window.removeEventListener(SHARED_SYNC_EVENT, syncCounts);
       window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncCounts);
+      window.removeEventListener("vantaged_company_projects_update", syncCounts);
+      window.removeEventListener("vantaged_director_demo_toggle", syncCounts);
       window.removeEventListener("storage", syncCounts);
     };
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     if (currentActiveItem) {
@@ -158,8 +171,11 @@ export function DirectorSidebarNav({
       const total = (isDemoMode ? 4 : 0) + liveUnreadNotifs;
       return total > 0 ? total : undefined;
     }
+    if (id === "projects") {
+      const total = (isDemoMode ? 3 : 0) + liveProjectsCount;
+      return total > 0 ? total : undefined;
+    }
     if (!isDemoMode) return undefined;
-    if (id === "projects") return 3;
     if (id === "requests") return 1;
     if (id === "transactions") return 1;
     return undefined;
@@ -180,7 +196,7 @@ export function DirectorSidebarNav({
             Demo Data
           </span>
           <span className="text-[10px] text-[var(--vt-color-neutral-500,#7C7894)] truncate font-sans">
-            {isDemoMode ? "Mock company builds" : "Empty state (New firm)"}
+            {isDemoMode ? "Mock company builds" : "Live state (Real data)"}
           </span>
         </div>
         <button
@@ -262,7 +278,8 @@ export function DirectorSidebarNav({
               type="button"
               onClick={() => {
                 setIsProfileMenuOpen(false);
-                router.push("/contractor/login");
+                signOutContractor();
+                router.replace("/contractor/login");
               }}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer text-left"
             >

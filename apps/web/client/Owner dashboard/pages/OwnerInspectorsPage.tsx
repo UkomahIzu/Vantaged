@@ -6,6 +6,7 @@ import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { VantagedSelect } from "../components/VantagedSelect";
+import { getOwnerScopedKey } from "../../../shared/vantagedAuth";
 
 // ── Crisp High-Precision SVG Icons ──
 function IconStar({ className = "w-3.5 h-3.5" }: { className?: string }) {
@@ -407,9 +408,11 @@ export function OwnerInspectorsPage() {
 
   useEffect(() => {
     try {
-      const savedTickets = localStorage.getItem("vantaged_inspection_tickets");
+      const savedTickets = localStorage.getItem(getOwnerScopedKey("vantaged_inspection_tickets"));
       if (savedTickets) {
         setTickets(JSON.parse(savedTickets));
+      } else {
+        setTickets([]);
       }
     } catch {}
   }, []);
@@ -417,7 +420,7 @@ export function OwnerInspectorsPage() {
   const persistTickets = (next: InspectionTicket[]) => {
     setTickets(next);
     try {
-      localStorage.setItem("vantaged_inspection_tickets", JSON.stringify(next));
+      localStorage.setItem(getOwnerScopedKey("vantaged_inspection_tickets"), JSON.stringify(next));
     } catch {}
   };
 

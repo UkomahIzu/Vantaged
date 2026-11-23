@@ -1,21 +1,93 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
 import {
   DEMO_DIRECTOR_PROJECTS,
   DEMO_WAITING_ACTIONS,
+  DirectorProjectSummary,
+  WaitingActionItem,
 } from "../data/directorData";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  readCompanyLiveNotifications,
+} from "../../../shared/vantagedSyncBridge";
 
 type PortfolioTab = "ALL" | "CONTRACTOR_TURN" | "CLIENT_TURN";
 
 export function DirectorPortfolioAndQueue() {
   const { isDemoMode } = useDirectorDemoMode();
   const [tab, setTab] = useState<PortfolioTab>("ALL");
+  const [liveProjects, setLiveProjects] = useState<DirectorProjectSummary[]>([]);
+  const [liveWaiting, setLiveWaiting] = useState<WaitingActionItem[]>([]);
 
-  const projects = isDemoMode ? DEMO_DIRECTOR_PROJECTS : [];
-  const waitingItems = isDemoMode ? DEMO_WAITING_ACTIONS : [];
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const raw = localStorage.getItem("vantaged_company_accepted_projects");
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed)) {
+          setLiveProjects(
+            parsed.map((p: any) => ({
+              id: p.id,
+              name: p.title,
+              clientName: p.contractor?.assignedRep || "Property Owner",
+              location: p.location || "Nigeria",
+              currentStage: p.stageSubtitle || "Stage 1: Mobilization",
+              verifiedPercent: p.progressPercent || 0,
+              reportedPercent: p.progressPercent || 0,
+              status: "ACTIVE" as const,
+              ballInCourt: "CONTRACTOR" as const,
+              contractValue: p.escrowAmount || "₦0",
+              escrowReceived: "₦0",
+              assignedCrewCount: 1,
+            }))
+          );
+        }
+      } catch {
+        setLiveProjects([]);
+      }
+
+      const notifs = readCompanyLiveNotifications().filter((n) => n.isUnread);
+      setLiveWaiting(
+        notifs.slice(0, 5).map((n) => ({
+          id: n.id,
+          category:
+            n.category === "receipt"
+              ? "RECEIPT_CONFIRM"
+              : n.category === "stage"
+              ? "STAGE_REWORK"
+              : "PROJECT_REQUEST",
+          roleOwner: n.category === "receipt" ? "Office Coord. / Director" : "Director",
+          title: n.title,
+          subtitle: n.description,
+          urgencyLabel: n.timestamp,
+          urgencyTone: n.category === "receipt" ? "green" : "orange",
+          href: n.href,
+        }))
+      );
+    };
+    sync();
+    window.addEventListener("vantaged_company_projects_update", sync);
+    window.addEventListener(SHARED_SYNC_EVENT, sync);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_company_projects_update", sync);
+      window.removeEventListener(SHARED_SYNC_EVENT, sync);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  const projects = isDemoMode
+    ? [...liveProjects, ...DEMO_DIRECTOR_PROJECTS]
+    : liveProjects;
+  const waitingItems = isDemoMode
+    ? [...liveWaiting, ...DEMO_WAITING_ACTIONS]
+    : liveWaiting;
 
   const yourTurnCount = projects.filter((p) => p.ballInCourt === "CONTRACTOR").length;
   const clientTurnCount = projects.filter((p) => p.ballInCourt === "CLIENT").length;

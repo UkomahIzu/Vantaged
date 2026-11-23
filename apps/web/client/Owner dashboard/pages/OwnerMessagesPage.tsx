@@ -135,7 +135,7 @@ export function OwnerMessagesPage() {
   const subscription = useOwnerSubscription();
 
   const getSourceConversations = useCallback((): ConversationItem[] => {
-    const shared = readSharedConversations().map(
+    const shared = readSharedConversations(isDemoMode).map(
       (t): ConversationItem => ({
         id: t.id,
         counterpartName: t.contractorName,
@@ -162,7 +162,7 @@ export function OwnerMessagesPage() {
     );
 
     if (!isDemoMode) {
-      return shared.filter((c) => c.messages.some((m) => m.timestamp === "Just now"));
+      return shared;
     }
     if (subscription.tierId === "owner-private") {
       return shared.filter((c) => c.projectId === "proj-lekki");

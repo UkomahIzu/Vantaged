@@ -39,9 +39,66 @@ export default function ContractorsDirectoryPage() {
     }
 
     if (!isDemoMode) {
-      setContractors([]);
-      setSelectedContractor(null);
-      setPendingQueueCount(0);
+      fetch("/api/verifications")
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData?.success && Array.isArray(resData.data)) {
+            const pending = resData.data.filter(
+              (s: any) => s.status === "PENDING_REVIEW"
+            ).length;
+            setPendingQueueCount(pending);
+            const verifiedLive: ContractorRecord[] = resData.data
+              .filter((s: any) => s.status === "VERIFIED")
+              .map((s: any) => ({
+                id: s.id,
+                name: s.companyName,
+                rcNumber: s.rcNumber || "RC-VERIFIED",
+                director: s.directorName,
+                email: s.directorEmail || s.email,
+                phone: s.directorPhone || s.phone || "",
+                state: s.state || "Lagos",
+                category: s.category || "General Contractor",
+                plan:
+                  s.selectedPlan === "contractor-prime"
+                    ? "Prime Consortium"
+                    : s.selectedPlan === "contractor-verified"
+                    ? "Verified Builder"
+                    : "Starter Builder",
+                status: "VERIFIED",
+                slotsUsed: 0,
+                slotsMax:
+                  s.selectedPlan === "contractor-prime"
+                    ? 8
+                    : s.selectedPlan === "contractor-verified"
+                    ? 3
+                    : 1,
+                activeSlots: "0 / 1 (Free Slot Available)",
+                badges: ["CAC Verified"],
+                verifiedDate: s.verifiedAt
+                  ? new Date(s.verifiedAt).toLocaleDateString()
+                  : "Recently",
+                rating: 5.0,
+                escrowVolume: "₦0",
+                completedBuilds: 0,
+                officeAddress: s.officeAddress || "",
+                tin: s.tin || "",
+                bankName: s.bankName || "",
+                accountNumber: s.accountNumber || "",
+                accountName: s.accountName || "",
+                corenNumber: s.corenNumber || "",
+                bppCategory: s.bppCategory || "",
+                yearsInBusiness: s.yearsInBusiness || "1+",
+              }));
+            setContractors(verifiedLive);
+          } else {
+            setContractors([]);
+            setPendingQueueCount(0);
+          }
+        })
+        .catch(() => {
+          setContractors([]);
+          setPendingQueueCount(0);
+        });
       return;
     }
 

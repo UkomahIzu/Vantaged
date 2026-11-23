@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  AUTH_CHANGE_EVENT,
+  getContractorSession,
+} from "../../../shared/vantagedAuth";
 
 export interface ContractorUser {
   fullName: string;
@@ -11,39 +15,70 @@ export interface ContractorUser {
   rcNumber: string;
 }
 
-const DEFAULT_DIRECTOR_USER: ContractorUser = {
-  fullName: "Engr. Babatunde Adeleke",
-  firstName: "Babatunde",
-  email: "b.adeleke@apexstructure.ng",
+const EMPTY_CONTRACTOR_USER: ContractorUser = {
+  fullName: "",
+  firstName: "",
+  email: "",
   role: "Director",
-  companyName: "Apex Structure & Civil Ltd",
-  rcNumber: "RC-1849204",
+  companyName: "",
+  rcNumber: "",
 };
 
 export function useContractorUser(): ContractorUser {
-  const [user, setUser] = useState<ContractorUser>(DEFAULT_DIRECTOR_USER);
+  const [user, setUser] = useState<ContractorUser>(EMPTY_CONTRACTOR_USER);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const sync = () => {
+      const session = getContractorSession();
+      if (session) {
+        const fullName = session.fullName.trim();
+        const parts = fullName
+          .replace(/^(Engr\.|Arch\.|QS|Chief|Dr\.)\s+/i, "")
+          .trim()
+          .split(/\s+/);
+        setUser({
+          fullName,
+          firstName: parts[0] || fullName,
+          email: session.email,
+          role: session.role || "Director",
+          companyName: session.companyName,
+          rcNumber: session.rcNumber || "",
+        });
+        return;
+      }
 
-    const storedEmail = localStorage.getItem("vantaged_contractor_user_email");
-    const storedRole = localStorage.getItem("vantaged_contractor_user_role");
-    const storedName = localStorage.getItem("vantaged_contractor_user_name");
-    const storedCompany = localStorage.getItem("vantaged_contractor_company_name");
+      const storedEmail = localStorage.getItem("vantaged_contractor_user_email");
+      const storedRole = localStorage.getItem("vantaged_contractor_user_role");
+      const storedName = localStorage.getItem("vantaged_contractor_user_name");
+      const storedCompany = localStorage.getItem("vantaged_contractor_company_name");
+      const storedRc = localStorage.getItem("vantaged_contractor_rc_number");
 
-    setUser((prev) => {
-      const fullName = storedName?.trim() || prev.fullName;
-      const parts = fullName.replace(/^(Engr\.|Arch\.|QS|Chief)\s+/i, "").trim().split(/\s+/);
-      const firstName = parts[0] || prev.firstName;
-      return {
-        fullName,
-        firstName,
-        email: storedEmail?.trim() || prev.email,
-        role: storedRole?.trim() || prev.role,
-        companyName: storedCompany?.trim() || prev.companyName,
-        rcNumber: prev.rcNumber,
-      };
-    });
+      if (storedName || storedEmail) {
+        const fullName = storedName?.trim() || "";
+        const parts = fullName
+          .replace(/^(Engr\.|Arch\.|QS|Chief|Dr\.)\s+/i, "")
+          .trim()
+          .split(/\s+/);
+        setUser({
+          fullName,
+          firstName: parts[0] || fullName,
+          email: storedEmail?.trim() || "",
+          role: storedRole?.trim() || "Director",
+          companyName: storedCompany?.trim() || "",
+          rcNumber: storedRc?.trim() || "",
+        });
+      } else {
+        setUser(EMPTY_CONTRACTOR_USER);
+      }
+    };
+
+    sync();
+    window.addEventListener(AUTH_CHANGE_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(AUTH_CHANGE_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
 
   return user;

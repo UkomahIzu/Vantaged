@@ -1,13 +1,45 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
-import { DEMO_TEAM_MEMBERS } from "../data/directorData";
+import { DEMO_TEAM_MEMBERS, DirectorTeamSummary } from "../data/directorData";
 
 export function DirectorBottomSummary() {
   const { isDemoMode } = useDirectorDemoMode();
-  const team = isDemoMode ? DEMO_TEAM_MEMBERS : [];
+  const [savedTeam, setSavedTeam] = useState<DirectorTeamSummary[]>([]);
+
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const raw = localStorage.getItem("vantaged_director_team");
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed)) {
+          setSavedTeam(
+            parsed.map((m: any) => ({
+              id: m.id,
+              name: m.name,
+              role: m.role,
+              assignedSites: m.assignedSites ?? 0,
+              points: m.points ?? 0,
+              status: m.status === "ON_SITE" ? "ON_SITE" : "ACTIVE",
+            }))
+          );
+        }
+      } catch {
+        setSavedTeam([]);
+      }
+    };
+    sync();
+    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  const team = isDemoMode ? DEMO_TEAM_MEMBERS : savedTeam;
 
   return (
     <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 w-full select-none font-sans">

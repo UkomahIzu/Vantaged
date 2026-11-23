@@ -25,8 +25,8 @@ export function OwnerStatsSummaryCards() {
     };
   }, [isDemoMode]);
 
-  const activeProjectsDisplay = isDemoMode ? activeCount.toString().padStart(2, "0") : "00";
-  const awaitingApprovalDisplay = isDemoMode && activeCount > 0 ? "01" : "00";
+  const activeProjectsDisplay = activeCount.toString().padStart(2, "0");
+  const awaitingApprovalDisplay = activeCount > 0 ? (isDemoMode ? "01" : "00") : "00";
   const totalSpentDisplay = !isDemoMode
     ? "₦0"
     : activeCount === 1

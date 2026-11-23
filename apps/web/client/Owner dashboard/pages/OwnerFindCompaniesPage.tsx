@@ -21,6 +21,7 @@ import {
   readCompanySentRequests,
   saveCompanySentRequests,
 } from "../../../shared/vantagedSyncBridge";
+import { getOwnerScopedKey } from "../../../shared/vantagedAuth";
 
 export interface CompanyItem {
   id: string;
@@ -375,9 +376,10 @@ export function OwnerFindCompaniesPage() {
       };
 
       try {
-        const ownerRaw = localStorage.getItem(STORAGE_KEY_ACTIVE);
+        const scopedActiveKey = getOwnerScopedKey(STORAGE_KEY_ACTIVE);
+        const ownerRaw = localStorage.getItem(scopedActiveKey);
         const ownerList: ProjectItem[] = ownerRaw ? JSON.parse(ownerRaw) : [];
-        localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify([createdProject, ...ownerList]));
+        localStorage.setItem(scopedActiveKey, JSON.stringify([createdProject, ...ownerList]));
 
         const compRaw = localStorage.getItem("vantaged_company_accepted_projects");
         const compList: ProjectItem[] = compRaw ? JSON.parse(compRaw) : [];

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useDemoMode } from "../hooks/useDemoMode";
 import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
+import { getActiveProjects } from "../pages/projects dashboard/projectStore";
 
 export interface ActiveProject {
   id: string;
@@ -236,12 +237,54 @@ export function ActiveProjectProgressCard({
 }: ActiveProjectProgressCardProps) {
   const { isDemoMode } = useDemoMode();
   const subscription = useOwnerSubscription();
+  const [liveProjects, setLiveProjects] = useState<ActiveProject[]>([]);
 
-  // Enforce tier subscription project limit:
-  // Starter tier ("owner-private" - 1 slot) only gets 1 project!
-  const projects = isDemoMode
-    ? initialProjects.slice(0, Math.max(1, subscription.totalSlots))
-    : [];
+  useEffect(() => {
+    const sync = () => {
+      if (isDemoMode) {
+        setLiveProjects(initialProjects.slice(0, Math.max(1, subscription.totalSlots)));
+        return;
+      }
+      const stored = getActiveProjects();
+      const mapped: ActiveProject[] = stored.map((p) => ({
+        id: p.id,
+        jobId: p.jobId,
+        shortName: p.title.split(" ").slice(0, 2).join(" "),
+        title: p.title,
+        location: p.location,
+        specs: p.specs,
+        status: "In progress",
+        scope: {
+          title: p.currentScope || "Stage 1: Site Mobilization & Setup",
+          description: p.snippetLines?.join(" · ") || "Active milestone tracked on Vantaged",
+        },
+        contractor: {
+          name: p.contractor?.name || "Verified Builder",
+          rating: p.contractor?.rating || "4.9 ★",
+          milestonesCompleted: p.milestonesCount || 0,
+          assignedRep: p.contractor?.assignedRep || "Site Engineer",
+        },
+        steps: [
+          { title: "Project agreement confirmed", timeOrDate: p.lastUpdated || "Active", status: "completed" },
+          { title: p.stageSubtitle || "Stage 1 in progress", timeOrDate: `${p.progressPercent}% complete`, status: "active" },
+          { title: "Stage proof review", timeOrDate: "Pending submission", status: "pending" },
+        ],
+        milestoneFunded: p.escrowAmount || "₦0",
+      }));
+      setLiveProjects(mapped);
+    };
+    sync();
+    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener("vantaged_demo_toggle", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener("vantaged_demo_toggle", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [isDemoMode, initialProjects, subscription.totalSlots]);
+
+  const projects = liveProjects;
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -249,8 +292,8 @@ export function ActiveProjectProgressCard({
   const hasMultipleProjects = projects.length > 1;
   const currentProject = projects[currentIndex] || projects[0];
 
-  // If Demo Mode is OFF (Empty state for new user):
-  if (!isDemoMode || projects.length === 0) {
+  // Empty state when user has no active projects yet:
+  if (projects.length === 0) {
     return (
       <div
         style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}

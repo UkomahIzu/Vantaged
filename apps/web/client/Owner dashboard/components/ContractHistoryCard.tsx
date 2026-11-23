@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useDemoMode } from "../hooks/useDemoMode";
+import { getContractHistory } from "../pages/projects dashboard/projectStore";
 
 interface CompletedContract {
   id: string;
@@ -50,7 +51,38 @@ const pastContracts: CompletedContract[] = [
 
 export function ContractHistoryCard() {
   const { isDemoMode } = useDemoMode();
-  const displayedContracts = isDemoMode ? pastContracts.slice(0, 4) : [];
+  const [liveHistory, setLiveHistory] = useState<typeof pastContracts>([]);
+
+  useEffect(() => {
+    const sync = () => {
+      if (isDemoMode) {
+        setLiveHistory(pastContracts.slice(0, 4));
+        return;
+      }
+      const stored = getContractHistory();
+      setLiveHistory(
+        stored.slice(0, 4).map((p) => ({
+          id: p.id,
+          title: p.title,
+          location: p.location,
+          contractor: p.contractor?.name || "Verified Builder",
+          totalValue: p.escrowAmount || "₦0",
+          completedDate: p.lastUpdated || "Completed",
+        }))
+      );
+    };
+    sync();
+    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener("vantaged_demo_toggle", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener("vantaged_demo_toggle", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [isDemoMode]);
+
+  const displayedContracts = liveHistory;
 
   return (
     <div

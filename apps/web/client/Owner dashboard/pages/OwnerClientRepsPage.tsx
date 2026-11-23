@@ -8,6 +8,7 @@ import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { VantagedSelect } from "../components/VantagedSelect";
 import { useDemoMode } from "../hooks/useDemoMode";
 import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
+import { getOwnerScopedKey } from "../../../shared/vantagedAuth";
 
 export interface ClientRepItem {
   id: string;
@@ -531,9 +532,21 @@ export function OwnerClientRepsPage() {
   const subscription = useOwnerSubscription();
 
   const getSourceReps = useCallback((): ClientRepItem[] => {
-    if (!isDemoMode) return [];
+    const scopedKey = getOwnerScopedKey(storageKey);
+    if (!isDemoMode) {
+      try {
+        const saved = localStorage.getItem(scopedKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            return parsed.map((item: any, idx: number) => normalizeRep(item, idx));
+          }
+        }
+      } catch {}
+      return [];
+    }
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved = localStorage.getItem(scopedKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -551,7 +564,7 @@ export function OwnerClientRepsPage() {
     return INITIAL_CLIENT_REPS;
   }, [isDemoMode, subscription.tierId]);
 
-  const [reps, setReps] = useState<ClientRepItem[]>(() => getSourceReps());
+  const [reps, setReps] = useState<ClientRepItem[]>([]);
 
   useEffect(() => {
     const sync = () => {
@@ -572,7 +585,7 @@ export function OwnerClientRepsPage() {
     setReps(updated);
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem(storageKey, JSON.stringify(updated));
+        localStorage.setItem(getOwnerScopedKey(storageKey), JSON.stringify(updated));
       } catch {}
     }
   };

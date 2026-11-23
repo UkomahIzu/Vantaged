@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
+import { signOutOwner } from "../../../shared/vantagedAuth";
 
 interface OwnerProfileModalProps {
   isOpen: boolean;
@@ -66,6 +67,12 @@ export function OwnerProfileModal({
     }
     setIsEditing(false);
     showToast("Profile details updated successfully!");
+  };
+
+  const handleLogout = () => {
+    onClose();
+    signOutOwner();
+    router.replace("/login");
   };
 
   if (!isOpen) return null;
@@ -358,13 +365,28 @@ export function OwnerProfileModal({
             <span>Open Full Settings</span>
           </Link>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer"
-          >
-            Done
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="h-9 px-3.5 rounded-md bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 text-rose-600 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>Log Out</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </div>
     </div>

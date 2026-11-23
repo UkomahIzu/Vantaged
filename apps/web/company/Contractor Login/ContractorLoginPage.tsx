@@ -2,43 +2,46 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ContractorRoleType,
   contractorRoleCards,
 } from "./contractorRolesData";
+import { signInContractor } from "../../shared/vantagedAuth";
 
 export function ContractorLoginPage() {
+  const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<ContractorRoleType>("DIRECTOR");
-  const [email, setEmail] = useState("b.adeleke@apexstructure.ng");
-  const [password, setPassword] = useState("Vantaged2026!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const currentRoleInfo =
     contractorRoleCards.find((r) => r.id === selectedRole) || contractorRoleCards[0];
 
   const handleRoleChange = (role: ContractorRoleType) => {
     setSelectedRole(role);
-    const roleData = contractorRoleCards.find((r) => r.id === role);
-    if (roleData) {
-      setEmail(roleData.defaultEmail);
-    }
+    setErrorMsg(null);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     setIsSubmitting(true);
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vantaged_contractor_user_email", email);
-      localStorage.setItem("vantaged_contractor_user_role", currentRoleInfo.title);
+    const res = await signInContractor(email, password, currentRoleInfo.title);
+    if (!res.ok) {
+      setIsSubmitting(false);
+      setErrorMsg(res.error);
+      return;
     }
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsLoggedIn(true);
-    }, 700);
+    setIsSubmitting(false);
+    setIsLoggedIn(true);
+    router.push("/contractor/dashboard");
   };
 
   return (
@@ -178,9 +181,15 @@ export function ContractorLoginPage() {
                   Sign In
                 </h2>
                 <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] font-sans leading-relaxed">
-                  Enter your credentials to access your {currentRoleInfo.tagline.toLowerCase()} terminal.
+                  Enter the credentials issued to your company to access your {currentRoleInfo.tagline.toLowerCase()} terminal.
                 </p>
               </div>
+
+              {errorMsg && (
+                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700 leading-relaxed">
+                  {errorMsg}
+                </div>
+              )}
 
               {/* 1. Email Input */}
               <div className="flex flex-col gap-1.5 mt-2">

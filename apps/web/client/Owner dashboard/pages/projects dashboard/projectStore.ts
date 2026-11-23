@@ -3,6 +3,8 @@
 import { ProjectItem } from "../../components/ProjectFolderCard";
 import { getIsDemoMode } from "../../hooks/useDemoMode";
 import { getOwnerCapacity } from "../../hooks/useOwnerSubscription";
+import { ensureProjectConversation } from "../../../../shared/vantagedSyncBridge";
+import { getOwnerScopedKey } from "../../../../shared/vantagedAuth";
 
 export const STORAGE_KEY_ACTIVE = "vantaged_active_projects";
 export const STORAGE_KEY_PLANS = "vantaged_proposed_plans";
@@ -502,10 +504,17 @@ export function getActiveProjects(): ProjectItem[] {
   const isDemo = getIsDemoMode();
   if (!isDemo) {
     try {
-      const customSaved = localStorage.getItem("vantaged_custom_owner_active_projects");
-      if (customSaved) {
-        const parsed = JSON.parse(customSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      const savedReal = localStorage.getItem(getOwnerScopedKey(STORAGE_KEY_ACTIVE));
+      if (savedReal) {
+        const parsed = JSON.parse(savedReal);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (p: ProjectItem) =>
+              p.progressPercent < 100 &&
+              p.status !== "Final sign-off" &&
+              p.status !== "Completed"
+          );
+        }
       }
     } catch {}
     return [];
@@ -579,12 +588,12 @@ export function getContractHistory(): ProjectItem[] {
     return INITIAL_CONTRACT_HISTORY;
   }
 
-  // If Demo Mode is OFF, return empty history
+  // Main empty-first state: return real saved contract history (empty for new users)
   if (!getIsDemoMode()) {
     try {
-      const customHistory = localStorage.getItem("vantaged_custom_contract_history");
-      if (customHistory) {
-        const parsed = JSON.parse(customHistory);
+      const savedHistory = localStorage.getItem(getOwnerScopedKey(STORAGE_KEY_HISTORY));
+      if (savedHistory) {
+        const parsed = JSON.parse(savedHistory);
         if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
@@ -616,8 +625,20 @@ export function getProposedPlans(): ProjectItem[] {
     return INITIAL_PROPOSED_PLANS;
   }
 
-  // If Demo Mode is OFF, return empty plans
+  // Main empty-first state: return real proposed plans (empty until a builder sends one)
   if (!getIsDemoMode()) {
+    try {
+      const saved = localStorage.getItem(getOwnerScopedKey(STORAGE_KEY_PLANS));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((p: ProjectItem) => {
+            const status = localStorage.getItem(`vantaged_plan_status_${p.id}`);
+            return status !== "ACCEPTED";
+          });
+        }
+      }
+    } catch {}
     return [];
   }
 
@@ -704,7 +725,16 @@ export function acceptProposedPlan(planId: string): void {
       updatedActive = [activatedProject, ...currentActive];
     }
 
+    localStorage.setItem(getOwnerScopedKey(STORAGE_KEY_ACTIVE), JSON.stringify(updatedActive));
     localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(updatedActive));
+
+    ensureProjectConversation({
+      projectId: activatedProject.id,
+      projectTitle: activatedProject.title,
+      ownerName: "Property Owner",
+      contractorName: activatedProject.contractor?.assignedRep || "Project Director",
+      contractorCompany: activatedProject.contractor?.name || "Verified Builder",
+    });
 
     // Also update any linked project brief status to "Plan Accepted & Active"
     try {
@@ -737,10 +767,10 @@ export function getProjectBriefs(): ProjectBrief[] {
     return INITIAL_BRIEFS;
   }
 
-  // If Demo Mode is OFF, return empty briefs unless user submitted one
+  // Main empty-first state: return real briefs submitted by the owner (empty initially)
   if (!getIsDemoMode()) {
     try {
-      const saved = localStorage.getItem("vantaged_custom_project_briefs");
+      const saved = localStorage.getItem(getOwnerScopedKey(STORAGE_KEY_BRIEFS));
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
@@ -776,6 +806,7 @@ export function saveProjectBrief(brief: ProjectBrief): void {
     } else {
       updated = [brief, ...list];
     }
+    localStorage.setItem(getOwnerScopedKey(STORAGE_KEY_BRIEFS), JSON.stringify(updated));
     localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(updated));
     window.dispatchEvent(new Event("vantaged_storage_update"));
   } catch (err) {
@@ -815,6 +846,7 @@ export function updateBriefStatus(briefId: string, status: ProjectBrief["status"
   try {
     const list = getProjectBriefs();
     const updated = list.map((b) => (b.id === briefId ? { ...b, status } : b));
+    localStorage.setItem(getOwnerScopedKey(STORAGE_KEY_BRIEFS), JSON.stringify(updated));
     localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(updated));
     window.dispatchEvent(new Event("vantaged_storage_update"));
   } catch (err) {
@@ -831,6 +863,7 @@ export function markProjectAsCompleted(projectId: string): void {
     const currentActive = getActiveProjects();
     const proj = currentActive.find((p) => p.id === projectId);
     const remainingActive = currentActive.filter((p) => p.id !== projectId);
+    localStorage.setItem(getOwnerScopedKey(STORAGE_KEY_ACTIVE), JSON.stringify(remainingActive));
     localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(remainingActive));
 
     const currentHistory = getContractHistory();
@@ -873,6 +906,7 @@ export function markProjectAsCompleted(projectId: string): void {
 
     if (!currentHistory.some((h) => h.id === projectId)) {
       const updatedHistory = [completedProject, ...currentHistory];
+      localStorage.setItem(getOwnerScopedKey(STORAGE_KEY_HISTORY), JSON.stringify(updatedHistory));
       localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(updatedHistory));
     }
 

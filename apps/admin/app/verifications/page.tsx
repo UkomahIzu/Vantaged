@@ -103,13 +103,9 @@ export default function VerificationQueuePage() {
       if (q) setSearchTerm(q);
     }
 
-    if (!isDemoMode) {
-      setSubmissions([]);
-      setSelectedSub(null);
-      return;
+    if (isDemoMode) {
+      setSubmissions(initialSubmissions as unknown as ContractorSubmission[]);
     }
-
-    setSubmissions(initialSubmissions as unknown as ContractorSubmission[]);
     fetch("/api/verifications")
       .then((res) => res.json())
       .then((data) => {
@@ -179,7 +175,24 @@ export default function VerificationQueuePage() {
 
   // Approval / Rejection modal state
   const [isApproveOpen, setIsApproveOpen] = useState<boolean>(false);
+  const [issuedDirectorEmail, setIssuedDirectorEmail] = useState<string>("");
+  const [issuedDirectorPassword, setIssuedDirectorPassword] = useState<string>("");
+  const [issuedCredentialsBanner, setIssuedCredentialsBanner] = useState<{
+    companyName: string;
+    directorName: string;
+    email: string;
+    password: string;
+  } | null>(null);
+  const [copiedCreds, setCopiedCreds] = useState<boolean>(false);
   const [isRejectOpen, setIsRejectOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isApproveOpen && selectedSub) {
+      setIssuedDirectorEmail(selectedSub.directorEmail || selectedSub.email || "");
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      setIssuedDirectorPassword(`VTG-${rand}!`);
+    }
+  }, [isApproveOpen, selectedSub]);
   const [rejectReason, setRejectReason] = useState<string>("CAC_INACTIVE");
   const [rejectNotes, setRejectNotes] = useState<string>("");
   const [toastMessage, setToastMessage] = useState<{
@@ -254,6 +267,9 @@ export default function VerificationQueuePage() {
     setSelectedSub(null);
     setIsApproveOpen(false);
 
+    const loginEmail = (issuedDirectorEmail || approvedCompany.directorEmail || approvedCompany.email).trim();
+    const loginPassword = (issuedDirectorPassword || `VTG-${Math.floor(1000 + Math.random() * 9000)}!`).trim();
+
     try {
       await fetch("/api/verifications", {
         method: "PATCH",
@@ -261,23 +277,47 @@ export default function VerificationQueuePage() {
         body: JSON.stringify({ id: approvedCompany.id, status: "VERIFIED" }),
       });
 
+      await fetch("/api/contractor-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: approvedCompany.companyName,
+          rcNumber: approvedCompany.rcNumber,
+          directorName: approvedCompany.directorName,
+          email: loginEmail,
+          password: loginPassword,
+          role: "Director",
+          phone: approvedCompany.directorPhone || approvedCompany.phone,
+          submissionId: approvedCompany.id,
+          issuedBy: "Vantaged Admin",
+        }),
+      });
+
       fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "CONTRACTOR_VERIFIED",
-          actionLabel: "Contractor Firm Approved & Accredited",
+          actionLabel: "Contractor Firm Approved & Director Login Issued",
           target: `${approvedCompany.companyName} (${approvedCompany.rcNumber})`,
-          details: `All regulatory documents and automated CAC/TIN checks verified. Added to Contractor Directory.`,
+          details: `Verified and issued Director login for ${loginEmail}.`,
           level: "SUCCESS",
         }),
       }).catch(() => {});
     } catch {}
 
+    setIssuedCredentialsBanner({
+      companyName: approvedCompany.companyName,
+      directorName: approvedCompany.directorName,
+      email: loginEmail,
+      password: loginPassword,
+    });
+    setCopiedCreds(false);
+
     setToastMessage({
       type: "success",
-      title: "Contractor Verified & Moved to Directory",
-      description: `${approvedCompany.companyName} has been approved, credentialed, and moved out of the queue into the Contractor Directory.`,
+      title: "Contractor Verified & Director Login Issued",
+      description: `Director login created for ${loginEmail}. Copy the credentials card below to share with ${approvedCompany.directorName}.`,
       actionUrl: "/contractors",
       actionText: "View in Directory",
     });
@@ -1271,6 +1311,34 @@ export default function VerificationQueuePage() {
               </div>
             </div>
 
+            <div className="mt-4 p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] space-y-2.5">
+              <p className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--vt-color-indigo-900,#261A66)]">
+                Director Portal Credentials (Issued by Admin)
+              </p>
+              <div>
+                <label className="block text-[11px] font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] mb-1">
+                  Director Login Email
+                </label>
+                <input
+                  type="email"
+                  value={issuedDirectorEmail}
+                  onChange={(e) => setIssuedDirectorEmail(e.target.value)}
+                  className="w-full h-9 px-3 rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] mb-1">
+                  Issued Password
+                </label>
+                <input
+                  type="text"
+                  value={issuedDirectorPassword}
+                  onChange={(e) => setIssuedDirectorPassword(e.target.value)}
+                  className="w-full h-9 px-3 rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-mono font-bold text-[var(--vt-color-indigo-900,#261A66)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                />
+              </div>
+            </div>
+
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 type="button"
@@ -1285,6 +1353,72 @@ export default function VerificationQueuePage() {
                 className="h-9 px-5 rounded-md bg-[var(--vt-color-green-600,#2E9E57)] hover:bg-[var(--vt-color-green-700,#1F6B3E)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(46,158,87,0.3)]"
               >
                 Confirm Approval & Issue Access
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Issued Director Credentials Modal */}
+      {issuedCredentialsBanner && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Director Account Provisioned
+              </span>
+              <button
+                type="button"
+                onClick={() => setIssuedCredentialsBanner(null)}
+                className="w-7 h-7 rounded-md hover:bg-neutral-100 text-neutral-500 font-bold text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                {issuedCredentialsBanner.companyName}
+              </h3>
+              <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                Share these login credentials with <strong>{issuedCredentialsBanner.directorName}</strong> to sign in at <code>/contractor/login</code>.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] space-y-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-semibold">Email:</span>
+                <span className="font-mono font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                  {issuedCredentialsBanner.email}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[var(--vt-color-neutral-500,#7C7894)] font-semibold">Password:</span>
+                <span className="font-mono font-bold text-[var(--vt-color-orange-600,#D84C0B)]">
+                  {issuedCredentialsBanner.password}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(
+                    `Vantaged Director Login\nCompany: ${issuedCredentialsBanner.companyName}\nEmail: ${issuedCredentialsBanner.email}\nPassword: ${issuedCredentialsBanner.password}`
+                  );
+                  setCopiedCreds(true);
+                }}
+                className="h-9 px-4 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] cursor-pointer"
+              >
+                {copiedCreds ? "✓ Copied" : "Copy Credentials"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIssuedCredentialsBanner(null)}
+                className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-xs font-bold text-white cursor-pointer"
+              >
+                Done
               </button>
             </div>
           </div>

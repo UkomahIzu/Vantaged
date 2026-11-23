@@ -1,17 +1,40 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
 import { DEMO_DIRECTOR_PROJECTS } from "../data/directorData";
 
 export function DirectorStatsCards() {
   const { isDemoMode } = useDirectorDemoMode();
+  const [acceptedCount, setAcceptedCount] = useState(0);
 
-  const activeProjectsDisplay = isDemoMode
-    ? DEMO_DIRECTOR_PROJECTS.length.toString().padStart(2, "0")
-    : "00";
-  const slotSubtitle = isDemoMode ? "3 / 3 Verified slots used" : "0 / 1 Free starter slot used";
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const raw = localStorage.getItem("vantaged_company_accepted_projects");
+        const parsed = raw ? JSON.parse(raw) : [];
+        setAcceptedCount(Array.isArray(parsed) ? parsed.length : 0);
+      } catch {
+        setAcceptedCount(0);
+      }
+    };
+    sync();
+    window.addEventListener("vantaged_company_projects_update", sync);
+    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("vantaged_company_projects_update", sync);
+      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  const totalActive = (isDemoMode ? DEMO_DIRECTOR_PROJECTS.length : 0) + acceptedCount;
+  const activeProjectsDisplay = totalActive.toString().padStart(2, "0");
+  const slotSubtitle = isDemoMode
+    ? `${totalActive} / 3 Verified slots used`
+    : `${totalActive} / 1 Free starter slot used`;
 
   const stagesPendingActionDisplay = isDemoMode ? "02" : "00";
   const receiptsPendingDisplay = isDemoMode ? "₦22,500,000" : "₦0";

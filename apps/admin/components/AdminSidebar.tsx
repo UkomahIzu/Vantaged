@@ -50,16 +50,6 @@ export function AdminSidebar({
       })
       .catch(() => {});
 
-    if (!isDemoMode) {
-      setCounts((prev) => ({
-        ...prev,
-        verifications: "0",
-        contractors: "0",
-        disputes: undefined,
-      }));
-      return;
-    }
-
     fetch("/api/verifications")
       .then((r) => r.json())
       .then((d) => {
@@ -67,10 +57,25 @@ export function AdminSidebar({
           const pending = d.data.filter(
             (s: any) => s.status === "PENDING_REVIEW"
           ).length;
-          setCounts((prev) => ({ ...prev, verifications: String(pending) }));
+          const verified = d.data.filter(
+            (s: any) => s.status === "VERIFIED"
+          ).length;
+          setCounts((prev) => ({
+            ...prev,
+            verifications: String(pending),
+            contractors: isDemoMode ? prev.contractors : String(verified),
+          }));
         }
       })
       .catch(() => {});
+
+    if (!isDemoMode) {
+      setCounts((prev) => ({
+        ...prev,
+        disputes: undefined,
+      }));
+      return;
+    }
 
     fetch("/api/contractors")
       .then((r) => r.json())
@@ -103,13 +108,13 @@ export function AdminSidebar({
       name: "Verification Queue",
       href: "/verifications",
       icon: IconVerification,
-      badge: isDemoMode && Number(counts.verifications) > 0 ? counts.verifications : undefined,
+      badge: Number(counts.verifications) > 0 ? counts.verifications : undefined,
     },
     {
       name: "Contractor Directory",
       href: "/contractors",
       icon: IconContractors,
-      badge: isDemoMode && Number(counts.contractors) > 0 ? counts.contractors : undefined,
+      badge: Number(counts.contractors) > 0 ? counts.contractors : undefined,
     },
     {
       name: "Disputes & Risk Radar",
@@ -239,7 +244,7 @@ export function AdminSidebar({
                 Demo Data
               </span>
               <span className="text-[10px] text-[var(--vt-color-neutral-500,#7C7894)] truncate font-sans">
-                {isDemoMode ? "Mock platform data" : "Empty state (Fresh DB)"}
+                {isDemoMode ? "Mock platform data" : "Live state (Real data)"}
               </span>
             </div>
             <button

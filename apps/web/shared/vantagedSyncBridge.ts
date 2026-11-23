@@ -5,6 +5,8 @@
  * Ensures canonical project IDs, unified localStorage keys, and live cross-tab events.
  */
 
+import { getOwnerScopedKey } from "./vantagedAuth";
+
 export const SHARED_SYNC_EVENT = "vantaged_storage_update";
 export const CONTRACTOR_SYNC_EVENT = "vantaged_contractor_project_update";
 
@@ -226,7 +228,10 @@ export function saveCompanySentRequests(requests: CompanySentOwnerRequest[]): vo
 }
 
 export function readOwnerLiveNotifications(): OwnerLiveNotification[] {
-  return readSharedJSON<OwnerLiveNotification[]>(KEY_OWNER_LIVE_NOTIFICATIONS, []);
+  return readSharedJSON<OwnerLiveNotification[]>(
+    getOwnerScopedKey(KEY_OWNER_LIVE_NOTIFICATIONS),
+    []
+  );
 }
 
 export function pushOwnerLiveNotification(
@@ -238,8 +243,9 @@ export function pushOwnerLiveNotification(
     timestamp: "Just now",
     isUnread: true,
   };
-  const existing = readOwnerLiveNotifications();
-  writeSharedJSON(KEY_OWNER_LIVE_NOTIFICATIONS, [created, ...existing]);
+  const scopedKey = getOwnerScopedKey(KEY_OWNER_LIVE_NOTIFICATIONS);
+  const existing = readSharedJSON<OwnerLiveNotification[]>(scopedKey, []);
+  writeSharedJSON(scopedKey, [created, ...existing]);
   return created;
 }
 
@@ -265,13 +271,48 @@ export function saveCompanyLiveNotifications(items: CompanyLiveNotification[]): 
   writeSharedJSON(KEY_COMPANY_LIVE_NOTIFICATIONS, items);
 }
 
-export function readSharedConversations(): SharedConversationThread[] {
+export function readSharedConversations(includeDemoFallback = true): SharedConversationThread[] {
   const stored = readSharedJSON<SharedConversationThread[] | null>(
     KEY_SHARED_CONVERSATIONS,
     null
   );
   if (Array.isArray(stored) && stored.length > 0) return stored;
-  return DEFAULT_SHARED_CONVERSATIONS;
+  return includeDemoFallback ? DEFAULT_SHARED_CONVERSATIONS : [];
+}
+
+export function ensureProjectConversation(params: {
+  projectId: string;
+  projectTitle: string;
+  ownerName: string;
+  contractorName: string;
+  contractorCompany: string;
+}): SharedConversationThread {
+  const existing = readSharedConversations(false);
+  const canonicalId = normalizeCanonicalProjectId(params.projectId);
+  const found = existing.find((t) => t.projectId === canonicalId);
+  if (found) return found;
+
+  const created: SharedConversationThread = {
+    id: `conv-${canonicalId}`,
+    projectId: canonicalId,
+    projectTitle: params.projectTitle,
+    ownerName: params.ownerName,
+    ownerPhone: "Verified Owner",
+    contractorName: params.contractorName,
+    contractorRole: "Project Director",
+    contractorCompany: params.contractorCompany,
+    contractorPhone: "Verified Builder",
+    avatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face",
+    isOnline: true,
+    lastMessage: "Project conversation opened. Send your first message.",
+    lastMessageTime: "Just now",
+    ownerUnreadCount: 0,
+    contractorUnreadCount: 0,
+    messages: [],
+  };
+  saveSharedConversations([created, ...existing]);
+  return created;
 }
 
 export function saveSharedConversations(threads: SharedConversationThread[]): void {

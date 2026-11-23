@@ -2,8 +2,10 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useContractorUser } from "../hooks/useContractorUser";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { signOutContractor } from "../../../shared/vantagedAuth";
 
 interface DirectorProfileModalProps {
   isOpen: boolean;
@@ -11,8 +13,15 @@ interface DirectorProfileModalProps {
 }
 
 export function DirectorProfileModal({ isOpen, onClose }: DirectorProfileModalProps) {
+  const router = useRouter();
   const user = useContractorUser();
   const { isDemoMode } = useDirectorDemoMode();
+
+  const handleLogout = () => {
+    onClose();
+    signOutContractor();
+    router.replace("/contractor/login");
+  };
 
   if (!isOpen) return null;
 
@@ -65,7 +74,7 @@ export function DirectorProfileModal({ isOpen, onClose }: DirectorProfileModalPr
                 CAC Registration
               </span>
               <div className="mt-1 font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)]">
-                {isDemoMode ? user.rcNumber : "Pending Submission"}
+                {user.rcNumber || "Pending Submission"}
               </div>
             </div>
 
@@ -104,13 +113,28 @@ export function DirectorProfileModal({ isOpen, onClose }: DirectorProfileModalPr
             Switch Company Role
           </Link>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-9 px-4 rounded-md bg-[var(--vt-color-primary-default,#B33C08)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-xs font-bold text-white transition-all shadow-[0_2px_8px_rgba(179,60,8,0.25)] cursor-pointer"
-          >
-            Done
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="h-9 px-3.5 rounded-md bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 text-rose-600 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>Log Out</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-9 px-4 rounded-md bg-[var(--vt-color-primary-default,#B33C08)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-xs font-bold text-white transition-all shadow-[0_2px_8px_rgba(179,60,8,0.25)] cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </div>
     </div>

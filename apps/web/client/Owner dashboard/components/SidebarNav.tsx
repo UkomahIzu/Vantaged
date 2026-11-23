@@ -8,6 +8,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useDemoMode } from "../hooks/useDemoMode";
 import { getActiveProjects } from "../pages/projects dashboard/projectStore";
 import { OwnerProfileModal } from "./OwnerProfileModal";
+import { readOwnerLiveNotifications } from "../../../shared/vantagedSyncBridge";
 
 interface NavItem {
   id: string;
@@ -27,11 +28,14 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
   const { theme, toggleTheme } = useTheme();
   const { isDemoMode, toggleDemoMode } = useDemoMode();
   const [activeProjectsCount, setActiveProjectsCount] = useState<number>(0);
+  const [liveUnreadNotifs, setLiveUnreadNotifs] = useState<number>(0);
 
   useEffect(() => {
     const updateCount = () => {
       const list = getActiveProjects();
       setActiveProjectsCount(list.length);
+      const liveNotifs = readOwnerLiveNotifications();
+      setLiveUnreadNotifs(liveNotifs.filter((n) => n.isUnread).length);
     };
     updateCount();
     window.addEventListener("vantaged_storage_update", updateCount);
@@ -115,7 +119,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
     {
       id: "projects",
       label: "Projects",
-      badge: isDemoMode && activeProjectsCount > 0 ? activeProjectsCount : undefined,
+      badge: activeProjectsCount > 0 ? activeProjectsCount : undefined,
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${
@@ -219,7 +223,10 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
     {
       id: "notifications",
       label: "Notifications",
-      badge: isDemoMode ? 3 : undefined,
+      badge:
+        (isDemoMode ? 3 : 0) + liveUnreadNotifs > 0
+          ? (isDemoMode ? 3 : 0) + liveUnreadNotifs
+          : undefined,
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${
@@ -408,7 +415,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
                       Demo Data
                     </span>
                     <span className="text-[10px] text-[var(--vt-color-neutral-500,#7C7894)] truncate font-sans">
-                      {isDemoMode ? "Mock projects" : "Empty state (New user)"}
+                      {isDemoMode ? "Mock projects" : "Live state (Real data)"}
                     </span>
                   </div>
                   <button
@@ -526,7 +533,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
                   Demo Data
                 </span>
                 <span className="text-[10px] text-[var(--vt-color-neutral-500,#7C7894)] truncate font-sans">
-                  {isDemoMode ? "Mock projects" : "Empty state (New user)"}
+                  {isDemoMode ? "Mock projects" : "Live state (Real data)"}
                 </span>
               </div>
               <button

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { signUpOwner } from "../../../shared/vantagedAuth";
 
 export type OwnerRoleType = "OWNER_ADMIN" | "ORGANIZATION" | "OWNER_REP";
 
@@ -178,12 +179,13 @@ export function OwnerSignupPage() {
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const countryDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [fullName, setFullName] = useState("Adaeze Okonkwo");
-  const [email, setEmail] = useState("adaeze.okonkwo@gmail.com");
-  const [password, setPassword] = useState("Vantaged2026!");
+  const [fullName, setFullName] = useState("Ukomah Izuchukwu");
+  const [email, setEmail] = useState("Uko@gmail.com");
+  const [password, setPassword] = useState("123456789$$");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Role-specific fields
   // Owner Admin specific (ID verification only):
@@ -214,18 +216,32 @@ export function OwnerSignupPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
     setIsSubmitting(true);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vantaged_user_name", fullName);
-      localStorage.setItem("vantaged_user_email", email);
-      localStorage.setItem("vantaged_user_role", currentRoleInfo.title);
-    }
-    setTimeout(() => {
+
+    const res = await signUpOwner({
+      fullName,
+      email,
+      password,
+      phone: phoneNumber,
+      countryCode,
+      role: currentRoleInfo.title,
+      idMethod,
+      idNumber,
+      orgName: selectedRole === "ORGANIZATION" ? orgName : undefined,
+      rcNumber: selectedRole === "ORGANIZATION" ? rcNumber : undefined,
+    });
+
+    if (!res.ok) {
       setIsSubmitting(false);
-      setIsSubmitted(true);
-    }, 900);
+      setAuthError(res.error);
+      return;
+    }
+
+    setIsSubmitting(false);
+    setIsSubmitted(true);
   };
 
   const currentRoleInfo = roleCards.find((r) => r.id === selectedRole) || roleCards[0];
@@ -787,6 +803,15 @@ export function OwnerSignupPage() {
                     </div>
                   )}
                 </div>
+
+                {authError && (
+                  <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700 leading-relaxed">
+                    {authError}{" "}
+                    <a href="/login" className="underline font-bold text-rose-800">
+                      Go to Log In →
+                    </a>
+                  </div>
+                )}
 
                 {/* Submit Button (Longer/Taller height matching reference, rounded-md matching landing page) */}
                 <button

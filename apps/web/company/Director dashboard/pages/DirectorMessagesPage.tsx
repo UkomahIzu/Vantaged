@@ -30,7 +30,7 @@ export function DirectorMessagesPage() {
 
   useEffect(() => {
     const sync = () => {
-      const all = readSharedConversations();
+      const all = readSharedConversations(isDemoMode);
       setThreads(all);
       setSelectedId((prev) => {
         if (prev && all.some((t) => t.id === prev)) return prev;
@@ -43,25 +43,26 @@ export function DirectorMessagesPage() {
     sync();
     window.addEventListener(SHARED_SYNC_EVENT, sync);
     window.addEventListener(CONTRACTOR_SYNC_EVENT, sync);
+    window.addEventListener("vantaged_director_demo_toggle", sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener(SHARED_SYNC_EVENT, sync);
       window.removeEventListener(CONTRACTOR_SYNC_EVENT, sync);
+      window.removeEventListener("vantaged_director_demo_toggle", sync);
       window.removeEventListener("storage", sync);
     };
-  }, [initialConvParam]);
+  }, [initialConvParam, isDemoMode]);
 
   const visibleThreads = useMemo(() => {
-    const base = isDemoMode ? threads : threads.filter((t) => t.messages.length > 0);
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
+    if (!q) return threads;
+    return threads.filter(
       (t) =>
         t.ownerName.toLowerCase().includes(q) ||
         t.projectTitle.toLowerCase().includes(q) ||
         t.lastMessage.toLowerCase().includes(q)
     );
-  }, [threads, isDemoMode, searchQuery]);
+  }, [threads, searchQuery]);
 
   const activeThread = useMemo(() => {
     return (

@@ -29,19 +29,16 @@ export default function AuditTrailPage() {
   };
 
   useEffect(() => {
-    if (!isDemoMode) {
-      setLogs([]);
-      return;
-    }
-
     fetch("/api/audit")
       .then((res) => res.json())
       .then((data) => {
         if (data?.success && Array.isArray(data.data)) {
           setLogs(data.data);
+        } else {
+          setLogs([]);
         }
       })
-      .catch((err) => console.warn("Failed to load audit logs:", err));
+      .catch(() => setLogs([]));
   }, [isDemoMode]);
 
   const handleExportJSON = () => {

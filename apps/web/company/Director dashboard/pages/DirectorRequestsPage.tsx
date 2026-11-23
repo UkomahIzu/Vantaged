@@ -275,7 +275,10 @@ export function DirectorRequestsPage() {
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
   const visiblePool = useMemo(
-    () => (isDemoMode ? requests : []),
+    () =>
+      isDemoMode
+        ? requests
+        : requests.filter((r) => !r.id.startsWith("req-")),
     [isDemoMode, requests]
   );
 

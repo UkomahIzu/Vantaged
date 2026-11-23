@@ -36,17 +36,6 @@ export default function AdminDashboardPage() {
       })
       .catch(() => {});
 
-    if (!isDemoMode) {
-      setStats((prev) => ({
-        ...prev,
-        pendingVerifications: 0,
-        verifiedContractors: 0,
-        ongoingBuilds: 0,
-        activeDisputes: 0,
-      }));
-      return;
-    }
-
     fetch("/api/verifications")
       .then((res) => res.json())
       .then((data) => {
@@ -54,10 +43,26 @@ export default function AdminDashboardPage() {
           const pending = data.data.filter(
             (s: any) => s.status === "PENDING_REVIEW"
           ).length;
-          setStats((prev) => ({ ...prev, pendingVerifications: pending }));
+          const verified = data.data.filter(
+            (s: any) => s.status === "VERIFIED"
+          ).length;
+          setStats((prev) => ({
+            ...prev,
+            pendingVerifications: pending,
+            verifiedContractors: isDemoMode ? prev.verifiedContractors : verified,
+          }));
         }
       })
       .catch(() => {});
+
+    if (!isDemoMode) {
+      setStats((prev) => ({
+        ...prev,
+        ongoingBuilds: 0,
+        activeDisputes: 0,
+      }));
+      return;
+    }
 
     fetch("/api/contractors")
       .then((res) => res.json())

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { AUTH_CHANGE_EVENT, getOwnerScopedKey } from "../../../shared/vantagedAuth";
 
 export type OwnerTierId = "owner-private" | "owner-portfolio" | "owner-estate";
 
@@ -87,11 +88,11 @@ export function getOwnerCapacity(currentUsedSlots?: number): OwnerCapacity {
   let extraSlots = 0;
 
   if (typeof window !== "undefined") {
-    const savedTier = localStorage.getItem("vantaged_owner_tier") as OwnerTierId | null;
+    const savedTier = localStorage.getItem(getOwnerScopedKey("vantaged_owner_tier")) as OwnerTierId | null;
     if (savedTier && liveTierConfigs[savedTier]) {
       tierId = savedTier;
     }
-    const savedExtra = localStorage.getItem("vantaged_owner_extra_slots");
+    const savedExtra = localStorage.getItem(getOwnerScopedKey("vantaged_owner_extra_slots"));
     if (savedExtra !== null) {
       const parsed = parseInt(savedExtra, 10);
       if (!isNaN(parsed) && parsed >= 0) {
@@ -133,17 +134,19 @@ export function useOwnerSubscription(currentUsedSlots?: number) {
     window.addEventListener("storage", sync);
     window.addEventListener("vantaged_demo_toggle", sync);
     window.addEventListener("vantaged_pricing_update", sync);
+    window.addEventListener(AUTH_CHANGE_EVENT, sync);
     return () => {
       window.removeEventListener("vantaged_storage_update", sync);
       window.removeEventListener("storage", sync);
       window.removeEventListener("vantaged_demo_toggle", sync);
       window.removeEventListener("vantaged_pricing_update", sync);
+      window.removeEventListener(AUTH_CHANGE_EVENT, sync);
     };
   }, [currentUsedSlots]);
 
   const upgradeTier = (tier: OwnerTierId) => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("vantaged_owner_tier", tier);
+      localStorage.setItem(getOwnerScopedKey("vantaged_owner_tier"), tier);
       window.dispatchEvent(new Event("vantaged_storage_update"));
       window.dispatchEvent(new Event("storage"));
     }
@@ -154,7 +157,7 @@ export function useOwnerSubscription(currentUsedSlots?: number) {
     if (typeof window !== "undefined") {
       const current = capacity.extraSlots;
       const updated = Math.max(0, current + count);
-      localStorage.setItem("vantaged_owner_extra_slots", updated.toString());
+      localStorage.setItem(getOwnerScopedKey("vantaged_owner_extra_slots"), updated.toString());
       window.dispatchEvent(new Event("vantaged_storage_update"));
       window.dispatchEvent(new Event("storage"));
     }

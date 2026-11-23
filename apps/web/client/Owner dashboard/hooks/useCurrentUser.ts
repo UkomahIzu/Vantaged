@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  AUTH_CHANGE_EVENT,
+  getOwnerSession,
+} from "../../../shared/vantagedAuth";
 
 export interface CurrentUser {
   fullName: string;
@@ -9,18 +13,31 @@ export interface CurrentUser {
   role: string;
 }
 
-const DEFAULT_USER: CurrentUser = {
-  fullName: "James Robinson",
-  firstName: "James",
-  email: "james@vantaged.io",
+const EMPTY_USER: CurrentUser = {
+  fullName: "",
+  firstName: "",
+  email: "",
   role: "Owner Admin",
 };
 
 export function useCurrentUser(): CurrentUser {
-  const [user, setUser] = useState<CurrentUser>(DEFAULT_USER);
+  const [user, setUser] = useState<CurrentUser>(EMPTY_USER);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const sync = () => {
+      const session = getOwnerSession();
+      if (session) {
+        const trimmedName = session.fullName.trim();
+        const first = trimmedName.split(/\s+/)[0] || trimmedName;
+        setUser({
+          fullName: trimmedName,
+          firstName: first,
+          email: session.email,
+          role: session.role || "Owner Admin",
+        });
+        return;
+      }
+
       const storedName =
         localStorage.getItem("vantaged_user_name") ||
         localStorage.getItem("vantaged_fullName");
@@ -36,11 +53,21 @@ export function useCurrentUser(): CurrentUser {
         setUser({
           fullName: trimmedName,
           firstName: first,
-          email: storedEmail || "owner@vantaged.io",
+          email: storedEmail || "",
           role: storedRole,
         });
+      } else {
+        setUser(EMPTY_USER);
       }
-    }
+    };
+
+    sync();
+    window.addEventListener(AUTH_CHANGE_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(AUTH_CHANGE_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
 
   return user;
