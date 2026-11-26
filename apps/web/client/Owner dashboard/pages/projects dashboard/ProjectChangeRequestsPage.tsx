@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
-import { getProjectDetail, ProjectChangeRequestItem } from "./projectData";
+import { ProjectChangeRequestItem } from "./projectData";
+import { useOwnerProject } from "./useOwnerProject";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import {
   IconCheck,
@@ -17,7 +18,12 @@ import {
 } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { VantagedSelect } from "../../components/VantagedSelect";
-import { syncOwnerChangeRequestsToContractor } from "../../../../shared/vantagedSyncBridge";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  syncOwnerChangeRequestsToContractor,
+} from "../../../../shared/vantagedSyncBridge";
+import { getOwnerSession } from "../../../../shared/vantagedAuth";
 
 interface ProjectChangeRequestsPageProps {
   projectId?: string;
@@ -25,7 +31,7 @@ interface ProjectChangeRequestsPageProps {
 
 export function ProjectChangeRequestsPage({ projectId = "proj-lekki" }: ProjectChangeRequestsPageProps) {
   const scrollRef = useScrollRestoration<HTMLElement>(`proj_cr_${projectId}`);
-  const project = getProjectDetail(projectId);
+  const project = useOwnerProject(projectId);
   const storageKey = `vantaged_cr_${projectId}`;
 
   // Persistent Change Requests State
@@ -33,20 +39,35 @@ export function ProjectChangeRequestsPage({ projectId = "proj-lekki" }: ProjectC
   const [selectedCRId, setSelectedCRId] = useState<string>(project.changeRequests[0]?.id || "");
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setChangeRequests(parsed);
-          setSelectedCRId((prev) => {
-            if (prev && parsed.some((c: ProjectChangeRequestItem) => c.id === prev)) return prev;
-            return parsed[0].id;
-          });
+    const syncCRs = () => {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setChangeRequests(parsed);
+            setSelectedCRId((prev) => {
+              if (prev && parsed.some((c: ProjectChangeRequestItem) => c.id === prev)) return prev;
+              return parsed[0]?.id || "";
+            });
+            return;
+          }
         }
-      }
-    } catch {}
-  }, [storageKey]);
+      } catch {}
+      setChangeRequests(project.changeRequests);
+      setSelectedCRId(project.changeRequests[0]?.id || "");
+    };
+
+    syncCRs();
+    window.addEventListener(SHARED_SYNC_EVENT, syncCRs);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, syncCRs);
+    window.addEventListener("storage", syncCRs);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncCRs);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncCRs);
+      window.removeEventListener("storage", syncCRs);
+    };
+  }, [storageKey, project.changeRequests]);
 
   const [filterTab, setFilterTab] = useState<"all" | "pending" | "contractor" | "approved" | "declined">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -214,12 +235,13 @@ export function ProjectChangeRequestsPage({ projectId = "proj-lekki" }: ProjectC
     const rawDays = parseInt(newCRDays, 10) || 3;
     const codeNum = changeRequests.length + 1;
 
+    const ownerName = getOwnerSession()?.fullName || "Property Owner";
     const newCR: ProjectChangeRequestItem = {
       id: `cr-${Date.now()}`,
       requestCode: `VO-2026-00${codeNum}`,
       title: newCRTitle.trim(),
       requestedBy: "Owner",
-      requesterName: "Dr. James Arinze (Owner)",
+      requesterName: `${ownerName} (Owner)`,
       date: "Today, Just now",
       costImpact: rawCost,
       timeExtensionDays: rawDays,

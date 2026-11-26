@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
 import {
-  getProjectDetail,
   ProjectDisputeItem,
   DisputeEscalationTier,
   DisputeTimelineEvent,
@@ -14,6 +13,7 @@ import {
   BackchargeOrder,
   RetentionDlpConfig,
 } from "./projectData";
+import { useOwnerProject } from "./useOwnerProject";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import {
   IconCheck,
@@ -30,7 +30,12 @@ import {
 } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { VantagedSelect } from "../../components/VantagedSelect";
-import { syncOwnerDisputesToContractor } from "../../../../shared/vantagedSyncBridge";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  isDemoProjectId,
+  syncOwnerDisputesToContractor,
+} from "../../../../shared/vantagedSyncBridge";
 
 interface ProjectDisputesPageProps {
   projectId?: string;
@@ -38,22 +43,22 @@ interface ProjectDisputesPageProps {
 
 export function ProjectDisputesPage({ projectId = "proj-lekki" }: ProjectDisputesPageProps) {
   const scrollRef = useScrollRestoration<HTMLElement>(`proj_disputes_${projectId}`);
-  const project = getProjectDetail(projectId);
+  const project = useOwnerProject(projectId);
   const storageKey = `vantaged_disputes_${projectId}`;
 
   // 1-Year Post-Handover Warranty Reserve (5% Retention Fund)
   const [retentionConfig, setRetentionConfig] = useState<RetentionDlpConfig>(
     project.retentionDlp || {
       retentionRatePercent: 5,
-      totalRetentionAmount: 12250000,
+      totalRetentionAmount: Math.round(project.contractValue * 0.05),
       dlpDurationMonths: 12,
-      dlpStatus: "Active DLP Warranty",
-      handoverDate: "15 Oct 2026",
-      targetReleaseDate: "15 Oct 2027",
-      daysRemaining: 355,
-      activeSnagsCount: 1,
+      dlpStatus: isDemoProjectId(projectId) ? "Active DLP Warranty" : "Pre-Handover Accumulating",
+      handoverDate: isDemoProjectId(projectId) ? "15 Oct 2026" : "Pending Completion",
+      targetReleaseDate: isDemoProjectId(projectId) ? "15 Oct 2027" : "12 Months Post-Handover",
+      daysRemaining: 365,
+      activeSnagsCount: 0,
       totalClaimsDeducted: 0,
-      escrowBalance: 12250000,
+      escrowBalance: isDemoProjectId(projectId) ? Math.round(project.contractValue * 0.05) : 0,
       escrowCustodian: "Vantaged Secure Escrow Trust",
       coveredTrades: [
         "Roof Parapet & Terrace Waterproofing",
@@ -64,9 +69,15 @@ export function ProjectDisputesPage({ projectId = "proj-lekki" }: ProjectDispute
         "Solid Timber Joinery & Cabinetry",
       ],
       termsSummary:
-        "5% warranty reserve (₦12,250,000) held in segregated Vantaged escrow trust for 12 months after building handover. If hidden defects appear, the contractor must fix them within 14 days, or you can use this fund to hire an independent repair specialist.",
+        "5% warranty reserve held in segregated Vantaged escrow trust for 12 months after building handover. If hidden defects appear, the contractor must fix them within 14 days, or you can use this fund to hire an independent repair specialist.",
     }
   );
+
+  useEffect(() => {
+    if (project.retentionDlp) {
+      setRetentionConfig(project.retentionDlp);
+    }
+  }, [project.retentionDlp]);
 
   const [isDlpModalOpen, setIsDlpModalOpen] = useState(false);
   const [negotiatedDlpMonths, setNegotiatedDlpMonths] = useState<6 | 12>(
@@ -91,7 +102,12 @@ export function ProjectDisputesPage({ projectId = "proj-lekki" }: ProjectDispute
         const saved = localStorage.getItem(storageKey);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
+            if (parsed.length === 0) {
+              setDisputes([]);
+              setSelectedDisputeId("");
+              return;
+            }
             const normalized: ProjectDisputeItem[] = parsed.map((d: any, idx: number) => ({
               id: d.id || `disp-${idx}`,
               disputeCode: d.disputeCode || `DISP-2026-00${idx + 1}`,
@@ -200,7 +216,9 @@ export function ProjectDisputesPage({ projectId = "proj-lekki" }: ProjectDispute
             }));
 
             const savedIds = new Set(parsed.map((p: any) => p.id));
-            const missingDefaults = project.disputes.filter((pd) => !savedIds.has(pd.id));
+            const missingDefaults = isDemoProjectId(projectId)
+              ? project.disputes.filter((pd) => !savedIds.has(pd.id))
+              : [];
             const fullDisputes = [...normalized, ...missingDefaults];
 
             setDisputes(fullDisputes);
@@ -209,14 +227,23 @@ export function ProjectDisputesPage({ projectId = "proj-lekki" }: ProjectDispute
               return fullDisputes[0]?.id || "";
             });
           }
+        } else {
+          setDisputes(project.disputes);
+          setSelectedDisputeId(project.disputes[0]?.id || "");
         }
       } catch {}
     };
 
     loadDisputes();
-    window.addEventListener("vantaged_storage_update", loadDisputes);
-    return () => window.removeEventListener("vantaged_storage_update", loadDisputes);
-  }, [storageKey, project.stages, project.disputes]);
+    window.addEventListener(SHARED_SYNC_EVENT, loadDisputes);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, loadDisputes);
+    window.addEventListener("storage", loadDisputes);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, loadDisputes);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, loadDisputes);
+      window.removeEventListener("storage", loadDisputes);
+    };
+  }, [storageKey, projectId, project.stages, project.disputes]);
 
   // Reply / note input
   const [ownerReplyText, setOwnerReplyText] = useState("");

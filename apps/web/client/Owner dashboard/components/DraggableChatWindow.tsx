@@ -2,6 +2,15 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import {
+  SHARED_SYNC_EVENT,
+  appendSharedMessage,
+  ensureProjectConversation,
+  isDemoProjectId,
+  normalizeCanonicalProjectId,
+  readSharedConversations,
+} from "../../../shared/vantagedSyncBridge";
+import { getOwnerSession } from "../../../shared/vantagedAuth";
 
 export interface ChatMessage {
   id: string;
@@ -19,12 +28,19 @@ export interface ChatMessage {
 interface DraggableChatWindowProps {
   isOpen: boolean;
   onClose: () => void;
+  projectId?: string;
   projectName?: string;
+  contractorName?: string;
+  contractorCompany?: string;
 }
 
 export function DraggableChatWindow({
   isOpen,
   onClose,
+  projectId,
+  projectName,
+  contractorName,
+  contractorCompany,
 }: DraggableChatWindowProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -78,54 +94,96 @@ export function DraggableChatWindow({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initial messages pre-populated with realistic field construction dialogue
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "msg-1",
-      sender: "contractor",
-      senderName: "Engr. Chidi Okafor",
-      text: "Good afternoon Mr. Izu. 4 concrete mixer trucks have arrived on site for the 1st-floor suspended slab pour. Cube slump test is currently being conducted.",
-      timestamp: "11:32 AM",
-      status: "read",
-    },
-    {
-      id: "msg-2",
-      sender: "contractor",
-      senderName: "Engr. Chidi Okafor",
-      photoUrl:
-        "https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?w=700&h=450&fit=crop&q=80",
-      photoCaption:
-        "Slump test cone reading: 110mm (within allowable ±25mm tolerance). Mix batch ticket #LG-8842.",
-      timestamp: "11:34 AM",
-      status: "read",
-    },
-    {
-      id: "msg-3",
-      sender: "contractor",
-      senderName: "Engr. Chidi Okafor",
-      isAudio: true,
-      audioDuration: "0:28",
-      text: "Voice note: Site foreman briefing on vibrator compaction schedule.",
-      timestamp: "11:36 AM",
-      status: "read",
-    },
-    {
-      id: "msg-4",
-      sender: "owner",
-      senderName: "You",
-      text: "Approved! Engr. Tunde already signed off the MEP electrical conduit sleeves this morning. You can commence pouring immediately.",
-      timestamp: "11:40 AM",
-      status: "read",
-    },
-    {
-      id: "msg-5",
-      sender: "contractor",
-      senderName: "Engr. Chidi Okafor",
-      text: "Acknowledged, sir! Pouring is underway at Grid 3-C. The site clerk is logging cube test specimens for 7-day and 28-day laboratory curing.",
-      timestamp: "11:42 AM",
-      status: "read",
-    },
-  ]);
+  const useSharedSync = Boolean(projectId && !isDemoProjectId(projectId));
+
+  // Initial messages: empty for real/new projects (synced with Company Dashboard), demo dialogue only for demo projects
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    projectId && !isDemoProjectId(projectId)
+      ? []
+      : [
+          {
+            id: "msg-1",
+            sender: "contractor",
+            senderName: "Engr. Chidi Okafor",
+            text: "Good afternoon Mr. Izu. 4 concrete mixer trucks have arrived on site for the 1st-floor suspended slab pour. Cube slump test is currently being conducted.",
+            timestamp: "11:32 AM",
+            status: "read",
+          },
+          {
+            id: "msg-2",
+            sender: "contractor",
+            senderName: "Engr. Chidi Okafor",
+            photoUrl:
+              "https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?w=700&h=450&fit=crop&q=80",
+            photoCaption:
+              "Slump test cone reading: 110mm (within allowable ±25mm tolerance). Mix batch ticket #LG-8842.",
+            timestamp: "11:34 AM",
+            status: "read",
+          },
+          {
+            id: "msg-3",
+            sender: "contractor",
+            senderName: "Engr. Chidi Okafor",
+            isAudio: true,
+            audioDuration: "0:28",
+            text: "Voice note: Site foreman briefing on vibrator compaction schedule.",
+            timestamp: "11:36 AM",
+            status: "read",
+          },
+          {
+            id: "msg-4",
+            sender: "owner",
+            senderName: "You",
+            text: "Approved! Engr. Tunde already signed off the MEP electrical conduit sleeves this morning. You can commence pouring immediately.",
+            timestamp: "11:40 AM",
+            status: "read",
+          },
+          {
+            id: "msg-5",
+            sender: "contractor",
+            senderName: "Engr. Chidi Okafor",
+            text: "Acknowledged, sir! Pouring is underway at Grid 3-C. The site clerk is logging cube test specimens for 7-day and 28-day laboratory curing.",
+            timestamp: "11:42 AM",
+            status: "read",
+          },
+        ]
+  );
+
+  // Sync live two-way conversation with Company Project Dashboard when projectId is provided
+  useEffect(() => {
+    if (!projectId) return;
+    const canonicalId = normalizeCanonicalProjectId(projectId);
+    const convId = `conv-${canonicalId}`;
+
+    const syncSharedMessages = () => {
+      const threads = readSharedConversations(false);
+      const thread = threads.find(
+        (t) => t.id === convId || normalizeCanonicalProjectId(t.projectId) === canonicalId
+      );
+      if (thread) {
+        setMessages(
+          thread.messages.map((m) => ({
+            id: m.id,
+            sender: m.sender,
+            senderName: m.sender === "owner" ? "You" : m.senderName,
+            text: m.text,
+            timestamp: m.timestamp,
+            status: m.status,
+          }))
+        );
+      } else if (useSharedSync) {
+        setMessages([]);
+      }
+    };
+
+    syncSharedMessages();
+    window.addEventListener(SHARED_SYNC_EVENT, syncSharedMessages);
+    window.addEventListener("storage", syncSharedMessages);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncSharedMessages);
+      window.removeEventListener("storage", syncSharedMessages);
+    };
+  }, [projectId, useSharedSync]);
 
   // Client-side hydration flag for portal mounting
   useEffect(() => {
@@ -398,6 +456,27 @@ export function DraggableChatWindow({
     const trimmed = inputValue.trim();
     if (!trimmed) return;
 
+    if (projectId) {
+      const ownerSession = getOwnerSession();
+      const thread = ensureProjectConversation({
+        projectId,
+        projectTitle: projectName || "Building Project",
+        ownerName: ownerSession?.fullName || "Property Owner",
+        ownerId: ownerSession?.userId,
+        contractorName: contractorName || "Project Director",
+        contractorCompany: contractorCompany || "Building Company",
+      });
+      appendSharedMessage({
+        conversationId: thread.id,
+        sender: "owner",
+        senderName: ownerSession?.fullName || "Property Owner",
+        text: trimmed,
+      });
+      setInputValue("");
+      setActiveAttachmentMenu(false);
+      return;
+    }
+
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -414,7 +493,7 @@ export function DraggableChatWindow({
     setInputValue("");
     setActiveAttachmentMenu(false);
 
-    // Simulate contractor reply after 1.6s
+    // Simulate contractor reply after 1.6s (demo chat without projectId only)
     setTimeout(() => {
       setIsRepTyping(true);
     }, 800);

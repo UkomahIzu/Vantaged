@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+export const dynamic = "force-dynamic";
+
 export interface ProvisionedContractorAccount {
   id: string;
   companyName: string;
@@ -14,6 +16,13 @@ export interface ProvisionedContractorAccount {
   submissionId?: string;
   createdAt: string;
   issuedBy: "Vantaged Admin" | "Company Director";
+  status?: "ACTIVE" | "SUSPENDED";
+  planId?: string;
+  planName?: string;
+  baseSlots?: number;
+  extraSlots?: number;
+  slotsUsed?: number;
+  updatedAt?: string;
 }
 
 function getStoragePath(): string {
@@ -104,6 +113,65 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data: record });
   } catch (err) {
     console.error("Failed to save contractor account:", err);
+    return NextResponse.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const {
+      id,
+      submissionId,
+      email,
+      companyName,
+      status,
+      planId,
+      planName,
+      baseSlots,
+      extraSlots,
+      slotsUsed,
+    } = body;
+
+    const accounts = readAccounts();
+    const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
+    const normalizedCompany = companyName ? String(companyName).trim().toLowerCase() : "";
+
+    const idx = accounts.findIndex(
+      (a) =>
+        (id && a.id === id) ||
+        (submissionId && a.submissionId === submissionId) ||
+        (normalizedEmail && a.email.trim().toLowerCase() === normalizedEmail) ||
+        (normalizedCompany && a.companyName.trim().toLowerCase() === normalizedCompany)
+    );
+
+    if (idx === -1) {
+      return NextResponse.json(
+        { success: false, error: "Contractor account not found." },
+        { status: 404 }
+      );
+    }
+
+    const updated: ProvisionedContractorAccount = {
+      ...accounts[idx],
+      ...(status === "ACTIVE" || status === "SUSPENDED" ? { status } : {}),
+      ...(planId !== undefined ? { planId } : {}),
+      ...(planName !== undefined ? { planName } : {}),
+      ...(typeof baseSlots === "number" ? { baseSlots } : {}),
+      ...(typeof extraSlots === "number" ? { extraSlots } : {}),
+      ...(typeof slotsUsed === "number" ? { slotsUsed } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+
+    accounts[idx] = updated;
+    writeAccounts(accounts);
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (err) {
+    console.error("Failed to update contractor account:", err);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

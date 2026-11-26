@@ -1,0 +1,134 @@
+[
+  {
+    "id": "proj-1795657397395",
+    "jobId": "JOB-7395",
+    "title": "nope",
+    "category": "Residential",
+    "location": "Lekki Phase 1, Lagos",
+    "specs": "Estate Access Road & Reinforced Stormwater Drainage",
+    "status": "In progress",
+    "milestonesCount": 2,
+    "milestonesTotal": 5,
+    "progressPercent": 40,
+    "escrowAmount": "₦100M - ₦200M",
+    "contractor": {
+      "name": "Ukomah Izuchukwu",
+      "rating": "Client · Verified NIN",
+      "assignedRep": "Engr. Babatunde Julius Adeleke"
+    },
+    "currentScope": "Stage 1: Ground Breaking & Mobilization Setup",
+    "stageSubtitle": "Stage 1: Site mobilization & boundary setting",
+    "snippetLines": [
+      "Client: Ukomah Izuchukwu",
+      "Lekki Phase 1, Lagos · 5 Stages",
+      "Agreement locked · 10% Mobilization due"
+    ],
+    "lastUpdated": "Today, Just now",
+    "companyId": "ctr-acc-1795466864831",
+    "companyName": "Crane & Stone Engineering Limited 2",
+    "ownerId": "own-1795543463189",
+    "ownerName": "Ukomah Izuchukwu",
+    "requestId": "brf-1795657397395",
+    "planId": "prop-1795657397395",
+    "proposedStages": [
+      {
+        "order": 1,
+        "title": "Site Clearing, Topsoil Stripping & Sub-Grade Compaction",
+        "evidence": "Surveyor centerline GPS benchmarks, California Bearing Ratio (CBR) soil test, sub-grade nuclear density test"
+      },
+      {
+        "order": 2,
+        "title": "Concrete Box Culverts & U-Drain Channels",
+        "evidence": "Drain invert levels check, culvert rebar spacing, precast drain cover load certificates"
+      },
+      {
+        "order": 3,
+        "title": "Crushed Granite Stone Base & Prime Coat",
+        "evidence": "Stone aggregate grading sieve analysis, prime coat bitumen spray rate test, rolling pass compaction"
+      },
+      {
+        "order": 4,
+        "title": "Heavy-Duty Interlocking Paving Stones / Asphalt Surfacing",
+        "evidence": "80mm heavy-duty paver crushing strength (>=45 MPa), sand bed leveling, asphalt core temperature & thickness test"
+      },
+      {
+        "order": 5,
+        "title": "Solar Streetlight Poles, Kerb Painting & Signage",
+        "evidence": "Galvanized pole footing depth, solar battery storage autonomy check, thermoplastic road marking reflectivity"
+      }
+    ],
+    "updatedAt": "2026-11-26T02:20:36.688Z",
+    "createdAt": "2026-11-26T01:44:16.544Z"
+  },
+  {
+    "id": "proj-1795653417379",
+    "jobId": "JOB-7379",
+    "title": "ok",
+    "category": "Residential",
+    "location": "Lekki Phase 1, Lagos",
+    "specs": "4-Bedroom Detached Duplex (Standard Nigerian Typology)",
+    "status": "In progress",
+    "milestonesCount": 1,
+    "milestonesTotal": 7,
+    "progressPercent": 10,
+    "escrowAmount": "₦500M+",
+    "contractor": {
+      "name": "Property Owner",
+      "rating": "Client · Verified NIN",
+      "assignedRep": "Engr. Babatunde Julius Adeleke"
+    },
+    "currentScope": "Stage 1: Ground Breaking & Mobilization Setup",
+    "stageSubtitle": "Stage 1: Site mobilization & boundary setting",
+    "snippetLines": [
+      "Client: Property Owner",
+      "Lekki Phase 1, Lagos · 7 Stages",
+      "Agreement locked · 10% Mobilization due"
+    ],
+    "lastUpdated": "Today, Just now",
+    "companyId": "ctr-acc-1795466864831",
+    "companyName": "Crane & Stone Engineering Limited 2",
+    "ownerId": "own-1795543463189",
+    "ownerName": "Property Owner",
+    "requestId": "brf-1795653417379",
+    "planId": "prop-1795653417379",
+    "proposedStages": [
+      {
+        "order": 1,
+        "title": "Substructure & Foundation",
+        "evidence": "Excavation depth log, blind concrete photo, rebar cage inspection, cube compressive test result"
+      },
+      {
+        "order": 2,
+        "title": "Superstructure Frame (Ground Floor)",
+        "evidence": "Column formwork, lintel rebar inspection, German floor / slab casting photos"
+      },
+      {
+        "order": 3,
+        "title": "First Floor Suspended Slab & Columns",
+        "evidence": "Props and decking inspection, electrical conduit placement, concrete pour certificate"
+      },
+      {
+        "order": 4,
+        "title": "Roof Framing, Trusses & Covering",
+        "evidence": "Hardwood/steel truss alignment, aluminium/stone-coated sheet installation, rainwater gutter test"
+      },
+      {
+        "order": 5,
+        "title": "Wall Blockwork & External Plastering",
+        "evidence": "Wall plumb lines, lintels over openings, screeding & exterior rendering photos"
+      },
+      {
+        "order": 6,
+        "title": "MEP Rough-in & Piping Pressure Test",
+        "evidence": "PEX plumbing pressure gauge test, conduit wiring continuity, septic/soakaway installation"
+      },
+      {
+        "order": 7,
+        "title": "Architectural Finishes, Snagging & Handover",
+        "evidence": "Floor tiling, sanitary fixtures, doors/glazing, snagging resolution checklist"
+      }
+    ],
+    "updatedAt": "2026-11-26T01:42:39.651Z",
+    "createdAt": "2026-11-26T01:42:39.651Z"
+  }
+]

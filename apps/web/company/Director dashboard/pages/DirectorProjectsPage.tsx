@@ -21,6 +21,10 @@ import {
   saveCompanySentRequests,
 } from "../../../shared/vantagedSyncBridge";
 import {
+  getContractorSession,
+  readScopedCompanyAcceptedProjects,
+} from "../../../shared/vantagedAuth";
+import {
   DEMO_DIRECTOR_ACTIVE_FOLDER_PROJECTS,
   DEMO_DIRECTOR_HISTORY_FOLDER_PROJECTS,
   DEMO_DIRECTOR_PROJECTS,
@@ -57,21 +61,111 @@ export function DirectorProjectsPage() {
   }, [tabParam]);
 
   useEffect(() => {
-    const syncAccepted = () => {
-      if (typeof window === "undefined") return;
+    const syncAccepted = async () => {
+      setAcceptedProjects(readScopedCompanyAcceptedProjects<ProjectItem>());
+
+      // Also poll backend `/api/projects` & `/api/project-requests` so cross-tab/browser Owner Plan Acceptances
+      // immediately appear in the Company's Active Projects list.
       try {
-        const raw = localStorage.getItem(STORAGE_KEY_ACCEPTED_PROJECTS);
-        const parsed = raw ? JSON.parse(raw) : [];
-        if (Array.isArray(parsed)) setAcceptedProjects(parsed);
-      } catch {
-        setAcceptedProjects([]);
-      }
+        const session = getContractorSession();
+        const params = new URLSearchParams({ direction: "owner_to_company" });
+        if (session?.userId) params.set("companyId", session.userId);
+        if (session?.companyName) params.set("companyName", session.companyName);
+
+        const reqRes = await fetch(`/api/project-requests?${params.toString()}`, {
+          cache: "no-store",
+        });
+        if (reqRes.ok) {
+          const json = await reqRes.json();
+          const acceptedBriefs = Array.isArray(json?.data)
+            ? json.data.filter((b: any) => b?.status === "Plan Accepted & Active")
+            : [];
+          if (acceptedBriefs.length > 0 && typeof window !== "undefined") {
+            const raw = localStorage.getItem(STORAGE_KEY_ACCEPTED_PROJECTS);
+            const currentList: any[] = raw ? JSON.parse(raw) : [];
+            const byId = new Map<string, any>();
+            for (const item of currentList) {
+              if (item?.id) byId.set(item.id, item);
+            }
+            let changed = false;
+            for (const b of acceptedBriefs) {
+              const planId = b.planId || `prop-${b.id}`;
+              const targetId =
+                b.projectId ||
+                (planId.startsWith("prop-")
+                  ? planId.replace("prop-", "proj-").replace("-plan", "")
+                  : planId);
+              if (!byId.has(targetId)) {
+                const stagesCount =
+                  b.proposedPlan?.stages?.length || b.milestonesCount || 6;
+                const cleanBudget = String(
+                  b.proposedBudget ||
+                    b.proposedPlan?.proposedBudget ||
+                    b.estimatedBudget ||
+                    "₦150.0M"
+                ).replace(" Proposed", "");
+                byId.set(targetId, {
+                  id: targetId,
+                  jobId: `JOB-${String(b.id).replace(/[^0-9A-Za-z]/g, "").slice(-4).toUpperCase()}`,
+                  title: b.title || "Owner Building Project",
+                  category:
+                    b.category === "Commercial" || b.category === "Industrial"
+                      ? "Commercial"
+                      : b.category === "Waterfront" || b.category === "Marine & Waterfront"
+                      ? "Waterfront"
+                      : "Residential",
+                  location: b.location || "Lagos, Nigeria",
+                  specs: b.proposedPlan?.presetName || `${stagesCount}-Stage Turnkey Plan`,
+                  status: "In progress",
+                  milestonesCount: 1,
+                  milestonesTotal: stagesCount,
+                  progressPercent: 10,
+                  escrowAmount: cleanBudget,
+                  companyId: b.companyId,
+                  companyName: b.companyName,
+                  ownerId: b.ownerId,
+                  ownerName: b.ownerName || "Property Owner",
+                  requestId: b.id,
+                  planId,
+                  proposedStages: b.proposedPlan?.stages,
+                  contractor: {
+                    name: b.ownerName || "Property Owner",
+                    rating: "Client · Verified NIN",
+                    assignedRep: b.proposedPlan?.directorName || "Project Director",
+                  },
+                  currentScope: "Stage 1: Ground Breaking & Mobilization Setup",
+                  stageSubtitle: "Stage 1: Site mobilization & boundary setting",
+                  snippetLines: [
+                    `Client: ${b.ownerName || "Property Owner"}`,
+                    `${b.location || "Lagos"} · ${stagesCount} Stages`,
+                    "Agreement locked · 10% Mobilization due",
+                  ],
+                  lastUpdated: "Just now",
+                });
+                changed = true;
+              }
+            }
+            if (changed) {
+              localStorage.setItem(
+                STORAGE_KEY_ACCEPTED_PROJECTS,
+                JSON.stringify(Array.from(byId.values()))
+              );
+              setAcceptedProjects(readScopedCompanyAcceptedProjects<ProjectItem>());
+            }
+          }
+        }
+      } catch {}
     };
+
     syncAccepted();
+    const poll = setInterval(syncAccepted, 6000);
     window.addEventListener("vantaged_company_projects_update", syncAccepted);
+    window.addEventListener("vantaged_storage_update", syncAccepted);
     window.addEventListener("storage", syncAccepted);
     return () => {
+      clearInterval(poll);
       window.removeEventListener("vantaged_company_projects_update", syncAccepted);
+      window.removeEventListener("vantaged_storage_update", syncAccepted);
       window.removeEventListener("storage", syncAccepted);
     };
   }, []);
@@ -266,6 +360,7 @@ export function DirectorProjectsPage() {
     const existing = readCompanySentRequests();
     const newReq: CompanySentOwnerRequest = {
       id: `REQ-${Date.now().toString().slice(-6)}`,
+      companyId: getContractorSession()?.userId,
       companyName: contractorUser.companyName,
       directorName: contractorUser.fullName,
       ownerIdentifier: ownerIdentifier.trim(),
@@ -280,8 +375,14 @@ export function DirectorProjectsPage() {
       sentAt: new Date().toISOString(),
     };
     saveCompanySentRequests([newReq, ...existing]);
+    fetch("/api/project-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...newReq, direction: "company_to_owner" }),
+    }).catch(() => {});
 
     pushOwnerLiveNotification({
+      targetOwnerIdentifier: newReq.ownerIdentifier,
       category: "site",
       projectTitle: newReq.title,
       title: `New Project Request from ${newReq.companyName}`,

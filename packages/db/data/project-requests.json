@@ -1,0 +1,183 @@
+[
+  {
+    "id": "brf-1795657397395",
+    "companyId": "ctr-acc-1795466864831",
+    "companyName": "Crane & Stone Engineering Limited 2",
+    "ownerId": "own-1795543463189",
+    "ownerName": "Ukomah Izuchukwu",
+    "ownerEmail": "uko@gmail.com",
+    "ownerIdentifier": "uko@gmail.com",
+    "title": "nope",
+    "category": "Residential",
+    "estimatedBudget": "₦100M - ₦200M",
+    "location": "Lekki Phase 1, Lagos",
+    "status": "Plan Accepted & Active",
+    "dateSubmitted": "Just now",
+    "description": "Project specifications submitted for milestone scoping.",
+    "planId": "prop-1795657397395",
+    "direction": "owner_to_company",
+    "createdAt": "2026-11-26T01:43:17.413Z",
+    "negotiationMessages": [
+      {
+        "id": "pmsg-1795657456566-zdq9",
+        "sender": "owner",
+        "senderName": "Ukomah Izuchukwu",
+        "text": "[Plan Accepted & Locked] I have accepted the 5-stage building plan (₦100M - ₦200M). The project is now active!",
+        "timestamp": "01:44"
+      }
+    ],
+    "directorName": "Engr. Babatunde Julius Adeleke",
+    "proposedBudget": "₦100M - ₦200M",
+    "milestonesCount": 5,
+    "contractorNotes": "Prepared 5-stage milestone plan (\"Estate Access Road & Reinforced Stormwater Drainage\") at ₦100M - ₦200M. Ready for your review, price discussion, and contract sign-off.",
+    "contractorResponseDate": "Just now",
+    "proposedPlan": {
+      "planId": "prop-1795657397395",
+      "presetName": "Estate Access Road & Reinforced Stormwater Drainage",
+      "category": "Infrastructure",
+      "typicalDuration": "3 to 5 Months",
+      "description": "Civil works template for private estate road paving, reinforced stormwater culverts, stone base compaction, and solar streetlighting.",
+      "proposedBudget": "₦100M - ₦200M",
+      "companyName": "Crane & Stone Engineering Limited 2",
+      "directorName": "Engr. Babatunde Julius Adeleke",
+      "sentAt": "Just now",
+      "stages": [
+        {
+          "order": 1,
+          "title": "Site Clearing, Topsoil Stripping & Sub-Grade Compaction",
+          "evidence": "Surveyor centerline GPS benchmarks, California Bearing Ratio (CBR) soil test, sub-grade nuclear density test"
+        },
+        {
+          "order": 2,
+          "title": "Concrete Box Culverts & U-Drain Channels",
+          "evidence": "Drain invert levels check, culvert rebar spacing, precast drain cover load certificates"
+        },
+        {
+          "order": 3,
+          "title": "Crushed Granite Stone Base & Prime Coat",
+          "evidence": "Stone aggregate grading sieve analysis, prime coat bitumen spray rate test, rolling pass compaction"
+        },
+        {
+          "order": 4,
+          "title": "Heavy-Duty Interlocking Paving Stones / Asphalt Surfacing",
+          "evidence": "80mm heavy-duty paver crushing strength (>=45 MPa), sand bed leveling, asphalt core temperature & thickness test"
+        },
+        {
+          "order": 5,
+          "title": "Solar Streetlight Poles, Kerb Painting & Signage",
+          "evidence": "Galvanized pole footing depth, solar battery storage autonomy check, thermoplastic road marking reflectivity"
+        }
+      ]
+    },
+    "updatedAt": "2026-11-26T01:44:16.580Z",
+    "projectId": "proj-1795657397395"
+  },
+  {
+    "id": "brf-1795653417379",
+    "companyId": "ctr-acc-1795466864831",
+    "companyName": "Crane & Stone Engineering Limited 2",
+    "title": "ok",
+    "category": "Residential",
+    "estimatedBudget": "₦500M+",
+    "location": "Lekki Phase 1, Lagos",
+    "status": "Plan Accepted & Active",
+    "dateSubmitted": "Just now",
+    "description": "fhtfrhft",
+    "planId": "prop-1795653417379",
+    "direction": "owner_to_company",
+    "createdAt": "2026-11-26T00:36:57.399Z",
+    "directorName": "Engr. Babatunde Julius Adeleke",
+    "ownerName": "Property Owner",
+    "proposedBudget": "₦500M+",
+    "milestonesCount": 7,
+    "contractorNotes": "Prepared 7-stage milestone plan (\"4-Bedroom Detached Duplex (Standard Nigerian Typology)\") at ₦500M+. Ready for your review, price discussion, and contract sign-off.",
+    "contractorResponseDate": "Just now",
+    "proposedPlan": {
+      "planId": "prop-1795653417379",
+      "presetName": "4-Bedroom Detached Duplex (Standard Nigerian Typology)",
+      "category": "Residential",
+      "typicalDuration": "6 to 9 Months",
+      "description": "Standard residential milestone framework with foundation soil signoff, casting cube tests, and roof covering stages.",
+      "proposedBudget": "₦500M+",
+      "companyName": "Crane & Stone Engineering Limited 2",
+      "directorName": "Engr. Babatunde Julius Adeleke",
+      "sentAt": "Just now",
+      "stages": [
+        {
+          "order": 1,
+          "title": "Substructure & Foundation",
+          "evidence": "Excavation depth log, blind concrete photo, rebar cage inspection, cube compressive test result"
+        },
+        {
+          "order": 2,
+          "title": "Superstructure Frame (Ground Floor)",
+          "evidence": "Column formwork, lintel rebar inspection, German floor / slab casting photos"
+        },
+        {
+          "order": 3,
+          "title": "First Floor Suspended Slab & Columns",
+          "evidence": "Props and decking inspection, electrical conduit placement, concrete pour certificate"
+        },
+        {
+          "order": 4,
+          "title": "Roof Framing, Trusses & Covering",
+          "evidence": "Hardwood/steel truss alignment, aluminium/stone-coated sheet installation, rainwater gutter test"
+        },
+        {
+          "order": 5,
+          "title": "Wall Blockwork & External Plastering",
+          "evidence": "Wall plumb lines, lintels over openings, screeding & exterior rendering photos"
+        },
+        {
+          "order": 6,
+          "title": "MEP Rough-in & Piping Pressure Test",
+          "evidence": "PEX plumbing pressure gauge test, conduit wiring continuity, septic/soakaway installation"
+        },
+        {
+          "order": 7,
+          "title": "Architectural Finishes, Snagging & Handover",
+          "evidence": "Floor tiling, sanitary fixtures, doors/glazing, snagging resolution checklist"
+        }
+      ]
+    },
+    "updatedAt": "2026-11-26T01:42:39.889Z",
+    "negotiationMessages": [
+      {
+        "id": "pmsg-1795656544640-736f",
+        "sender": "company",
+        "senderName": "Engr. Babatunde Julius Adeleke",
+        "text": "What do you think",
+        "timestamp": "01:29"
+      },
+      {
+        "id": "pmsg-1795656567314-nggk",
+        "sender": "owner",
+        "senderName": "Ukomah Izuchukwu",
+        "text": "Yeah it makes sense",
+        "timestamp": "01:29"
+      },
+      {
+        "id": "pmsg-1795656577580-9wp1",
+        "sender": "owner",
+        "senderName": "Ukomah Izuchukwu",
+        "text": "Can we review the total contract price?",
+        "timestamp": "01:29"
+      },
+      {
+        "id": "pmsg-1795656586172-ndve",
+        "sender": "company",
+        "senderName": "Engr. Babatunde Julius Adeleke",
+        "text": "ok",
+        "timestamp": "01:29"
+      },
+      {
+        "id": "pmsg-1795657359749-zgi7",
+        "sender": "owner",
+        "senderName": "Property Owner",
+        "text": "[Plan Accepted & Locked] I have accepted the 7-stage building plan (₦500M+). The project is now active!",
+        "timestamp": "01:42"
+      }
+    ],
+    "projectId": "proj-1795653417379"
+  }
+]

@@ -274,7 +274,14 @@ export default function VerificationQueuePage() {
       await fetch("/api/verifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: approvedCompany.id, status: "VERIFIED" }),
+        body: JSON.stringify({
+          id: approvedCompany.id,
+          status: "VERIFIED",
+          directorCredentials: {
+            email: loginEmail,
+            password: loginPassword,
+          },
+        }),
       });
 
       await fetch("/api/contractor-accounts", {

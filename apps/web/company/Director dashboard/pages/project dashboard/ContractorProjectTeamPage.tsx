@@ -14,6 +14,7 @@ import {
   saveProjectKey,
 } from "./contractorProjectData";
 import { useContractorProject } from "./useContractorProject";
+import { SHARED_SYNC_EVENT } from "../../../../shared/vantagedSyncBridge";
 
 interface ContractorProjectTeamPageProps {
   projectId: string;
@@ -40,9 +41,11 @@ export function ContractorProjectTeamPage({ projectId }: ContractorProjectTeamPa
     };
     sync();
     window.addEventListener(CONTRACTOR_STORAGE_EVENT, sync);
+    window.addEventListener(SHARED_SYNC_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener(CONTRACTOR_STORAGE_EVENT, sync);
+      window.removeEventListener(SHARED_SYNC_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, [projectId, project.siteTeam]);

@@ -5,6 +5,11 @@ import Link from "next/link";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { getOwnerScopedKey, getOwnerSession } from "../../../shared/vantagedAuth";
+import {
+  startPaystackCheckout,
+  verifyPaystackCallback,
+} from "../../../shared/paystackClient";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { VantagedSelect } from "../components/VantagedSelect";
 
@@ -142,14 +147,14 @@ export function OwnerSettingsPage() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [buySlotsInput, setBuySlotsInput] = useState<number>(1);
 
-  // Load saved subscription state from localStorage or URL query param
+  // Load saved subscription state from scoped storage & verify Paystack return callback
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedTier = localStorage.getItem("vantaged_owner_tier") as "owner-private" | "owner-portfolio" | "owner-estate" | null;
+      const savedTier = localStorage.getItem(getOwnerScopedKey("vantaged_owner_tier")) as "owner-private" | "owner-portfolio" | "owner-estate" | null;
       if (savedTier && ["owner-private", "owner-portfolio", "owner-estate"].includes(savedTier)) {
         setCurrentTier(savedTier);
       }
-      const savedExtra = localStorage.getItem("vantaged_owner_extra_slots");
+      const savedExtra = localStorage.getItem(getOwnerScopedKey("vantaged_owner_extra_slots"));
       if (savedExtra !== null) {
         const parsed = parseInt(savedExtra, 10);
         if (!isNaN(parsed) && parsed >= 0) {
@@ -161,6 +166,32 @@ export function OwnerSettingsPage() {
       if (tabParam === "subscription" || tabParam === "capacity" || tabParam === "pricing") {
         setActiveTab("subscription");
       }
+
+      verifyPaystackCallback().then((result) => {
+        if (!result.checked) return;
+        setActiveTab("subscription");
+        if (result.success && result.data) {
+          const meta = result.data.metadata || {};
+          if (result.data.purpose === "owner_plan" && meta.tierId) {
+            setCurrentTier(meta.tierId);
+            localStorage.setItem(getOwnerScopedKey("vantaged_owner_tier"), meta.tierId);
+            window.dispatchEvent(new Event("vantaged_storage_update"));
+            window.dispatchEvent(new Event("storage"));
+            showToast(`Paystack verified (${result.data.reference})! Upgraded to ${tierNames[meta.tierId as keyof typeof tierNames] || meta.tierId}.`);
+          } else if (result.data.purpose === "owner_extra_slots") {
+            const added = Number(meta.slotsCount || 1);
+            const curr = parseInt(localStorage.getItem(getOwnerScopedKey("vantaged_owner_extra_slots")) || "0", 10) || 0;
+            const nextExtra = curr + added;
+            setExtraSlotsCount(nextExtra);
+            localStorage.setItem(getOwnerScopedKey("vantaged_owner_extra_slots"), String(nextExtra));
+            window.dispatchEvent(new Event("vantaged_storage_update"));
+            window.dispatchEvent(new Event("storage"));
+            showToast(`Paystack verified (${result.data.reference})! Added ${added} extra project slot${added > 1 ? "s" : ""}.`);
+          }
+        } else if (result.error) {
+          showToast(`Payment not completed: ${result.error}`);
+        }
+      });
     }
   }, []);
 
@@ -176,26 +207,65 @@ export function OwnerSettingsPage() {
     "owner-estate": "Estate Developer",
   };
 
-  const handleUpgradeTier = (tierId: "owner-private" | "owner-portfolio" | "owner-estate") => {
-    setCurrentTier(tierId);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vantaged_owner_tier", tierId);
-      window.dispatchEvent(new Event("storage"));
+  const handleUpgradeTier = async (tierId: "owner-private" | "owner-portfolio" | "owner-estate") => {
+    if (tierId === "owner-private") {
+      setCurrentTier(tierId);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(getOwnerScopedKey("vantaged_owner_tier"), tierId);
+        window.dispatchEvent(new Event("vantaged_storage_update"));
+        window.dispatchEvent(new Event("storage"));
+      }
+      showToast(`Switched to ${tierNames[tierId]} tier.`);
+      return;
     }
-    showToast(`Upgraded to ${tierNames[tierId]} tier successfully.`);
+
+    const amountNaira =
+      tierId === "owner-portfolio"
+        ? billingCycle === "yearly"
+          ? 650000
+          : 65000
+        : billingCycle === "yearly"
+        ? 1950000
+        : 195000;
+
+    const session = getOwnerSession();
+    showToast("Redirecting to Paystack checkout...");
+    const res = await startPaystackCheckout({
+      email: session?.email || email || "owner@vantaged.io",
+      amountNaira,
+      purpose: "owner_plan",
+      callbackPath: "/owner/settings?tab=subscription",
+      metadata: {
+        ownerId: session?.userId,
+        tierId,
+        billingCycle,
+      },
+    });
+    if (!res.ok) {
+      showToast(`Paystack error: ${res.error}`);
+    }
   };
 
-  const handleBuyProjectSlots = (e: React.FormEvent) => {
+  const handleBuyProjectSlots = async (e: React.FormEvent) => {
     e.preventDefault();
     const count = Math.max(1, Math.min(50, Math.floor(buySlotsInput || 1)));
-    const updatedExtra = extraSlotsCount + count;
-    setExtraSlotsCount(updatedExtra);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vantaged_owner_extra_slots", updatedExtra.toString());
-      window.dispatchEvent(new Event("storage"));
+    const amountNaira = count * 25000;
+    const session = getOwnerSession();
+    showToast(`Opening Paystack checkout for ${count} slot${count > 1 ? "s" : ""} (₦${amountNaira.toLocaleString("en-NG")})...`);
+
+    const res = await startPaystackCheckout({
+      email: session?.email || email || "owner@vantaged.io",
+      amountNaira,
+      purpose: "owner_extra_slots",
+      callbackPath: "/owner/settings?tab=subscription",
+      metadata: {
+        ownerId: session?.userId,
+        slotsCount: count,
+      },
+    });
+    if (!res.ok) {
+      showToast(`Paystack error: ${res.error}`);
     }
-    setBuySlotsInput(1);
-    showToast(`Purchased ${count} project slot${count > 1 ? "s" : ""}! Total capacity: ${baseSlots + updatedExtra} concurrent projects.`);
   };
 
   const handleRemoveExtraSlot = () => {
@@ -203,7 +273,8 @@ export function OwnerSettingsPage() {
     const updatedExtra = extraSlotsCount - 1;
     setExtraSlotsCount(updatedExtra);
     if (typeof window !== "undefined") {
-      localStorage.setItem("vantaged_owner_extra_slots", updatedExtra.toString());
+      localStorage.setItem(getOwnerScopedKey("vantaged_owner_extra_slots"), updatedExtra.toString());
+      window.dispatchEvent(new Event("vantaged_storage_update"));
       window.dispatchEvent(new Event("storage"));
     }
     showToast(`Released 1 extra project slot. Total capacity: ${baseSlots + updatedExtra} projects.`);

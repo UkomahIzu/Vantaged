@@ -14,6 +14,7 @@ import {
   SHARED_SYNC_EVENT,
   readCompanyLiveNotifications,
 } from "../../../shared/vantagedSyncBridge";
+import { readScopedCompanyAcceptedProjects } from "../../../shared/vantagedAuth";
 
 type PortfolioTab = "ALL" | "CONTRACTOR_TURN" | "CLIENT_TURN";
 
@@ -25,30 +26,23 @@ export function DirectorPortfolioAndQueue() {
 
   useEffect(() => {
     const sync = () => {
-      try {
-        const raw = localStorage.getItem("vantaged_company_accepted_projects");
-        const parsed = raw ? JSON.parse(raw) : [];
-        if (Array.isArray(parsed)) {
-          setLiveProjects(
-            parsed.map((p: any) => ({
-              id: p.id,
-              name: p.title,
-              clientName: p.contractor?.assignedRep || "Property Owner",
-              location: p.location || "Nigeria",
-              currentStage: p.stageSubtitle || "Stage 1: Mobilization",
-              verifiedPercent: p.progressPercent || 0,
-              reportedPercent: p.progressPercent || 0,
-              status: "ACTIVE" as const,
-              ballInCourt: "CONTRACTOR" as const,
-              contractValue: p.escrowAmount || "₦0",
-              escrowReceived: "₦0",
-              assignedCrewCount: 1,
-            }))
-          );
-        }
-      } catch {
-        setLiveProjects([]);
-      }
+      const parsed = readScopedCompanyAcceptedProjects();
+      setLiveProjects(
+        parsed.map((p: any) => ({
+          id: p.id,
+          name: p.title,
+          clientName: p.contractor?.assignedRep || "Property Owner",
+          location: p.location || "Nigeria",
+          currentStage: p.stageSubtitle || "Stage 1: Mobilization",
+          verifiedPercent: p.progressPercent || 0,
+          reportedPercent: p.progressPercent || 0,
+          status: "ACTIVE" as const,
+          ballInCourt: "CONTRACTOR" as const,
+          contractValue: p.escrowAmount || "₦0",
+          escrowReceived: "₦0",
+          assignedCrewCount: 1,
+        }))
+      );
 
       const notifs = readCompanyLiveNotifications().filter((n) => n.isUnread);
       setLiveWaiting(

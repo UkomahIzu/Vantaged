@@ -7,6 +7,7 @@ export { OwnerInspectorsPage } from './pages/OwnerInspectorsPage';
 export { OwnerNotificationsPage } from './pages/OwnerNotificationsPage';
 export { OwnerSettingsPage } from './pages/OwnerSettingsPage';
 export { OwnerMobileShell } from './components/OwnerMobileShell';
+export { ProjectFolderCard } from './components/ProjectFolderCard';
 export * from './components/OwnerHomeModals';
 export {
   OwnerMobileProvider,

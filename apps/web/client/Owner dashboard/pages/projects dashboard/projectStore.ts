@@ -3,18 +3,47 @@
 import { ProjectItem } from "../../components/ProjectFolderCard";
 import { getIsDemoMode } from "../../hooks/useDemoMode";
 import { getOwnerCapacity } from "../../hooks/useOwnerSubscription";
-import { ensureProjectConversation } from "../../../../shared/vantagedSyncBridge";
-import { getOwnerScopedKey } from "../../../../shared/vantagedAuth";
+import {
+  broadcastPortalSync,
+  ensureProjectConversation,
+  initializeFreshProjectWorkspace,
+  pushCompanyLiveNotification,
+} from "../../../../shared/vantagedSyncBridge";
+import { getOwnerScopedKey, getOwnerSession } from "../../../../shared/vantagedAuth";
 
 export const STORAGE_KEY_ACTIVE = "vantaged_active_projects";
 export const STORAGE_KEY_PLANS = "vantaged_proposed_plans";
 export const STORAGE_KEY_HISTORY = "vantaged_contract_history";
 export const STORAGE_KEY_BRIEFS = "vantaged_project_briefs";
 
+export interface ProposedPlanStageItem {
+  order: number;
+  title: string;
+  evidence: string;
+  weightPercent?: number;
+}
+
+export interface ProposedPlanPayload {
+  planId: string;
+  presetName: string;
+  category: string;
+  typicalDuration: string;
+  description: string;
+  proposedBudget: string;
+  companyName: string;
+  directorName?: string;
+  sentAt?: string;
+  stages: ProposedPlanStageItem[];
+}
+
 export interface ProjectBrief {
   id: string;
   companyId: string;
   companyName: string;
+  ownerId?: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  ownerIdentifier?: string;
   title: string;
   category: string;
   estimatedBudget: string;
@@ -27,6 +56,7 @@ export interface ProjectBrief {
   milestonesCount?: number;
   contractorNotes?: string;
   contractorResponseDate?: string;
+  proposedPlan?: ProposedPlanPayload;
 }
 
 export const INITIAL_BRIEFS: ProjectBrief[] = [
@@ -585,7 +615,7 @@ export function getActiveProjects(): ProjectItem[] {
  */
 export function getContractHistory(): ProjectItem[] {
   if (typeof window === "undefined") {
-    return INITIAL_CONTRACT_HISTORY;
+    return [];
   }
 
   // Main empty-first state: return real saved contract history (empty for new users)
@@ -622,7 +652,7 @@ export function getContractHistory(): ProjectItem[] {
  */
 export function getProposedPlans(): ProjectItem[] {
   if (typeof window === "undefined") {
-    return INITIAL_PROPOSED_PLANS;
+    return [];
   }
 
   // Main empty-first state: return real proposed plans (empty until a builder sends one)
@@ -663,17 +693,42 @@ export function getProposedPlans(): ProjectItem[] {
  * 3. Add / activate the project in active projects.
  * 4. Dispatch storage update event.
  */
-export function acceptProposedPlan(planId: string): void {
+export function acceptProposedPlan(planId: string, explicitBrief?: ProjectBrief | null): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(`vantaged_plan_status_${planId}`, "ACCEPTED");
 
-    // Remove from proposed plans
-    const savedPlans = localStorage.getItem(STORAGE_KEY_PLANS);
-    const plansList: ProjectItem[] = savedPlans ? JSON.parse(savedPlans) : INITIAL_PROPOSED_PLANS;
-    const planToAccept = plansList.find((p) => p.id === planId) || INITIAL_PROPOSED_PLANS.find((p) => p.id === planId);
-    const remainingPlans = plansList.filter((p) => p.id !== planId);
-    localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(remainingPlans));
+    // Resolve linked brief from explicitBrief, dynamic plan cache, or stored briefs
+    let linkedBrief: ProjectBrief | undefined = explicitBrief || undefined;
+    if (!linkedBrief) {
+      try {
+        const cached = localStorage.getItem(`vantaged_dynamic_plan_${planId}`);
+        if (cached) linkedBrief = JSON.parse(cached);
+      } catch {}
+    }
+    if (!linkedBrief) {
+      linkedBrief = getBriefForPlan(planId);
+    }
+
+    // Remove from proposed plans (both owner-scoped and global)
+    const scopedPlansKey = getOwnerScopedKey(STORAGE_KEY_PLANS);
+    const savedScopedPlans = localStorage.getItem(scopedPlansKey);
+    const savedGlobalPlans = localStorage.getItem(STORAGE_KEY_PLANS);
+    const scopedList: ProjectItem[] = savedScopedPlans ? JSON.parse(savedScopedPlans) : [];
+    const globalList: ProjectItem[] = savedGlobalPlans ? JSON.parse(savedGlobalPlans) : INITIAL_PROPOSED_PLANS;
+    const planToAccept =
+      scopedList.find((p) => p.id === planId) ||
+      globalList.find((p) => p.id === planId) ||
+      INITIAL_PROPOSED_PLANS.find((p) => p.id === planId) ||
+      (linkedBrief ? buildProposedPlanItemFromBrief(linkedBrief) : undefined);
+    localStorage.setItem(
+      scopedPlansKey,
+      JSON.stringify(scopedList.filter((p) => p.id !== planId))
+    );
+    localStorage.setItem(
+      STORAGE_KEY_PLANS,
+      JSON.stringify(globalList.filter((p) => p.id !== planId))
+    );
 
     // Add to active projects
     const currentActive = getActiveProjects();
@@ -690,29 +745,61 @@ export function acceptProposedPlan(planId: string): void {
       return;
     }
 
+    const ownerSession = getOwnerSession();
+    const ownerDisplayName =
+      linkedBrief?.ownerName || ownerSession?.fullName || "Property Owner";
+    const companyDisplayName =
+      linkedBrief?.companyName ||
+      linkedBrief?.proposedPlan?.companyName ||
+      planToAccept?.contractor?.name ||
+      "Julius B. Consortium";
+    const directorDisplayName =
+      linkedBrief?.proposedPlan?.directorName ||
+      planToAccept?.contractor?.assignedRep ||
+      "Engr. Babatunde Adeleke";
+    const cleanEscrowAmount = (
+      linkedBrief?.proposedBudget ||
+      linkedBrief?.proposedPlan?.proposedBudget ||
+      planToAccept?.escrowAmount ||
+      "₦145.0M"
+    ).replace(" Proposed", "");
+    const stagesTotal =
+      linkedBrief?.proposedPlan?.stages?.length ||
+      linkedBrief?.milestonesCount ||
+      planToAccept?.milestonesTotal ||
+      6;
+    const jobCode = planToAccept?.jobId
+      ? planToAccept.jobId.replace("PROP-", "JOB-")
+      : `JOB-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const activatedProject: ProjectItem = {
       id: targetId,
-      jobId: planToAccept?.jobId ? planToAccept.jobId.replace("PROP-", "JOB-") : `JOB-${Math.floor(1000 + Math.random() * 9000)}`,
-      title: planToAccept?.title || "New Building Project",
+      jobId: jobCode,
+      title: linkedBrief?.title || planToAccept?.title || "New Building Project",
       category: planToAccept?.category || "Residential",
-      location: planToAccept?.location || "Plot 14, Admiralty Way, Lekki",
-      specs: planToAccept?.specs || "Building Construction",
+      location: linkedBrief?.location || planToAccept?.location || "Plot 14, Admiralty Way, Lekki",
+      specs:
+        linkedBrief?.proposedPlan?.presetName ||
+        planToAccept?.specs ||
+        "Building Construction",
       status: "In progress",
-      milestonesCount: 1,
-      milestonesTotal: planToAccept?.milestonesTotal || 6,
-      progressPercent: 10,
-      escrowAmount: planToAccept?.escrowAmount ? planToAccept.escrowAmount.replace(" Proposed", "") : "₦145.0M",
-      contractor: planToAccept?.contractor || {
-        name: "Julius B. Consortium",
-        rating: "4.8 ★",
-        assignedRep: "Engr. Babatunde Adeleke",
+      milestonesCount: 0,
+      milestonesTotal: stagesTotal,
+      progressPercent: 0,
+      escrowAmount: cleanEscrowAmount,
+      contractor: {
+        name: companyDisplayName,
+        rating: planToAccept?.contractor?.rating || "4.9 ★",
+        assignedRep: directorDisplayName,
       },
-      currentScope: "Stage 1: Ground Breaking & Mobilization Setup",
-      stageSubtitle: "Stage 1: Site mobilization & boundary setting",
+      currentScope: linkedBrief?.proposedPlan?.stages?.[0]?.title
+        ? `Stage 1: ${linkedBrief.proposedPlan.stages[0].title}`
+        : "Stage 1: Site Mobilization & Setting Out",
+      stageSubtitle: "Stage 1: Ready to begin (0% completed)",
       snippetLines: [
-        "Plan locked and agreement sealed",
-        "10% Mobilisation deposit active",
-        "Site perimeter setup active",
+        "Plan locked — starting at 0%",
+        `${stagesTotal} agreed milestone stages`,
+        "Awaiting initial escrow deposit & Stage 1 proof",
       ],
       lastUpdated: "Today, Just now",
     };
@@ -728,21 +815,129 @@ export function acceptProposedPlan(planId: string): void {
     localStorage.setItem(getOwnerScopedKey(STORAGE_KEY_ACTIVE), JSON.stringify(updatedActive));
     localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(updatedActive));
 
+    // Also add the locked project to the Company's Active Projects (`vantaged_company_accepted_projects`)
+    const companyActiveFolder: ProjectItem & {
+      companyId?: string;
+      companyName?: string;
+      ownerId?: string;
+      ownerName?: string;
+      requestId?: string;
+      planId?: string;
+      proposedStages?: ProposedPlanStageItem[];
+    } = {
+      ...activatedProject,
+      companyId: linkedBrief?.companyId,
+      companyName: companyDisplayName,
+      ownerId: linkedBrief?.ownerId || ownerSession?.userId,
+      ownerName: ownerDisplayName,
+      requestId: linkedBrief?.id,
+      planId,
+      proposedStages: linkedBrief?.proposedPlan?.stages,
+      contractor: {
+        name: ownerDisplayName,
+        rating: "Client · Verified NIN",
+        assignedRep: directorDisplayName,
+      },
+      snippetLines: [
+        `Client: ${ownerDisplayName}`,
+        `${activatedProject.location} · ${stagesTotal} Stages`,
+        "Agreement locked · 10% Mobilization due",
+      ],
+    };
+
+    try {
+      const existingCompanyRaw = localStorage.getItem("vantaged_company_accepted_projects");
+      const existingCompanyList: any[] = existingCompanyRaw ? JSON.parse(existingCompanyRaw) : [];
+      const filteredCompanyList = Array.isArray(existingCompanyList)
+        ? existingCompanyList.filter((p) => p?.id !== companyActiveFolder.id)
+        : [];
+      localStorage.setItem(
+        "vantaged_company_accepted_projects",
+        JSON.stringify([companyActiveFolder, ...filteredCompanyList])
+      );
+      window.dispatchEvent(new Event("vantaged_company_projects_update"));
+    } catch {}
+
+    // Cache dynamic plan under the activated projectId as well so contractor project dashboard can read custom stages
+    if (linkedBrief) {
+      try {
+        localStorage.setItem(
+          `vantaged_dynamic_plan_${targetId}`,
+          JSON.stringify({ ...linkedBrief, status: "Plan Accepted & Active" })
+        );
+      } catch {}
+    }
+
+    // Remove or mark request as accepted in Company's local requests cache (`vantaged_director_requests`)
+    try {
+      const dirReqsRaw = localStorage.getItem("vantaged_director_requests");
+      if (dirReqsRaw) {
+        const dirReqs: any[] = JSON.parse(dirReqsRaw);
+        if (Array.isArray(dirReqs)) {
+          const cleanPlan = planId.replace(/^prop-/, "").replace(/-plan$/, "");
+          const updatedDirReqs = dirReqs.filter((r) => {
+            if (!r?.id) return false;
+            if (linkedBrief?.id && r.id === linkedBrief.id) return false;
+            const rClean = String(r.id).replace(/^prop-/, "").replace(/-plan$/, "");
+            return r.id !== planId && rClean !== cleanPlan;
+          });
+          localStorage.setItem("vantaged_director_requests", JSON.stringify(updatedDirReqs));
+        }
+      }
+    } catch {}
+
+    // Initialize clean ZERO-STATE workspace for BOTH Owner & Company Project Dashboards
+    initializeFreshProjectWorkspace({
+      projectId: activatedProject.id,
+      title: activatedProject.title,
+      location: activatedProject.location,
+      category: activatedProject.category,
+      contractValue: parseBudgetToNaira(cleanEscrowAmount),
+      ownerName: ownerDisplayName,
+      ownerEmail: linkedBrief?.ownerEmail || ownerSession?.email,
+      ownerPhone: ownerSession?.phone,
+      ownerId: linkedBrief?.ownerId || ownerSession?.userId,
+      companyId: linkedBrief?.companyId,
+      companyName: companyDisplayName,
+      directorName: directorDisplayName,
+      typicalDuration: linkedBrief?.proposedPlan?.typicalDuration,
+      stages: linkedBrief?.proposedPlan?.stages,
+    });
+
     ensureProjectConversation({
       projectId: activatedProject.id,
       projectTitle: activatedProject.title,
-      ownerName: "Property Owner",
-      contractorName: activatedProject.contractor?.assignedRep || "Project Director",
-      contractorCompany: activatedProject.contractor?.name || "Verified Builder",
+      ownerName: ownerDisplayName,
+      ownerId: linkedBrief?.ownerId || ownerSession?.userId,
+      companyId: linkedBrief?.companyId,
+      contractorName: directorDisplayName,
+      contractorCompany: companyDisplayName,
+    });
+
+    // Notify the Building Company that the Owner accepted the Plan & Contract
+    pushCompanyLiveNotification({
+      targetCompanyId: linkedBrief?.companyId,
+      category: "stage",
+      projectTitle: activatedProject.title,
+      title: `Plan Accepted & Contract Locked by ${ownerDisplayName}`,
+      description: `${ownerDisplayName} accepted your ${stagesTotal}-stage building plan (${cleanEscrowAmount}) for "${activatedProject.title}". The project is now live in Active Projects.`,
+      href: `/contractor/projects/${activatedProject.id}`,
     });
 
     // Also update any linked project brief status to "Plan Accepted & Active"
     try {
       const briefs = getProjectBriefs();
       const cleanPlan = planId.replace("prop-", "").replace("proj-", "").replace("-plan", "");
+      let matchedBriefId: string | null = linkedBrief?.id || null;
       const updatedBriefs = briefs.map((b) => {
         const bClean = (b.planId || "").replace("prop-", "").replace("proj-", "").replace("-plan", "");
-        if (b.planId === planId || (bClean && bClean === cleanPlan) || b.id === planToAccept?.briefId) {
+        if (
+          b.planId === planId ||
+          (bClean && bClean === cleanPlan) ||
+          b.id === planToAccept?.briefId ||
+          (linkedBrief?.id && b.id === linkedBrief.id)
+        ) {
+          matchedBriefId = b.id;
           return {
             ...b,
             status: "Plan Accepted & Active" as const,
@@ -750,10 +945,39 @@ export function acceptProposedPlan(planId: string): void {
         }
         return b;
       });
+      localStorage.setItem(getOwnerScopedKey(STORAGE_KEY_BRIEFS), JSON.stringify(updatedBriefs));
       localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(updatedBriefs));
+      if (matchedBriefId || planId) {
+        fetch("/api/project-requests", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: matchedBriefId || planId,
+            planId,
+            upsert: true,
+            status: "Plan Accepted & Active",
+            projectId: activatedProject.id,
+            appendMessage: {
+              sender: "owner",
+              senderName: ownerDisplayName,
+              text: `[Plan Accepted & Locked] I have accepted the ${stagesTotal}-stage building plan (${cleanEscrowAmount}). The project is now active!`,
+            },
+          }),
+        }).catch(() => {});
+      }
+      fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...companyActiveFolder,
+          ownerId: linkedBrief?.ownerId || ownerSession?.userId,
+          companyId: linkedBrief?.companyId,
+          companyName: companyDisplayName,
+        }),
+      }).catch(() => {});
     } catch {}
 
-    window.dispatchEvent(new Event("vantaged_storage_update"));
+    broadcastPortalSync();
   } catch (err) {
     console.error("Error accepting proposed plan:", err);
   }
@@ -764,7 +988,7 @@ export function acceptProposedPlan(planId: string): void {
  */
 export function getProjectBriefs(): ProjectBrief[] {
   if (typeof window === "undefined") {
-    return INITIAL_BRIEFS;
+    return [];
   }
 
   // Main empty-first state: return real briefs submitted by the owner (empty initially)
@@ -808,6 +1032,14 @@ export function saveProjectBrief(brief: ProjectBrief): void {
     }
     localStorage.setItem(getOwnerScopedKey(STORAGE_KEY_BRIEFS), JSON.stringify(updated));
     localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(updated));
+    fetch("/api/project-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...brief,
+        direction: "owner_to_company",
+      }),
+    }).catch(() => {});
     window.dispatchEvent(new Event("vantaged_storage_update"));
   } catch (err) {
     console.error("Error saving project brief:", err);
@@ -848,6 +1080,11 @@ export function updateBriefStatus(briefId: string, status: ProjectBrief["status"
     const updated = list.map((b) => (b.id === briefId ? { ...b, status } : b));
     localStorage.setItem(getOwnerScopedKey(STORAGE_KEY_BRIEFS), JSON.stringify(updated));
     localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(updated));
+    fetch("/api/project-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: briefId, status }),
+    }).catch(() => {});
     window.dispatchEvent(new Event("vantaged_storage_update"));
   } catch (err) {
     console.error("Error updating brief status:", err);
@@ -914,4 +1151,180 @@ export function markProjectAsCompleted(projectId: string): void {
   } catch (err) {
     console.error("Error marking project completed:", err);
   }
+}
+
+/**
+ * Parse a Nigerian Naira budget string (e.g. "₦195,000,000", "₦210.5M", "₦100M - ₦250M") into numeric Naira.
+ */
+export function parseBudgetToNaira(raw?: string): number {
+  if (!raw) return 150000000;
+  const firstSegment = String(raw).split("-")[0] || raw;
+  const upper = firstSegment.toUpperCase();
+  const numMatch = upper.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+  if (!numMatch) return 150000000;
+  const base = parseFloat(numMatch[1]);
+  if (isNaN(base) || base <= 0) return 150000000;
+  if (upper.includes("B")) return Math.round(base * 1000000000);
+  if (upper.includes("M")) return Math.round(base * 1000000);
+  if (upper.includes("K")) return Math.round(base * 1000);
+  return Math.round(base);
+}
+
+/**
+ * Build a Plan & Contract folder item from a ProjectBrief whose company sent a milestone plan.
+ */
+export function buildProposedPlanItemFromBrief(brief: ProjectBrief): ProjectItem {
+  const planId = brief.planId || `prop-${brief.id}`;
+  const stages = brief.proposedPlan?.stages || [];
+  const stagesCount = stages.length || brief.milestonesCount || 6;
+  const budgetLabel = brief.proposedBudget || brief.proposedPlan?.proposedBudget || brief.estimatedBudget || "₦150.0M";
+  const category: ProjectItem["category"] =
+    brief.category === "Commercial" || brief.category === "Industrial"
+      ? "Commercial"
+      : brief.category === "Waterfront" || brief.category === "Marine & Waterfront"
+      ? "Waterfront"
+      : "Residential";
+
+  return {
+    id: planId,
+    jobId: `PROP-${String(brief.id).replace(/[^0-9A-Za-z]/g, "").slice(-4).toUpperCase()}`,
+    title: brief.title,
+    category,
+    location: brief.location || "Lagos, Nigeria",
+    specs: brief.proposedPlan?.presetName || `${stagesCount}-Stage Turnkey Plan`,
+    status: "Inspection pending",
+    milestonesCount: 0,
+    milestonesTotal: stagesCount,
+    progressPercent: 100,
+    escrowAmount: budgetLabel.includes("Proposed") ? budgetLabel : `${budgetLabel} Proposed`,
+    contractor: {
+      name: brief.companyName || brief.proposedPlan?.companyName || "Verified Builder",
+      rating: "4.9 ★",
+      assignedRep: brief.proposedPlan?.directorName || "Project Director",
+    },
+    currentScope:
+      brief.status === "Revisions Requested"
+        ? "Revisions requested — discussing terms with builder"
+        : "Proposed building plan ready for your review & agreement",
+    stageSubtitle: `${stagesCount} Stages · ${brief.proposedPlan?.typicalDuration || "10% Mobilization"}`,
+    snippetLines: [
+      brief.status === "Revisions Requested" ? "Revisions Requested" : "Awaiting Owner Agreement",
+      `${stagesCount} milestone stages proposed`,
+      brief.proposedPlan?.presetName || "5% defect retention included",
+    ],
+    lastUpdated: brief.contractorResponseDate || brief.dateSubmitted || "Just now",
+    briefId: brief.id,
+  };
+}
+
+/**
+ * Cache dynamic plan payload in localStorage so ProjectPlanReviewPage can display it immediately.
+ */
+export function cacheDynamicPlanRecord(brief: ProjectBrief): void {
+  if (typeof window === "undefined") return;
+  const planId = brief.planId || `prop-${brief.id}`;
+  try {
+    localStorage.setItem(`vantaged_dynamic_plan_${planId}`, JSON.stringify(brief));
+  } catch {}
+}
+
+/**
+ * Fetch Owner-submitted briefs & Company-sent plans from `/api/project-requests`
+ * and synchronize them into the Owner's `My Briefs` and `Projects -> Plan & Contract` lists.
+ */
+export async function syncRemoteOwnerPlansAndBriefs(): Promise<{
+  briefs: ProjectBrief[];
+  plans: ProjectItem[];
+}> {
+  if (typeof window === "undefined") {
+    return { briefs: [], plans: [] };
+  }
+
+  try {
+    const session = getOwnerSession();
+    const params = new URLSearchParams({ direction: "owner_to_company" });
+    if (session?.userId) params.set("ownerId", session.userId);
+    if (session?.email) params.set("ownerIdentifier", session.email);
+
+    const res = await fetch(`/api/project-requests?${params.toString()}`, {
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const remoteRecords: ProjectBrief[] = Array.isArray(json?.data) ? json.data : [];
+
+      if (remoteRecords.length > 0) {
+        // Merge remote briefs into scoped & global brief storage
+        const scopedBriefKey = getOwnerScopedKey(STORAGE_KEY_BRIEFS);
+        const existingScopedRaw = localStorage.getItem(scopedBriefKey);
+        const existingScoped: ProjectBrief[] = existingScopedRaw ? JSON.parse(existingScopedRaw) : [];
+
+        const briefMap = new Map<string, ProjectBrief>();
+        for (const b of existingScoped) {
+          if (b?.id) briefMap.set(b.id, b);
+        }
+        for (const r of remoteRecords) {
+          if (!r?.id) continue;
+          const prev = briefMap.get(r.id);
+          briefMap.set(r.id, { ...(prev || ({} as ProjectBrief)), ...r });
+          if (r.planId || r.proposedPlan) {
+            cacheDynamicPlanRecord({ ...(prev || ({} as ProjectBrief)), ...r });
+          }
+        }
+        const mergedBriefs = Array.from(briefMap.values());
+        localStorage.setItem(scopedBriefKey, JSON.stringify(mergedBriefs));
+
+        // Also update global briefs list preserving demo entries if present
+        const globalRaw = localStorage.getItem(STORAGE_KEY_BRIEFS);
+        const globalList: ProjectBrief[] = globalRaw ? JSON.parse(globalRaw) : [];
+        const gMap = new Map<string, ProjectBrief>();
+        for (const b of globalList) if (b?.id) gMap.set(b.id, b);
+        for (const r of mergedBriefs) gMap.set(r.id, r);
+        localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(Array.from(gMap.values())));
+
+        // Sync any "Proposal Ready" or "Revisions Requested" briefs into Proposed Plans (Plan & Contract)
+        const scopedPlansKey = getOwnerScopedKey(STORAGE_KEY_PLANS);
+        const existingPlansRaw = localStorage.getItem(scopedPlansKey);
+        const existingPlans: ProjectItem[] = existingPlansRaw ? JSON.parse(existingPlansRaw) : [];
+        const planMap = new Map<string, ProjectItem>();
+        for (const p of existingPlans) {
+          if (p?.id) planMap.set(p.id, p);
+        }
+
+        for (const brief of mergedBriefs) {
+          const pid = brief.planId || `prop-${brief.id}`;
+          if (brief.status === "Proposal Ready" || brief.status === "Revisions Requested") {
+            const localStatus = localStorage.getItem(`vantaged_plan_status_${pid}`);
+            if (localStatus !== "ACCEPTED") {
+              planMap.set(pid, buildProposedPlanItemFromBrief(brief));
+            }
+          } else if (brief.status === "Plan Accepted & Active") {
+            planMap.delete(pid);
+          }
+        }
+
+        const mergedPlans = Array.from(planMap.values());
+        localStorage.setItem(scopedPlansKey, JSON.stringify(mergedPlans));
+
+        // Also mirror into global plans list when demo mode is active
+        if (getIsDemoMode()) {
+          const gPlansRaw = localStorage.getItem(STORAGE_KEY_PLANS);
+          const gPlans: ProjectItem[] = gPlansRaw ? JSON.parse(gPlansRaw) : INITIAL_PROPOSED_PLANS;
+          const gpMap = new Map<string, ProjectItem>();
+          for (const p of gPlans) if (p?.id) gpMap.set(p.id, p);
+          for (const p of mergedPlans) gpMap.set(p.id, p);
+          localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(Array.from(gpMap.values())));
+        }
+
+        window.dispatchEvent(new Event("vantaged_storage_update"));
+      }
+    }
+  } catch (err) {
+    console.error("[projectStore] syncRemoteOwnerPlansAndBriefs error:", err);
+  }
+
+  return {
+    briefs: getProjectBriefs(),
+    plans: getProposedPlans(),
+  };
 }

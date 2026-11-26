@@ -6,6 +6,7 @@ import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { VantagedSelect } from "../components/VantagedSelect";
+import { useDemoMode } from "../hooks/useDemoMode";
 import { getOwnerScopedKey } from "../../../shared/vantagedAuth";
 
 // ── Crisp High-Precision SVG Icons ──
@@ -381,6 +382,7 @@ const DEFAULT_TICKETS: InspectionTicket[] = [
 
 export function OwnerInspectorsPage() {
   const scrollRef = useScrollRestoration<HTMLElement>("owner_inspectors_page");
+  const { isDemoMode } = useDemoMode();
 
   // View tab: directory vs active tickets (matching Find Companies style)
   const [activeTab, setActiveTab] = useState<"directory" | "tickets">("directory");
@@ -392,9 +394,9 @@ export function OwnerInspectorsPage() {
   const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
-  // Inspectors state
-  const [inspectors, setInspectors] = useState<InspectorCardItem[]>(INITIAL_INSPECTORS);
-  const [tickets, setTickets] = useState<InspectionTicket[]>(DEFAULT_TICKETS);
+  // Inspectors state (Live State starts empty until real accredited inspectors are added)
+  const [inspectors, setInspectors] = useState<InspectorCardItem[]>([]);
+  const [tickets, setTickets] = useState<InspectionTicket[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Inspector Dossier Profile Modal (Matching Find Companies detailed modal)
@@ -403,19 +405,22 @@ export function OwnerInspectorsPage() {
   // Booking Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [targetInspector, setTargetInspector] = useState<InspectorCardItem | null>(null);
-  const [selectedProject, setSelectedProject] = useState("Lekki Phase 1 Luxury Villa");
-  const [selectedStage, setSelectedStage] = useState("Stage 4: Roof Truss & Covering");
+  const [selectedProject, setSelectedProject] = useState("");
+  const [selectedStage, setSelectedStage] = useState("");
 
   useEffect(() => {
+    setInspectors(isDemoMode ? INITIAL_INSPECTORS : []);
     try {
       const savedTickets = localStorage.getItem(getOwnerScopedKey("vantaged_inspection_tickets"));
       if (savedTickets) {
         setTickets(JSON.parse(savedTickets));
       } else {
-        setTickets([]);
+        setTickets(isDemoMode ? DEFAULT_TICKETS : []);
       }
-    } catch {}
-  }, []);
+    } catch {
+      setTickets(isDemoMode ? DEFAULT_TICKETS : []);
+    }
+  }, [isDemoMode]);
 
   const persistTickets = (next: InspectionTicket[]) => {
     setTickets(next);

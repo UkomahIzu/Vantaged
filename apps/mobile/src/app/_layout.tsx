@@ -38,14 +38,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="signin" />
           <Stack.Screen name="signup" />
-          <Stack.Screen name="dashboard" />
-          <Stack.Screen name="projects" />
-          <Stack.Screen name="transactions" />
-          <Stack.Screen name="representatives" />
-          <Stack.Screen name="find-companies" />
-          <Stack.Screen name="inspectors" />
-          <Stack.Screen name="notifications" />
-          <Stack.Screen name="settings" />
+          <Stack.Screen name="(owner)" />
           <Stack.Screen name="explore" />
         </Stack>
       </OwnerMobileProvider>

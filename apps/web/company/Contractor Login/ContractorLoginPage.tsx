@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +18,17 @@ export function ContractorLoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("suspended") === "1") {
+        setErrorMsg(
+          "Your company account has been suspended by Vantaged Admin and you have been signed out."
+        );
+      }
+    }
+  }, []);
 
   const currentRoleInfo =
     contractorRoleCards.find((r) => r.id === selectedRole) || contractorRoleCards[0];

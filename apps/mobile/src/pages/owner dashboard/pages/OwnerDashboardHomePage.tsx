@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fontStyle, useOwnerMobile } from '../context/OwnerMobileContext';
-import { OwnerMobileShell } from '../components/OwnerMobileShell';
 import { SiteWeatherModal } from '../components/OwnerHomeModals';
 import {
   OwnerActiveProgressSection,
@@ -18,7 +17,7 @@ export function OwnerDashboardHomePage() {
   const [isWeatherOpen, setIsWeatherOpen] = useState(false);
 
   return (
-    <OwnerMobileShell activeNav="home">
+    <>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -86,8 +85,10 @@ export function OwnerDashboardHomePage() {
         )}
       </ScrollView>
 
-      <SiteWeatherModal visible={isWeatherOpen} onClose={() => setIsWeatherOpen(false)} />
-    </OwnerMobileShell>
+      {isWeatherOpen && (
+        <SiteWeatherModal visible={isWeatherOpen} onClose={() => setIsWeatherOpen(false)} />
+      )}
+    </>
   );
 }
 

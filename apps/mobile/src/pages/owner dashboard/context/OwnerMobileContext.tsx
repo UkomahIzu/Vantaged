@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { Platform, useColorScheme } from 'react-native';
 
 export type OwnerThemeMode = 'light' | 'dark';
@@ -120,10 +120,6 @@ interface OwnerMobileContextValue {
   theme: OwnerThemeMode;
   palette: OwnerThemePalette;
   toggleTheme: () => void;
-  isDrawerOpen: boolean;
-  openDrawer: () => void;
-  closeDrawer: () => void;
-  toggleDrawer: () => void;
 }
 
 const DEFAULT_USER: OwnerMobileUser = {
@@ -140,13 +136,12 @@ export function OwnerMobileProvider({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<OwnerMobileUser>(DEFAULT_USER);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [themeOverride, setThemeOverride] = useState<OwnerThemeMode | null>('light');
-  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
   const theme: OwnerThemeMode =
     themeOverride ?? (systemScheme === 'dark' ? 'dark' : 'light');
   const palette = theme === 'dark' ? DARK_PALETTE : LIGHT_PALETTE;
 
-  const setUserProfile = (partial: Partial<OwnerMobileUser>) => {
+  const setUserProfile = useCallback((partial: Partial<OwnerMobileUser>) => {
     setUser((prev) => {
       const nextName = partial.fullName?.trim() || prev.fullName;
       const firstName =
@@ -158,28 +153,35 @@ export function OwnerMobileProvider({ children }: { children: React.ReactNode })
         firstName,
       };
     });
-  };
+  }, []);
+
+  const toggleDemoMode = useCallback(() => {
+    setIsDemoMode((prev) => !prev);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setThemeOverride((prev) => {
+      const current = prev ?? (systemScheme === 'dark' ? 'dark' : 'light');
+      return current === 'light' ? 'dark' : 'light';
+    });
+  }, [systemScheme]);
+
+  const value = useMemo<OwnerMobileContextValue>(
+    () => ({
+      user,
+      setUserProfile,
+      isDemoMode,
+      toggleDemoMode,
+      setDemoMode: setIsDemoMode,
+      theme,
+      palette,
+      toggleTheme,
+    }),
+    [user, setUserProfile, isDemoMode, toggleDemoMode, theme, palette, toggleTheme]
+  );
 
   return (
-    <OwnerMobileContext.Provider
-      value={{
-        user,
-        setUserProfile,
-        isDemoMode,
-        toggleDemoMode: () => setIsDemoMode((prev) => !prev),
-        setDemoMode: setIsDemoMode,
-        theme,
-        palette,
-        toggleTheme: () =>
-          setThemeOverride((prev) => {
-            const current = prev ?? (systemScheme === 'dark' ? 'dark' : 'light');
-            return current === 'light' ? 'dark' : 'light';
-          }),
-        isDrawerOpen,
-        openDrawer: () => setIsDrawerOpen(true),
-        closeDrawer: () => setIsDrawerOpen(false),
-        toggleDrawer: () => setIsDrawerOpen((prev) => !prev),
-      }}>
+    <OwnerMobileContext.Provider value={value}>
       {children}
     </OwnerMobileContext.Provider>
   );

@@ -2,12 +2,23 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DirectorSidebarNav } from "../components/DirectorSidebarNav";
 import { DirectorHeaderBar } from "../components/DirectorHeaderBar";
 import {
   ProjectFolderCard,
   ProjectItem,
 } from "../../../client/Owner dashboard/components/ProjectFolderCard";
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconCheck,
+  IconCheckCircle,
+  IconClose,
+  IconMapPin,
+  IconReceipt,
+  IconShieldCheck,
+} from "../../../client/Owner dashboard/pages/projects dashboard/ProjectIcons";
 import { useScrollRestoration } from "../../../client/Owner dashboard/hooks/useScrollRestoration";
 import { VantagedSelect } from "../../../client/Owner dashboard/components/VantagedSelect";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
@@ -21,7 +32,27 @@ import {
   StagePreset,
 } from "../data/stagePresetsData";
 import { readLocalData, writeLocalData } from "../utils/localPersistence";
-import { SHARED_SYNC_EVENT } from "../../../shared/vantagedSyncBridge";
+import {
+  broadcastPortalSync,
+  pushOwnerLiveNotification,
+  SHARED_SYNC_EVENT,
+} from "../../../shared/vantagedSyncBridge";
+import { getContractorSession, getOwnerScopedKey } from "../../../shared/vantagedAuth";
+import { ProposalNegotiationChat } from "../../../shared/ProposalNegotiationChat";
+import {
+  buildProposedPlanItemFromBrief,
+  cacheDynamicPlanRecord,
+  ProjectBrief,
+  STORAGE_KEY_BRIEFS,
+  STORAGE_KEY_PLANS,
+} from "../../../client/Owner dashboard/pages/projects dashboard/projectStore";
+
+const DEMO_REQUEST_ID_SET = new Set([
+  ...DEMO_DIRECTOR_PROJECT_REQUESTS.map((r) => r.id),
+  "brf-1",
+  "brf-2",
+  "brf-3",
+]);
 
 const DEFAULT_NEW_PRESET_STAGES: StageItem[] = [
   {
@@ -95,7 +126,16 @@ function toRequestFolderItem(
   };
 }
 
+function getMatchingPlanId(reqId: string, explicitPlanId?: string): string {
+  if (explicitPlanId) return explicitPlanId;
+  if (reqId === "brf-1") return "prop-guzape-plan";
+  if (reqId === "brf-2") return "prop-enclave-plan";
+  if (reqId === "brf-3") return "prop-lekki-plan";
+  return `prop-${reqId}`;
+}
+
 export function DirectorRequestsPage() {
+  const router = useRouter();
   const scrollRef = useScrollRestoration<HTMLElement>("director_requests");
   const { isDemoMode } = useDirectorDemoMode();
 
@@ -120,6 +160,19 @@ export function DirectorRequestsPage() {
       },
     })
   );
+  const [requestMetaById, setRequestMetaById] = useState<
+    Record<
+      string,
+      {
+        planId?: string;
+        ownerId?: string;
+        ownerEmail?: string;
+        ownerIdentifier?: string;
+        companyId?: string;
+        companyName?: string;
+      }
+    >
+  >({});
 
   // Milestone Proposal Popup State (Select Preset OR Create New Preset & Send)
   const [proposalTarget, setProposalTarget] = useState<DirectorProjectRequestItem | null>(null);
@@ -174,57 +227,204 @@ export function DirectorRequestsPage() {
     loadAllPresets();
   }, []);
 
-  // Merge Owner-submitted briefs from shared vantaged_project_briefs into Company Requests
+  // Merge Owner-submitted briefs from backend /api/project-requests AND shared vantaged_project_briefs
   useEffect(() => {
-    const syncOwnerBriefs = () => {
+    const mergeBriefList = (ownerBriefs: any[]) => {
+      if (!Array.isArray(ownerBriefs) || ownerBriefs.length === 0) return;
+      const session = getContractorSession();
+      const myCompany = session?.companyName?.trim().toLowerCase() || "";
+      const myCompanyId = session?.userId || "";
+
+      const matching = ownerBriefs.filter((b: any) => {
+        if (!b?.id || DEMO_REQUEST_ID_SET.has(b.id)) return false;
+        if (myCompanyId && b.companyId && b.companyId === myCompanyId) return true;
+        if (myCompany && b.companyName) {
+          return String(b.companyName).trim().toLowerCase() === myCompany;
+        }
+        return !myCompany;
+      });
+
+      if (matching.length === 0) return;
+
+      // Preserve owner/plan metadata and any already-sent proposals from backend
+      setRequestMetaById((prevMeta) => {
+        const nextMeta = { ...prevMeta };
+        for (const b of matching) {
+          nextMeta[b.id] = {
+            planId: getMatchingPlanId(b.id, b.planId || prevMeta[b.id]?.planId),
+            ownerId: b.ownerId || prevMeta[b.id]?.ownerId,
+            ownerEmail: b.ownerEmail || prevMeta[b.id]?.ownerEmail,
+            ownerIdentifier: b.ownerIdentifier || prevMeta[b.id]?.ownerIdentifier,
+            companyId: b.companyId || prevMeta[b.id]?.companyId,
+            companyName: b.companyName || prevMeta[b.id]?.companyName,
+          };
+        }
+        return nextMeta;
+      });
+
+      const restoredPresetDetails: Record<string, { preset: StagePreset; proposedBudget: string }> = {};
+      const restoredPresetLabels: Record<string, string> = {};
+      for (const b of matching) {
+        if (b.proposedPlan && Array.isArray(b.proposedPlan.stages)) {
+          const restoredPreset: StagePreset = {
+            id: b.proposedPlan.planId || `preset_${b.id}`,
+            name: b.proposedPlan.presetName || `${b.title} Milestone Plan`,
+            category: b.proposedPlan.category || "Residential",
+            typicalDuration: b.proposedPlan.typicalDuration || "Flexible Schedule",
+            stagesCount: b.proposedPlan.stages.length,
+            description: b.proposedPlan.description || "",
+            stages: b.proposedPlan.stages,
+          };
+          restoredPresetDetails[b.id] = {
+            preset: restoredPreset,
+            proposedBudget: b.proposedBudget || b.proposedPlan.proposedBudget || b.estimatedBudget,
+          };
+          restoredPresetLabels[b.id] = `${restoredPreset.name.split("(")[0].trim()} (${restoredPreset.stages.length} stages)`;
+        }
+      }
+      if (Object.keys(restoredPresetDetails).length > 0) {
+        setSentPresetDetailsByRequest((prev) => ({ ...prev, ...restoredPresetDetails }));
+        setSentPresetByRequest((prev) => ({ ...prev, ...restoredPresetLabels }));
+      }
+
+      setRequests((prev) => {
+        const byId = new Map<string, DirectorProjectRequestItem>();
+        for (const r of prev) byId.set(r.id, r);
+        for (const b of matching) {
+          // If the Owner already accepted the plan, remove it from Project Requests / Plan & Contract
+          // and ensure it is present in Company Active Projects (`vantaged_company_accepted_projects`).
+          if (b.status === "Plan Accepted & Active") {
+            byId.delete(b.id);
+            try {
+              const planId = getMatchingPlanId(b.id, b.planId);
+              const targetProjId = planId.startsWith("prop-")
+                ? planId.replace("prop-", "proj-").replace("-plan", "")
+                : planId;
+              const rawAccepted = localStorage.getItem("vantaged_company_accepted_projects");
+              const acceptedList: any[] = rawAccepted ? JSON.parse(rawAccepted) : [];
+              if (!acceptedList.some((p) => p?.id === targetProjId)) {
+                const stagesCount =
+                  b.proposedPlan?.stages?.length || b.milestonesCount || 6;
+                const cleanBudget = String(
+                  b.proposedBudget ||
+                    b.proposedPlan?.proposedBudget ||
+                    b.estimatedBudget ||
+                    "₦150.0M"
+                ).replace(" Proposed", "");
+                const newActiveProj = {
+                  id: targetProjId,
+                  jobId: `JOB-${String(b.id).replace(/[^0-9A-Za-z]/g, "").slice(-4).toUpperCase()}`,
+                  title: b.title || "Owner Building Project",
+                  category:
+                    b.category === "Commercial" || b.category === "Industrial"
+                      ? "Commercial"
+                      : b.category === "Waterfront" || b.category === "Marine & Waterfront"
+                      ? "Waterfront"
+                      : "Residential",
+                  location: b.location || "Lagos, Nigeria",
+                  specs: b.proposedPlan?.presetName || `${stagesCount}-Stage Turnkey Plan`,
+                  status: "In progress",
+                  milestonesCount: 1,
+                  milestonesTotal: stagesCount,
+                  progressPercent: 10,
+                  escrowAmount: cleanBudget,
+                  companyId: b.companyId,
+                  companyName: b.companyName,
+                  ownerId: b.ownerId,
+                  ownerName: b.ownerName || "Property Owner",
+                  requestId: b.id,
+                  planId,
+                  proposedStages: b.proposedPlan?.stages,
+                  contractor: {
+                    name: b.ownerName || "Property Owner",
+                    rating: "Client · Verified NIN",
+                    assignedRep: b.proposedPlan?.directorName || "Project Director",
+                  },
+                  currentScope: "Stage 1: Ground Breaking & Mobilization Setup",
+                  stageSubtitle: "Stage 1: Site mobilization & boundary setting",
+                  snippetLines: [
+                    `Client: ${b.ownerName || "Property Owner"}`,
+                    `${b.location || "Lagos"} · ${stagesCount} Stages`,
+                    "Agreement locked · 10% Mobilization due",
+                  ],
+                  lastUpdated: "Just now",
+                };
+                localStorage.setItem(
+                  "vantaged_company_accepted_projects",
+                  JSON.stringify([newActiveProj, ...acceptedList])
+                );
+                window.dispatchEvent(new Event("vantaged_company_projects_update"));
+              }
+            } catch {}
+            continue;
+          }
+
+          const existing = byId.get(b.id);
+          const mapped: DirectorProjectRequestItem = {
+            id: b.id,
+            requestCode: existing?.requestCode || String(b.id).toUpperCase().slice(0, 10),
+            ownerName: b.ownerName || existing?.ownerName || "Property Owner",
+            ownerVerified: true,
+            title: b.title || existing?.title || "Owner Project Brief",
+            category:
+              b.category === "Commercial"
+                ? "Commercial"
+                : b.category === "Industrial"
+                ? "Industrial"
+                : b.category === "Waterfront" || b.category === "Marine & Waterfront"
+                ? "Marine & Waterfront"
+                : "Residential",
+            estimatedBudget: b.estimatedBudget || existing?.estimatedBudget || "₦100M - ₦200M",
+            location: b.location || existing?.location || "Lagos, Nigeria",
+            description: b.description || existing?.description || "Project brief submitted by property owner.",
+            dateSubmitted: b.dateSubmitted || existing?.dateSubmitted || "Just now",
+            status:
+              b.status === "Proposal Ready" || b.status === "Revisions Requested"
+                ? "Proposal Ready"
+                : b.status === "Drafting Milestone Plan"
+                ? "Drafting Milestone Plan"
+                : existing?.status || "Under Contractor Review",
+          };
+          byId.set(b.id, mapped);
+        }
+        const merged = Array.from(byId.values());
+        writeLocalData("vantaged_director_requests", merged);
+        return merged;
+      });
+    };
+
+    const syncOwnerBriefs = async () => {
       if (typeof window === "undefined") return;
       try {
         const raw = localStorage.getItem("vantaged_project_briefs");
-        if (!raw) return;
-        const ownerBriefs = JSON.parse(raw);
-        if (!Array.isArray(ownerBriefs)) return;
+        if (raw) {
+          mergeBriefList(JSON.parse(raw));
+        }
+      } catch {}
 
-        setRequests((prev) => {
-          const existingIds = new Set(prev.map((r) => r.id));
-          const mappedNew: DirectorProjectRequestItem[] = ownerBriefs
-            .filter((b: any) => b?.id && !existingIds.has(b.id))
-            .map((b: any) => ({
-              id: b.id,
-              requestCode: String(b.id).toUpperCase().slice(0, 10),
-              ownerName: "Dr. James Arinze (Owner)",
-              ownerVerified: true,
-              title: b.title || "Owner Project Brief",
-              category:
-                b.category === "Commercial"
-                  ? "Commercial"
-                  : b.category === "Industrial"
-                  ? "Industrial"
-                  : b.category === "Waterfront"
-                  ? "Marine & Waterfront"
-                  : "Residential",
-              estimatedBudget: b.estimatedBudget || "₦100M - ₦200M",
-              location: b.location || "Lagos, Nigeria",
-              description: b.description || "Project brief submitted by property owner.",
-              dateSubmitted: b.dateSubmitted || "Just now",
-              status:
-                b.status === "Proposal Ready"
-                  ? "Proposal Ready"
-                  : b.status === "Drafting Milestone Plan"
-                  ? "Drafting Milestone Plan"
-                  : "Under Contractor Review",
-            }));
-          if (mappedNew.length === 0) return prev;
-          const merged = [...mappedNew, ...prev];
-          writeLocalData("vantaged_director_requests", merged);
-          return merged;
+      try {
+        const session = getContractorSession();
+        const params = new URLSearchParams({ direction: "owner_to_company" });
+        if (session?.userId) params.set("companyId", session.userId);
+        if (session?.companyName) params.set("companyName", session.companyName);
+        const res = await fetch(`/api/project-requests?${params.toString()}`, {
+          cache: "no-store",
         });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json?.data)) {
+            mergeBriefList(json.data);
+          }
+        }
       } catch {}
     };
 
     syncOwnerBriefs();
+    const poll = setInterval(syncOwnerBriefs, 6000);
     window.addEventListener(SHARED_SYNC_EVENT, syncOwnerBriefs);
     window.addEventListener("storage", syncOwnerBriefs);
     return () => {
+      clearInterval(poll);
       window.removeEventListener(SHARED_SYNC_EVENT, syncOwnerBriefs);
       window.removeEventListener("storage", syncOwnerBriefs);
     };
@@ -278,7 +478,7 @@ export function DirectorRequestsPage() {
     () =>
       isDemoMode
         ? requests
-        : requests.filter((r) => !r.id.startsWith("req-")),
+        : requests.filter((r) => !DEMO_REQUEST_ID_SET.has(r.id)),
     [isDemoMode, requests]
   );
 
@@ -345,6 +545,165 @@ export function DirectorRequestsPage() {
     );
   };
 
+  /**
+   * Dispatch a proposed building plan & contract budget back to the Property Owner
+   * so it appears in the Owner's Projects -> Plan & Contract tab and Find Companies -> My Briefs.
+   */
+  const dispatchPlanToOwner = (
+    target: DirectorProjectRequestItem,
+    preset: StagePreset,
+    budgetInput: string
+  ) => {
+    const session = getContractorSession();
+    const meta = requestMetaById[target.id] || {};
+    const planId = getMatchingPlanId(target.id, meta.planId);
+    const finalBudget = (budgetInput || target.estimatedBudget || "₦150,000,000").trim();
+    const companyName = session?.companyName || meta.companyName || "Verified Construction Company";
+    const directorName = session?.fullName || "Project Director";
+    const presetLabel = `${preset.name.split("(")[0].trim()} (${preset.stages.length} stages)`;
+
+    const nextLabels = { ...sentPresetByRequest, [target.id]: presetLabel };
+    const nextDetails = {
+      ...sentPresetDetailsByRequest,
+      [target.id]: { preset, proposedBudget: finalBudget },
+    };
+    setSentPresetByRequest(nextLabels);
+    setSentPresetDetailsByRequest(nextDetails);
+    writeLocalData("vantaged_director_sent_preset_labels", nextLabels);
+    writeLocalData("vantaged_director_sent_preset_details", nextDetails);
+    updateRequestStatus(target.id, "Proposal Ready");
+
+    const proposedPlan = {
+      planId,
+      presetName: preset.name,
+      category: preset.category,
+      typicalDuration: preset.typicalDuration,
+      description: preset.description,
+      proposedBudget: finalBudget,
+      companyName,
+      directorName,
+      sentAt: "Just now",
+      stages: preset.stages,
+    };
+
+    const contractorNotes = `Prepared ${preset.stages.length}-stage milestone plan ("${preset.name}") at ${finalBudget}. Ready for your review, price discussion, and contract sign-off.`;
+
+    // 1. Persist to backend /api/project-requests so Owner receives it across any browser/session
+    fetch("/api/project-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: target.id,
+        planId,
+        upsert: true,
+        direction: "owner_to_company",
+        companyId: session?.userId || meta.companyId || "comp-verified",
+        companyName,
+        directorName,
+        ownerId: meta.ownerId,
+        ownerName: target.ownerName,
+        ownerEmail: meta.ownerEmail,
+        ownerIdentifier: meta.ownerIdentifier || meta.ownerEmail,
+        title: target.title,
+        category: target.category,
+        estimatedBudget: target.estimatedBudget,
+        location: target.location,
+        description: target.description,
+        dateSubmitted: target.dateSubmitted,
+        status: "Proposal Ready",
+        proposedBudget: finalBudget,
+        milestonesCount: preset.stages.length,
+        contractorNotes,
+        contractorResponseDate: "Just now",
+        proposedPlan,
+      }),
+    }).catch(() => {});
+
+    // 2. Sync into localStorage for instant same-browser Owner Portal updates
+    if (typeof window !== "undefined") {
+      try {
+        const updatedBriefRecord: ProjectBrief = {
+          id: target.id,
+          companyId: session?.userId || meta.companyId || "comp-verified",
+          companyName,
+          ownerId: meta.ownerId,
+          ownerName: target.ownerName,
+          ownerEmail: meta.ownerEmail,
+          ownerIdentifier: meta.ownerIdentifier || meta.ownerEmail,
+          title: target.title,
+          category: target.category,
+          estimatedBudget: target.estimatedBudget,
+          location: target.location,
+          status: "Proposal Ready",
+          dateSubmitted: target.dateSubmitted,
+          description: target.description,
+          planId,
+          proposedBudget: finalBudget,
+          milestonesCount: preset.stages.length,
+          contractorNotes,
+          contractorResponseDate: "Just now",
+          proposedPlan,
+        };
+
+        cacheDynamicPlanRecord(updatedBriefRecord);
+
+        // Update briefs list (global + current/target owner scoped)
+        const briefKeys = Array.from(
+          new Set([
+            STORAGE_KEY_BRIEFS,
+            getOwnerScopedKey(STORAGE_KEY_BRIEFS),
+            ...(meta.ownerId ? [`${STORAGE_KEY_BRIEFS}__${meta.ownerId}`] : []),
+          ])
+        );
+        for (const bk of briefKeys) {
+          const raw = localStorage.getItem(bk);
+          const list: ProjectBrief[] = raw ? JSON.parse(raw) : [];
+          const idx = list.findIndex((b) => b.id === target.id);
+          const nextBriefs =
+            idx >= 0
+              ? list.map((b, i) => (i === idx ? { ...b, ...updatedBriefRecord } : b))
+              : [updatedBriefRecord, ...list];
+          localStorage.setItem(bk, JSON.stringify(nextBriefs));
+        }
+
+        // Add folder to Owner's Plan & Contract list (global + owner scoped)
+        const planFolderItem = buildProposedPlanItemFromBrief(updatedBriefRecord);
+        const planKeys = Array.from(
+          new Set([
+            STORAGE_KEY_PLANS,
+            getOwnerScopedKey(STORAGE_KEY_PLANS),
+            ...(meta.ownerId ? [`${STORAGE_KEY_PLANS}__${meta.ownerId}`] : []),
+          ])
+        );
+        for (const pk of planKeys) {
+          const raw = localStorage.getItem(pk);
+          const list: ProjectItem[] = raw ? JSON.parse(raw) : [];
+          const idx = list.findIndex((p) => p.id === planId);
+          const nextPlans =
+            idx >= 0
+              ? list.map((p, i) => (i === idx ? planFolderItem : p))
+              : [planFolderItem, ...list];
+          localStorage.setItem(pk, JSON.stringify(nextPlans));
+        }
+
+        // Reset plan status to PROPOSED if company edited & resent after revisions
+        localStorage.setItem(`vantaged_plan_status_${planId}`, "PROPOSED");
+
+        pushOwnerLiveNotification({
+          targetOwnerId: meta.ownerId,
+          targetOwnerIdentifier: meta.ownerIdentifier || meta.ownerEmail,
+          category: "site",
+          projectTitle: target.title,
+          title: `Building Plan & Contract Sent by ${companyName}`,
+          description: `${companyName} sent a ${preset.stages.length}-stage plan (${finalBudget}) for "${target.title}". Review it in Plan & Contract and discuss pricing.`,
+          linkUrl: `/owner/projects/${planId}/plan`,
+        });
+
+        broadcastPortalSync();
+      } catch {}
+    }
+  };
+
   return (
     <div
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
@@ -385,18 +744,7 @@ export function DirectorRequestsPage() {
               title="Back to Dashboard"
               className="w-8 h-8 rounded-lg bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] flex items-center justify-center transition-all shadow-2xs cursor-pointer"
             >
-              <svg
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="19" y1="12" x2="5" y2="12" />
-                <polyline points="12 19 5 12 12 5" />
-              </svg>
+              <IconArrowLeft className="w-4 h-4" />
             </Link>
           }
         />
@@ -649,7 +997,11 @@ export function DirectorRequestsPage() {
                     hideProgress
                     onSelect={() => {
                       setSelectedRequestId(req.id);
-                      setActiveRequest(req);
+                      if (viewMode === "plans" || req.status === "Proposal Ready") {
+                        router.push(`/contractor/requests/${req.id}/plan`);
+                      } else {
+                        setActiveRequest(req);
+                      }
                     }}
                   />
                 );
@@ -667,37 +1019,45 @@ export function DirectorRequestsPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xl bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
+            className="w-full max-w-2xl bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150"
           >
             {/* Header */}
             <div className="p-5 sm:p-6 bg-[var(--vt-color-indigo-900,#261A66)] text-white flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[var(--vt-color-orange-300,#FBA674)]">
-                    {activeRequest.requestCode}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/15 text-white">
-                    {activeRequest.status === "Proposal Ready"
-                      ? "Awaiting Owner's Approval"
-                      : activeRequest.status}
-                  </span>
+              <div className="flex items-start gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 text-[var(--vt-color-orange-300,#FBA674)] flex items-center justify-center shrink-0 mt-0.5">
+                  <IconReceipt className="w-5 h-5" />
                 </div>
-                <h2 className="text-lg sm:text-xl font-extrabold text-white mt-1">
-                  {activeRequest.status === "Proposal Ready"
-                    ? "Plan & Contract"
-                    : "Owner Project Request"}
-                </h2>
-                <p className="text-xs text-[var(--vt-color-indigo-200,#D5D2EF)] mt-0.5">
-                  Submitted {activeRequest.dateSubmitted} by {activeRequest.ownerName}
-                  {activeRequest.ownerVerified ? " · Verified NIN" : ""}
-                </p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[var(--vt-color-orange-300,#FBA674)]">
+                      {activeRequest.requestCode}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/15 text-white">
+                      {activeRequest.status === "Proposal Ready"
+                        ? "Awaiting Owner's Approval"
+                        : activeRequest.status}
+                    </span>
+                    {activeRequest.ownerVerified && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-green-500,#2E9E57)]/20 text-[var(--vt-color-green-300,#86EFAC)] border border-[var(--vt-color-green-400,#4ADE80)]/30">
+                        <IconShieldCheck className="w-3 h-3" />
+                        <span>Verified NIN Owner</span>
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-extrabold text-white mt-1 truncate">
+                    {activeRequest.title}
+                  </h2>
+                  <p className="text-xs text-[var(--vt-color-indigo-200,#D5D2EF)] mt-0.5">
+                    Submitted {activeRequest.dateSubmitted} by <strong className="text-white">{activeRequest.ownerName}</strong>
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveRequest(null)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors"
               >
-                ✕
+                <IconClose className="w-4 h-4" />
               </button>
             </div>
 
@@ -725,78 +1085,78 @@ export function DirectorRequestsPage() {
                         {sentPresetDetailsByRequest[activeRequest.id]!.proposedBudget}
                       </span>
                     </div>
-
-                    <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                      {sentPresetDetailsByRequest[activeRequest.id]!.preset.stages.map(
-                        (stg) => (
-                          <div
-                            key={stg.order}
-                            className="p-2.5 rounded-xl bg-white border border-[var(--vt-color-orange-200,#FDCAA9)]/70 flex items-start gap-2.5"
-                          >
-                            <span className="w-5 h-5 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] text-white text-[10px] font-extrabold flex items-center justify-center shrink-0">
-                              {stg.order}
-                            </span>
-                            <div className="min-w-0">
-                              <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-                                {stg.title}
-                              </p>
-                              <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
-                                {stg.evidence}
-                              </p>
-                            </div>
-                          </div>
-                        )
-                      )}
-                    </div>
                   </div>
                 )}
 
-              <div>
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                  Project Title
-                </span>
-                <p className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
-                  {activeRequest.title}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] block">
                     Category
                   </span>
-                  <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
+                  <p className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)] mt-1">
                     {activeRequest.category}
                   </p>
                 </div>
 
-                <div className="p-3 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--vt-color-orange-700,#B33C08)]">
-                    Estimated Budget
+                <div className="p-3.5 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-700,#B33C08)] block">
+                    Owner Estimated Budget
                   </span>
-                  <p className="font-mono font-extrabold text-[var(--vt-color-orange-700,#B33C08)] mt-0.5">
+                  <p className="font-mono font-extrabold text-xs text-[var(--vt-color-orange-700,#B33C08)] mt-1">
                     {activeRequest.estimatedBudget}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] block">
+                    Site Location
+                  </span>
+                  <p className="font-semibold text-xs text-[var(--vt-color-indigo-900,#261A66)] mt-1 inline-flex items-center gap-1">
+                    <IconMapPin className="w-3.5 h-3.5 text-[var(--vt-color-orange-500,#EF5F18)] shrink-0" />
+                    <span className="truncate">{activeRequest.location}</span>
                   </p>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                  Site Location
-                </span>
-                <p className="font-semibold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
-                  {activeRequest.location}
-                </p>
-              </div>
-
               <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
                   Brief Scope Description
                 </span>
                 <p className="text-[var(--vt-color-neutral-700,#46425F)] leading-relaxed mt-1 whitespace-pre-line">
                   {activeRequest.description}
                 </p>
               </div>
+
+              {/* Compact Price & Plan Negotiation Chat Box (Company ↔ Owner) */}
+              <ProposalNegotiationChat
+                requestId={activeRequest.id}
+                planId={getMatchingPlanId(
+                  activeRequest.id,
+                  requestMetaById[activeRequest.id]?.planId
+                )}
+                currentRole="company"
+                currentUserName={
+                  getContractorSession()?.fullName ||
+                  getContractorSession()?.companyName ||
+                  "Project Director"
+                }
+                counterpartyName={activeRequest.ownerName}
+                projectTitle={activeRequest.title}
+                ownerId={requestMetaById[activeRequest.id]?.ownerId}
+                ownerEmail={
+                  requestMetaById[activeRequest.id]?.ownerEmail ||
+                  requestMetaById[activeRequest.id]?.ownerIdentifier
+                }
+                companyId={
+                  getContractorSession()?.userId ||
+                  requestMetaById[activeRequest.id]?.companyId
+                }
+                companyName={
+                  getContractorSession()?.companyName ||
+                  requestMetaById[activeRequest.id]?.companyName
+                }
+                compact
+              />
             </div>
 
             {/* Footer Actions */}
@@ -832,19 +1192,15 @@ export function DirectorRequestsPage() {
                     <button
                       type="button"
                       onClick={() => openProposalModal(activeRequest)}
-                      className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold cursor-pointer shadow-xs transition-colors"
+                      className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold cursor-pointer shadow-xs transition-colors inline-flex items-center gap-1.5"
                     >
-                      Send Milestone Proposal →
+                      <span>Send Milestone Proposal</span>
+                      <IconArrowRight className="w-3.5 h-3.5" />
                     </button>
                   )}
 
                 {activeRequest.status === "Proposal Ready" && (
                   <div className="flex items-center gap-2 flex-wrap">
-                    {sentPresetByRequest[activeRequest.id] && (
-                      <span className="text-[11px] font-semibold text-[var(--vt-color-green-700,#1F6B3E)] bg-[var(--vt-color-green-50,#E9F6EC)] border border-[var(--vt-color-green-200,#A3D9B1)] px-2.5 py-1 rounded-lg">
-                        Plan: {sentPresetByRequest[activeRequest.id]}
-                      </span>
-                    )}
                     <button
                       type="button"
                       onClick={() => openProposalModal(activeRequest)}
@@ -852,6 +1208,13 @@ export function DirectorRequestsPage() {
                     >
                       Edit Proposal
                     </button>
+                    <Link
+                      href={`/contractor/requests/${activeRequest.id}/plan`}
+                      className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <span>Open Full Plan &amp; Chat</span>
+                      <IconArrowRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
                 )}
               </div>
@@ -1066,22 +1429,11 @@ export function DirectorRequestsPage() {
                       disabled={!activeSelectedPreset}
                       onClick={() => {
                         if (!activeSelectedPreset) return;
-                        const nextLabels = {
-                          ...sentPresetByRequest,
-                          [proposalTarget.id]: `${activeSelectedPreset.name.split("(")[0].trim()} (${activeSelectedPreset.stages.length} stages)`,
-                        };
-                        const nextDetails = {
-                          ...sentPresetDetailsByRequest,
-                          [proposalTarget.id]: {
-                            preset: activeSelectedPreset,
-                            proposedBudget: proposedBudget || proposalTarget.estimatedBudget,
-                          },
-                        };
-                        setSentPresetByRequest(nextLabels);
-                        setSentPresetDetailsByRequest(nextDetails);
-                        writeLocalData("vantaged_director_sent_preset_labels", nextLabels);
-                        writeLocalData("vantaged_director_sent_preset_details", nextDetails);
-                        updateRequestStatus(proposalTarget.id, "Proposal Ready");
+                        dispatchPlanToOwner(
+                          proposalTarget,
+                          activeSelectedPreset,
+                          proposedBudget || proposalTarget.estimatedBudget
+                        );
                         showToast(
                           `Sent "${activeSelectedPreset.name.split("(")[0].trim()}" to ${proposalTarget.ownerName}!`
                         );
@@ -1133,22 +1485,11 @@ export function DirectorRequestsPage() {
                   }).catch(() => {});
 
                   setAllPresets((prev) => [createdPreset, ...prev]);
-                  const nextLabels = {
-                    ...sentPresetByRequest,
-                    [proposalTarget.id]: `${createdPreset.name} (${createdPreset.stages.length} stages)`,
-                  };
-                  const nextDetails = {
-                    ...sentPresetDetailsByRequest,
-                    [proposalTarget.id]: {
-                      preset: createdPreset,
-                      proposedBudget: proposedBudget || proposalTarget.estimatedBudget,
-                    },
-                  };
-                  setSentPresetByRequest(nextLabels);
-                  setSentPresetDetailsByRequest(nextDetails);
-                  writeLocalData("vantaged_director_sent_preset_labels", nextLabels);
-                  writeLocalData("vantaged_director_sent_preset_details", nextDetails);
-                  updateRequestStatus(proposalTarget.id, "Proposal Ready");
+                  dispatchPlanToOwner(
+                    proposalTarget,
+                    createdPreset,
+                    proposedBudget || proposalTarget.estimatedBudget
+                  );
                   showToast(
                     `Created "${createdPreset.name}" and sent to ${proposalTarget.ownerName}!`
                   );
@@ -1393,8 +1734,9 @@ export function DirectorRequestsPage() {
       )}
 
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-[70] px-4 py-2.5 rounded-xl bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-bold shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
-          ✓ {toastMessage}
+        <div className="fixed bottom-6 right-6 z-[70] px-4 py-2.5 rounded-xl bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-bold shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex items-center gap-2">
+          <IconCheckCircle className="w-4 h-4 text-[var(--vt-color-green-400,#4ADE80)]" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

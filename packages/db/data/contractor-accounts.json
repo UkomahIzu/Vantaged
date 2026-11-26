@@ -1,1 +1,36 @@
-[]
+[
+  {
+    "id": "ctr-acc-1795466864831",
+    "companyName": "Crane & Stone Engineering Limited 2",
+    "rcNumber": "RC-1849202",
+    "directorName": "Engr. Babatunde Julius Adeleke",
+    "email": "my@gmail.com",
+    "password": "123456789$$",
+    "role": "Director",
+    "phone": "+234 802 319 8421",
+    "submissionId": "sub_1795466824749_75592",
+    "createdAt": "2026-11-23T20:47:44.831Z",
+    "issuedBy": "Vantaged Admin",
+    "planId": "contractor-verified",
+    "planName": "Verified Builder",
+    "baseSlots": 3,
+    "extraSlots": 0,
+    "updatedAt": "2026-11-24T17:52:29.620Z",
+    "status": "ACTIVE"
+  },
+  {
+    "id": "ctr-acc-1795466222949",
+    "companyName": "Crane & Stone Engineering Limited",
+    "rcNumber": "RC-1849202",
+    "directorName": "Engr. Babatunde Julius Adeleke",
+    "email": "b.adeleke@craneandstone.com",
+    "password": "VTG-2026!",
+    "role": "Director",
+    "phone": "+234 802 319 8421",
+    "submissionId": "sub_1795466222949_64585",
+    "createdAt": "2026-11-23T20:38:35.227Z",
+    "issuedBy": "Vantaged Admin",
+    "status": "ACTIVE",
+    "updatedAt": "2026-11-24T17:52:33.080Z"
+  }
+]

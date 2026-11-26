@@ -7,12 +7,19 @@ import { ProjectSidebarNav } from "./ProjectSidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
 import { DraggableChatWindow } from "../../components/DraggableChatWindow";
 import { ShareLinkModal } from "../../components/ShareLinkModal";
-import { getProjectDetail, ProjectStage } from "./projectData";
+import { ProjectStage, ProjectTransactionTranche } from "./projectData";
+import { useOwnerProject } from "./useOwnerProject";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { IconArrowRight, IconCheck, IconClose } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { markProjectAsCompleted } from "./projectStore";
-import { syncOwnerStageDecisionToContractor } from "../../../../shared/vantagedSyncBridge";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  isDemoProjectId,
+  syncOwnerStageDecisionToContractor,
+} from "../../../../shared/vantagedSyncBridge";
+import { getOwnerSession } from "../../../../shared/vantagedAuth";
 
 interface ProjectOverviewPageProps {
   projectId?: string;
@@ -21,10 +28,12 @@ interface ProjectOverviewPageProps {
 export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOverviewPageProps) {
   const router = useRouter();
   const scrollRef = useScrollRestoration<HTMLElement>(`proj_overview_${projectId}`);
-  const project = getProjectDetail(projectId);
+  const project = useOwnerProject(projectId);
   const storageKey = `vantaged_stages_${projectId}`;
+  const tranchesKey = `vantaged_tranches_${projectId}`;
 
   const [stages, setStages] = useState<ProjectStage[]>(project.stages);
+  const [tranches, setTranches] = useState<ProjectTransactionTranche[]>(project.transactions);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [reviewingStage, setReviewingStage] = useState<ProjectStage | null>(null);
@@ -38,27 +47,53 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setStages(parsed);
+          } else {
+            setStages(project.stages);
           }
+        } else {
+          setStages(project.stages);
+        }
+
+        const savedTrx = localStorage.getItem(tranchesKey);
+        if (savedTrx) {
+          const parsedTrx = JSON.parse(savedTrx);
+          if (Array.isArray(parsedTrx)) {
+            setTranches(parsedTrx);
+          } else {
+            setTranches(project.transactions);
+          }
+        } else {
+          setTranches(project.transactions);
         }
       } catch {}
     };
 
     syncStages();
-    window.addEventListener("vantaged_storage_update", syncStages);
+    window.addEventListener(SHARED_SYNC_EVENT, syncStages);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, syncStages);
     window.addEventListener("storage", syncStages);
     return () => {
-      window.removeEventListener("vantaged_storage_update", syncStages);
+      window.removeEventListener(SHARED_SYNC_EVENT, syncStages);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncStages);
       window.removeEventListener("storage", syncStages);
     };
-  }, [storageKey]);
+  }, [storageKey, tranchesKey, project.stages, project.transactions]);
 
   const approvedStages = stages.filter((s) => s.status === "Approved");
   const readyStage = stages.find((s) => s.status === "Ready for Review");
   const nextStage = readyStage || stages.find((s) => s.status !== "Approved") || stages[stages.length - 1];
 
-  const verifiedProgress = Math.round((approvedStages.length / stages.length) * 100);
+  const verifiedProgress = stages.length > 0 ? Math.round((approvedStages.length / stages.length) * 100) : 0;
   const totalPaid = approvedStages.reduce((acc, s) => acc + s.trancheAmount, 0);
-  const totalInEscrow = Math.max(0, project.contractValue - totalPaid);
+  const totalInEscrow = isDemoProjectId(projectId)
+    ? Math.max(0, project.contractValue - totalPaid)
+    : tranches
+        .filter(
+          (t) =>
+            t.status === "Held on Vantaged" ||
+            t.status === "Ready for Your Approval"
+        )
+        .reduce((acc, t) => acc + (t.amount || 0), 0);
 
   const formatNaira = (val: number) => {
     if (val >= 1000000) {
@@ -69,13 +104,14 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
 
   const handleApproveCurrentStageModal = () => {
     if (!reviewingStage) return;
+    const ownerName = getOwnerSession()?.fullName || "Property Owner";
     const nextStages = stages.map((s) => {
       if (s.id === reviewingStage.id) {
         return {
           ...s,
           status: "Approved" as const,
           completedDate: "Today",
-          verifiedBy: "Dr. James Arinze (Owner)",
+          verifiedBy: `${ownerName} (Owner)`,
         };
       }
       return s;
@@ -89,6 +125,7 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
         stageNumber: reviewingStage.stageNumber,
         stageTitle: reviewingStage.title,
         decision: "APPROVED",
+        ownerName: `${ownerName} (Owner)`,
       });
       window.dispatchEvent(new Event("vantaged_storage_update"));
     } catch {}
@@ -337,17 +374,24 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
                   <h4 className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-2">
                     Photos from the site:
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {nextStage.proofMedia.map((m) => (
-                      <div key={m.id} className="rounded-xl overflow-hidden border border-[var(--vt-color-border-default,#E2E0EC)]">
-                        <img src={m.url} alt={m.title} className="w-full h-44 object-cover" />
-                        <div className="p-3 bg-white">
-                          <p className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)] truncate">{m.title}</p>
-                          <p className="text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5">{m.timestamp}</p>
+                  {nextStage.proofMedia.length === 0 ? (
+                    <div className="p-5 rounded-xl border border-dashed border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] text-center text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
+                      No site photos uploaded yet for Stage {nextStage.stageNumber}. Photos uploaded by{" "}
+                      <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{project.contractor.name}</strong> will appear here live.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {nextStage.proofMedia.map((m) => (
+                        <div key={m.id} className="rounded-xl overflow-hidden border border-[var(--vt-color-border-default,#E2E0EC)]">
+                          <img src={m.url} alt={m.title} className="w-full h-44 object-cover" />
+                          <div className="p-3 bg-white">
+                            <p className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)] truncate">{m.title}</p>
+                            <p className="text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5">{m.timestamp}</p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -355,15 +399,21 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
               {nextStage && (
                 <div className="pt-3 border-t border-[var(--vt-color-border-default,#E2E0EC)]">
                   <span className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] block mb-2">
-                    Things checked on site:
+                    Stage inspection checklist:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     {nextStage.checklist.map((item) => (
                       <div key={item.id} className="p-2.5 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]/70 flex items-center gap-2">
-                        <span className="text-[var(--vt-color-green-600,#248246)] flex items-center shrink-0">
-                          <IconCheck className="w-3.5 h-3.5" />
+                        {item.isPassed ? (
+                          <span className="text-[var(--vt-color-green-600,#248246)] flex items-center shrink-0">
+                            <IconCheck className="w-3.5 h-3.5" />
+                          </span>
+                        ) : (
+                          <span className="w-3.5 h-3.5 rounded-full border-2 border-[var(--vt-color-neutral-300,#CBC8DA)] shrink-0" />
+                        )}
+                        <span className={item.isPassed ? "text-[var(--vt-color-indigo-900,#261A66)] font-semibold" : "text-[var(--vt-color-neutral-500,#7C7894)]"}>
+                          {item.label}
                         </span>
-                        <span className="text-[var(--vt-color-neutral-700,#46425F)]">{item.label}</span>
                       </div>
                     ))}
                   </div>
@@ -637,7 +687,10 @@ export function ProjectOverviewPage({ projectId = "proj-lekki" }: ProjectOvervie
       <DraggableChatWindow
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
+        projectId={project.id}
         projectName={project.title}
+        contractorName={project.contractor.directorName}
+        contractorCompany={project.contractor.name}
       />
 
       <ShareLinkModal

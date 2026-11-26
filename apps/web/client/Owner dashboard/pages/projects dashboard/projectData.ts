@@ -1417,11 +1417,304 @@ export function buildCompletedProjectDetail(
   };
 }
 
-export function getProjectDetail(id: string): ProjectDetailData {
+function parseDynamicBudgetValue(raw?: string | number): number {
+  if (typeof raw === "number" && !isNaN(raw) && raw > 0) return raw;
+  if (!raw) return 0;
+  const firstSegment = String(raw).split("-")[0] || String(raw);
+  const upper = firstSegment.toUpperCase();
+  const numMatch = upper.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+  if (!numMatch) return 0;
+  const base = parseFloat(numMatch[1]);
+  if (isNaN(base) || base <= 0) return 0;
+  if (upper.includes("B")) return Math.round(base * 1_000_000_000);
+  if (upper.includes("M")) return Math.round(base * 1_000_000);
+  if (upper.includes("K")) return Math.round(base * 1_000);
+  return Math.round(base);
+}
+
+/**
+ * Builds a clean ZERO-STATE ProjectDetailData for any newly created real project
+ * (0% progress, ₦0 paid, 0 disputes, 0 change requests, 0 proof photos, real stages & contractor).
+ */
+export function buildFreshZeroStateOwnerProject(
+  id: string,
+  includeLocalStorage = false
+): ProjectDetailData {
+  let activeMeta: any = null;
+  let dynamicPlan: any = null;
+  let savedStages: ProjectStage[] | null = null;
+  let savedTransactions: ProjectTransactionTranche[] | null = null;
+  let savedDisputes: ProjectDisputeItem[] | null = null;
+  let savedCRs: ProjectChangeRequestItem[] | null = null;
+  let savedTeam: any[] | null = null;
+
+  if (includeLocalStorage && typeof window !== "undefined") {
+    try {
+      // Search active projects across owner-scoped, global, and company-accepted lists
+      const candidateLists: any[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key === "vantaged_active_projects" ||
+            key.startsWith("vantaged_active_projects__") ||
+            key === "vantaged_company_accepted_projects")
+        ) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) candidateLists.push(...parsed);
+          }
+        }
+      }
+      activeMeta = candidateLists.find((p: any) => p?.id === id) || null;
+
+      const dynRaw =
+        localStorage.getItem(`vantaged_dynamic_plan_${id}`) ||
+        localStorage.getItem(`vantaged_dynamic_plan_prop-${id.replace(/^proj-/, "")}`);
+      if (dynRaw) dynamicPlan = JSON.parse(dynRaw);
+
+      const stgRaw = localStorage.getItem(`vantaged_stages_${id}`);
+      if (stgRaw) {
+        const p = JSON.parse(stgRaw);
+        if (Array.isArray(p) && p.length > 0) savedStages = p;
+      }
+
+      const trxRaw = localStorage.getItem(`vantaged_tranches_${id}`);
+      if (trxRaw) {
+        const p = JSON.parse(trxRaw);
+        if (Array.isArray(p)) savedTransactions = p;
+      }
+
+      const dispRaw = localStorage.getItem(`vantaged_disputes_${id}`);
+      if (dispRaw) {
+        const p = JSON.parse(dispRaw);
+        if (Array.isArray(p)) savedDisputes = p;
+      }
+
+      const crRaw = localStorage.getItem(`vantaged_cr_${id}`);
+      if (crRaw) {
+        const p = JSON.parse(crRaw);
+        if (Array.isArray(p)) savedCRs = p;
+      }
+
+      const teamRaw =
+        localStorage.getItem(`vantaged_team_${id}`) ||
+        localStorage.getItem(`vantaged_cproj_team_${id}`);
+      if (teamRaw) {
+        const p = JSON.parse(teamRaw);
+        if (Array.isArray(p)) savedTeam = p;
+      }
+    } catch {}
+  }
+
+  const title = dynamicPlan?.title || activeMeta?.title || "New Building Project";
+  const location = dynamicPlan?.location || activeMeta?.location || "Lagos, Nigeria";
+  const rawCategory = dynamicPlan?.category || activeMeta?.category || "Residential";
+  const category: ProjectDetailData["category"] =
+    rawCategory === "Commercial" || rawCategory === "Industrial"
+      ? "Commercial"
+      : rawCategory === "Waterfront" || rawCategory === "Marine & Waterfront"
+      ? "Waterfront"
+      : "Residential";
+  const contractValue =
+    parseDynamicBudgetValue(
+      dynamicPlan?.proposedBudget ||
+        dynamicPlan?.proposedPlan?.proposedBudget ||
+        activeMeta?.escrowAmount ||
+        dynamicPlan?.estimatedBudget
+    ) || 0;
+  const companyName =
+    dynamicPlan?.companyName ||
+    dynamicPlan?.proposedPlan?.companyName ||
+    activeMeta?.companyName ||
+    activeMeta?.contractor?.name ||
+    "Verified Construction Company";
+  const directorName =
+    dynamicPlan?.proposedPlan?.directorName ||
+    activeMeta?.contractor?.assignedRep ||
+    "Project Director";
+
+  const rawPlanStages: any[] = Array.isArray(dynamicPlan?.proposedPlan?.stages)
+    ? dynamicPlan.proposedPlan.stages
+    : Array.isArray(activeMeta?.proposedStages)
+    ? activeMeta.proposedStages
+    : [];
+
+  const stages: ProjectStage[] =
+    savedStages ||
+    (rawPlanStages.length > 0
+      ? (() => {
+          const count = rawPlanStages.length;
+          const baseWeight = Math.floor(100 / count);
+          const remainder = 100 - baseWeight * count;
+          return rawPlanStages.map((s: any, idx: number) => {
+            const order = s.order || idx + 1;
+            const weightPercent = idx === count - 1 ? baseWeight + remainder : baseWeight;
+            const cleanTitle = String(s.title || `Stage ${order}`).replace(/^Stage\s+\d+:\s*/i, "");
+            return {
+              id: `stg-${order}`,
+              stageNumber: order,
+              title: cleanTitle,
+              category: rawCategory || "Construction",
+              description: s.evidence || "Geofenced site photos and inspection checklist.",
+              weightPercent,
+              trancheAmount: Math.round((contractValue * weightPercent) / 100),
+              status: idx === 0 ? "In Progress" : "Scheduled",
+              ballInCourt: idx === 0 ? "Contractor" : "Scheduled",
+              startDate: idx === 0 ? "Ready to begin" : `Stage ${order}`,
+              targetEndDate: dynamicPlan?.proposedPlan?.typicalDuration || "Per Schedule",
+              checklist: [
+                {
+                  id: `chk-${order}-1`,
+                  label: s.evidence || `Complete ${cleanTitle} and upload verified site proof`,
+                  isPassed: false,
+                },
+              ],
+              proofMedia: [],
+              comments: [],
+              activityLog: [],
+              issues: [],
+            };
+          });
+        })()
+      : [
+          {
+            id: "stg-1",
+            stageNumber: 1,
+            title: "Site Mobilization & Setting Out",
+            category: "Substructure",
+            description: "Survey benchmarks, perimeter setup, and initial groundwork.",
+            weightPercent: 100,
+            trancheAmount: contractValue,
+            status: "In Progress",
+            ballInCourt: "Contractor",
+            startDate: "Ready to begin",
+            targetEndDate: "Per Schedule",
+            checklist: [
+              {
+                id: "chk-1-1",
+                label: "Upload site mobilization & setting-out verification photos",
+                isPassed: false,
+              },
+            ],
+            proofMedia: [],
+            comments: [],
+            activityLog: [],
+            issues: [],
+          },
+        ]);
+
+  const transactions: ProjectTransactionTranche[] =
+    savedTransactions ||
+    [
+      ...stages.map((st) => ({
+        id: `trx-${st.stageNumber}`,
+        trancheNumber: st.stageNumber,
+        title: `Stage ${st.stageNumber}: ${st.title}`,
+        stageLinked: `Stage ${st.stageNumber}: ${st.title}`,
+        amount: st.trancheAmount,
+        status: "Scheduled" as const,
+        dueDate: `Due upon approval of Stage ${st.stageNumber}`,
+        paymentMethod: "Vantaged Secure Escrow",
+        contractorConfirmed: false,
+        notes: "Scheduled milestone payment — released after you inspect and approve this stage.",
+      })),
+      {
+        id: "trx-retention",
+        trancheNumber: stages.length + 1,
+        title: "5% Final Quality Guarantee Hold",
+        stageLinked: "Final Handover",
+        amount: Math.round(contractValue * 0.05),
+        status: "Scheduled" as const,
+        dueDate: "Held until final handover warranty passes",
+        paymentMethod: "Vantaged Secure Escrow",
+        contractorConfirmed: false,
+        notes: "5% retention protection held safely until handover defects check.",
+      },
+    ];
+
+  const assignedLead =
+    savedTeam?.find((m: any) => m.assigned && m.role === "Site Manager") ||
+    savedTeam?.find((m: any) => m.assigned) ||
+    null;
+
+  const approvedCount = stages.filter((s) => s.status === "Approved").length;
+  const verifiedProgress =
+    stages.length > 0 ? Math.round((approvedCount / stages.length) * 100) : 0;
+  const retentionAmount = Math.round(contractValue * 0.05);
+
+  return {
+    id,
+    jobId: activeMeta?.jobId || `JOB-${String(id).replace(/[^0-9A-Za-z]/g, "").slice(-4).toUpperCase()}`,
+    title,
+    category,
+    location,
+    address: location,
+    specs: dynamicPlan?.proposedPlan?.presetName || activeMeta?.specs || `${stages.length}-Stage Construction Plan`,
+    contractValue,
+    currency: "NGN",
+    verifiedProgress,
+    reportedProgress: verifiedProgress,
+    startDate: "Just started",
+    targetEndDate: dynamicPlan?.proposedPlan?.typicalDuration || "Per Agreed Schedule",
+    status: verifiedProgress >= 100 ? "Completed" : "In progress",
+    currentActiveStageTitle:
+      stages.find((s) => s.status !== "Approved")?.title || "All Stages Completed",
+    contractor: {
+      name: companyName,
+      cacNumber: "CAC Verified Builder",
+      directorName,
+      rating: "4.9 ★",
+      reviewsCount: 0,
+      projectsCompleted: 0,
+      bankAccountName: companyName,
+      bankName: "Vantaged Verified NUBAN",
+      bankAccountNumber: "Verified on file",
+    },
+    siteManager: {
+      name: assignedLead?.name || directorName,
+      phone: assignedLead?.phone || "Verified via Vantaged",
+      email: assignedLead?.email || "Verified via Vantaged",
+      lastSeen: assignedLead
+        ? `Assigned as ${assignedLead.role || "Site Lead"}`
+        : "Awaiting first site check-in",
+      avatar:
+        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&h=160&fit=crop&crop=face",
+    },
+    clientReps: [],
+    stages,
+    transactions,
+    disputes: savedDisputes || [],
+    changeRequests: savedCRs || [],
+    retentionDlp: {
+      retentionRatePercent: 5,
+      totalRetentionAmount: retentionAmount,
+      dlpDurationMonths: 12,
+      dlpStatus: "Pre-Handover Accumulating",
+      handoverDate: "Pending Completion",
+      targetReleaseDate: "12 Months Post-Handover",
+      daysRemaining: 365,
+      activeSnagsCount: 0,
+      totalClaimsDeducted: 0,
+      escrowBalance: 0,
+      escrowCustodian: "Vantaged Secure Escrow Trust",
+      coveredTrades: [
+        "Structural Frame & Foundation Integrity",
+        "Roofing & Waterproofing Envelope",
+        "Electrical & Plumbing (MEP) Installations",
+        "Architectural Finishes & Joinery",
+      ],
+      termsSummary: `5% quality retention (₦${retentionAmount.toLocaleString("en-NG")}) accrues across approved stages and is held safely in Vantaged escrow until final defects check passes.`,
+    },
+  };
+}
+
+export function getProjectDetail(id: string, includeLocalStorage = false): ProjectDetailData {
   // If it's a proposed plan ID (e.g. prop-lekki-plan), map to the base project
   if (id.startsWith("prop-")) {
     const cleanId = id.replace("prop-", "proj-").replace("-plan", "");
-    return getProjectDetail(cleanId);
+    return getProjectDetail(cleanId, includeLocalStorage);
   }
 
   // 1. If it's a known completed project or id starts with "hist-"
@@ -1430,7 +1723,7 @@ export function getProjectDetail(id: string): ProjectDetailData {
   }
 
   // 2. Check if this project has been marked completed in localStorage
-  if (typeof window !== "undefined") {
+  if (includeLocalStorage && typeof window !== "undefined") {
     try {
       const savedHistory = localStorage.getItem("vantaged_contract_history");
       if (savedHistory) {
@@ -1445,7 +1738,7 @@ export function getProjectDetail(id: string): ProjectDetailData {
               category: inHistory.category,
               location: inHistory.location,
               specs: inHistory.specs,
-              contractValue: parseFloat(inHistory.escrowAmount?.replace(/[^0-9.]/g, "") || "145") * 1000000,
+              contractValue: parseDynamicBudgetValue(inHistory.escrowAmount) || 145000000,
               contractor: {
                 ...PROJECT_DETAILS_MAP["proj-lekki"].contractor,
                 name: inHistory.contractor?.name || "Contractor Consortium",
@@ -1571,11 +1864,16 @@ export function getProjectDetail(id: string): ProjectDetailData {
     };
   }
 
-  return base;
+  // Any newly created real project starts from ZERO (never falls back to demo Lekki Villa!)
+  return buildFreshZeroStateOwnerProject(id, includeLocalStorage);
 }
 
-export function getStageDetail(projectId: string, stageId: string): { project: ProjectDetailData; stage: ProjectStage } {
-  const project = getProjectDetail(projectId);
-  const stage = project.stages.find((s) => s.id === stageId) || project.stages[3] || project.stages[0];
+export function getStageDetail(
+  projectId: string,
+  stageId: string,
+  includeLocalStorage = false
+): { project: ProjectDetailData; stage: ProjectStage } {
+  const project = getProjectDetail(projectId, includeLocalStorage);
+  const stage = project.stages.find((s) => s.id === stageId) || project.stages[0];
   return { project, stage };
 }

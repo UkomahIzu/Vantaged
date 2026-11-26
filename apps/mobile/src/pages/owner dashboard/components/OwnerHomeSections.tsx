@@ -245,6 +245,7 @@ export function OwnerQuickActionsGrid() {
       </View>
 
       {/* Slot Picker Modal */}
+      {pickerSlotIndex !== null && (
       <Modal
         visible={pickerSlotIndex !== null}
         transparent
@@ -298,16 +299,27 @@ export function OwnerQuickActionsGrid() {
           </View>
         </View>
       </Modal>
+      )}
 
-      {/* Functional Web-Matched Quick Action Popups */}
-      <ShareLinkModal visible={isShareOpen} onClose={() => setIsShareOpen(false)} />
-      <ContractorChatModal visible={isChatOpen} onClose={() => setIsChatOpen(false)} />
-      <InviteRepresentativeModal
-        visible={isInviteRepOpen}
-        onClose={() => setIsInviteRepOpen(false)}
-      />
-      <SiteWeatherModal visible={isWeatherOpen} onClose={() => setIsWeatherOpen(false)} />
-      <StopWorkNoticeModal visible={isStopWorkOpen} onClose={() => setIsStopWorkOpen(false)} />
+      {/* Functional Web-Matched Quick Action Popups (Lazy-Mounted) */}
+      {isShareOpen && (
+        <ShareLinkModal visible={isShareOpen} onClose={() => setIsShareOpen(false)} />
+      )}
+      {isChatOpen && (
+        <ContractorChatModal visible={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      )}
+      {isInviteRepOpen && (
+        <InviteRepresentativeModal
+          visible={isInviteRepOpen}
+          onClose={() => setIsInviteRepOpen(false)}
+        />
+      )}
+      {isWeatherOpen && (
+        <SiteWeatherModal visible={isWeatherOpen} onClose={() => setIsWeatherOpen(false)} />
+      )}
+      {isStopWorkOpen && (
+        <StopWorkNoticeModal visible={isStopWorkOpen} onClose={() => setIsStopWorkOpen(false)} />
+      )}
     </>
   );
 }

@@ -5,12 +5,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
-import { getProjectDetail, ProjectStage } from "./projectData";
+import { ProjectStage } from "./projectData";
+import { useOwnerProject } from "./useOwnerProject";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { IconArrowRight, IconCheck, IconClose } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { markProjectAsCompleted } from "./projectStore";
-import { syncOwnerStageDecisionToContractor } from "../../../../shared/vantagedSyncBridge";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  syncOwnerStageDecisionToContractor,
+} from "../../../../shared/vantagedSyncBridge";
+import { getOwnerSession } from "../../../../shared/vantagedAuth";
 
 interface ProjectStagesPageProps {
   projectId?: string;
@@ -19,22 +25,36 @@ interface ProjectStagesPageProps {
 export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPageProps) {
   const router = useRouter();
   const scrollRef = useScrollRestoration<HTMLElement>(`proj_stages_${projectId}`);
-  const project = getProjectDetail(projectId);
+  const project = useOwnerProject(projectId);
   const storageKey = `vantaged_stages_${projectId}`;
 
   const [stages, setStages] = useState<ProjectStage[]>(project.stages);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setStages(parsed);
+    const syncStages = () => {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setStages(parsed);
+            return;
+          }
         }
-      }
-    } catch {}
-  }, [storageKey]);
+      } catch {}
+      setStages(project.stages);
+    };
+
+    syncStages();
+    window.addEventListener(SHARED_SYNC_EVENT, syncStages);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, syncStages);
+    window.addEventListener("storage", syncStages);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncStages);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncStages);
+      window.removeEventListener("storage", syncStages);
+    };
+  }, [storageKey, project.stages]);
 
   const persistStages = (updated: ProjectStage[]) => {
     setStages(updated);
@@ -68,18 +88,19 @@ export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPag
   const approvedCount = stages.filter((s) => s.status === "Approved").length;
   const reviewCount = stages.filter((s) => s.status === "Ready for Review").length;
   const scheduledCount = stages.filter((s) => s.status === "Scheduled").length;
-  const isCompleted = approvedCount === stages.length || project.verifiedProgress >= 100 || project.status === "Completed";
-  const progressPercent = isCompleted ? 100 : Math.round((approvedCount / stages.length) * 100);
+  const isCompleted = stages.length > 0 && (approvedCount === stages.length || project.verifiedProgress >= 100 || project.status === "Completed");
+  const progressPercent = isCompleted ? 100 : stages.length > 0 ? Math.round((approvedCount / stages.length) * 100) : 0;
 
   const handleApproveCurrentStage = () => {
     if (!selectedStage) return;
+    const ownerName = getOwnerSession()?.fullName || "Property Owner";
     const next = stages.map((s) => {
       if (s.id === selectedStage.id) {
         return {
           ...s,
           status: "Approved" as const,
           completedDate: "Today",
-          verifiedBy: "Dr. James Arinze (Owner)",
+          verifiedBy: `${ownerName} (Owner)`,
         };
       }
       return s;
@@ -91,6 +112,7 @@ export function ProjectStagesPage({ projectId = "proj-lekki" }: ProjectStagesPag
       stageNumber: selectedStage.stageNumber,
       stageTitle: selectedStage.title,
       decision: "APPROVED",
+      ownerName: `${ownerName} (Owner)`,
     });
     if (next.every((s) => s.status === "Approved")) {
       markProjectAsCompleted(projectId);

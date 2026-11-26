@@ -6,16 +6,22 @@ import { useRouter } from "next/navigation";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
 import {
-  getStageDetail,
   ProjectStage,
   StageChecklistItem,
   StageProofMedia,
   StageComment,
 } from "./projectData";
+import { useOwnerProject } from "./useOwnerProject";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { markProjectAsCompleted } from "./projectStore";
-import { syncOwnerStageDecisionToContractor } from "../../../../shared/vantagedSyncBridge";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  syncOwnerStageCommentToContractor,
+  syncOwnerStageDecisionToContractor,
+} from "../../../../shared/vantagedSyncBridge";
+import { getOwnerSession } from "../../../../shared/vantagedAuth";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -45,7 +51,8 @@ export function ProjectStageDetailPage({
 }: ProjectStageDetailPageProps) {
   const router = useRouter();
   const scrollRef = useScrollRestoration<HTMLElement>(`proj_stage_detail_${projectId}_${stageId}`);
-  const { project, stage: initialStage } = getStageDetail(projectId, stageId);
+  const project = useOwnerProject(projectId);
+  const initialStage = project.stages.find((s) => s.id === stageId) || project.stages[0];
 
   const [stage, setStage] = useState<ProjectStage>(initialStage);
   const [activeTab, setActiveTab] = useState<
@@ -66,34 +73,54 @@ export function ProjectStageDetailPage({
 
   // New comment input
   const [newCommentText, setNewCommentText] = useState("");
-  const [commentsList, setCommentsList] = useState<StageComment[]>(stage.comments || []);
+  const [commentsList, setCommentsList] = useState<StageComment[]>(initialStage?.comments || []);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(commentsStorageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCommentsList(parsed);
-        }
-      }
-    } catch {}
-  }, [commentsStorageKey]);
-
-  useEffect(() => {
-    try {
-      const savedStages = localStorage.getItem(`vantaged_stages_${projectId}`);
-      if (savedStages) {
-        const parsed = JSON.parse(savedStages);
-        if (Array.isArray(parsed)) {
-          const match = parsed.find((s: ProjectStage) => s.id === stageId);
-          if (match) {
-            setStage((prev) => ({ ...prev, ...match }));
+    const syncStageAndComments = () => {
+      let resolvedStage = project.stages.find((s) => s.id === stageId) || project.stages[0];
+      try {
+        const savedStages = localStorage.getItem(`vantaged_stages_${projectId}`);
+        if (savedStages) {
+          const parsed = JSON.parse(savedStages);
+          if (Array.isArray(parsed)) {
+            const match = parsed.find((s: ProjectStage) => s.id === stageId);
+            if (match) {
+              resolvedStage = { ...resolvedStage, ...match };
+            }
           }
         }
+      } catch {}
+
+      if (resolvedStage) {
+        setStage(resolvedStage);
       }
-    } catch {}
-  }, [projectId, stageId]);
+
+      // Merge comments synced from Company stage + Owner local comments
+      try {
+        const stageComments: StageComment[] = Array.isArray(resolvedStage?.comments)
+          ? resolvedStage.comments
+          : [];
+        const saved = localStorage.getItem(commentsStorageKey);
+        const localComments: StageComment[] = saved ? JSON.parse(saved) : [];
+        const byId = new Map<string, StageComment>();
+        for (const c of stageComments) byId.set(c.id, c);
+        for (const c of localComments) {
+          if (!byId.has(c.id)) byId.set(c.id, c);
+        }
+        setCommentsList(Array.from(byId.values()));
+      } catch {}
+    };
+
+    syncStageAndComments();
+    window.addEventListener(SHARED_SYNC_EVENT, syncStageAndComments);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, syncStageAndComments);
+    window.addEventListener("storage", syncStageAndComments);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncStageAndComments);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncStageAndComments);
+      window.removeEventListener("storage", syncStageAndComments);
+    };
+  }, [projectId, stageId, commentsStorageKey, project.stages]);
 
   // Filter media by checklist item if clicked
   const [selectedChecklistItemId, setSelectedChecklistItemId] = useState<string | null>(null);
@@ -121,10 +148,11 @@ export function ProjectStageDetailPage({
   const handleSendComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCommentText.trim()) return;
+    const ownerName = getOwnerSession()?.fullName || "Property Owner";
 
     const newComment: StageComment = {
       id: `com-${Date.now()}`,
-      authorName: "Dr. James Arinze",
+      authorName: ownerName,
       authorRole: "Building Owner (You)",
       avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces",
       text: newCommentText.trim(),
@@ -137,107 +165,117 @@ export function ProjectStageDetailPage({
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(commentsStorageKey, JSON.stringify(next));
+        syncOwnerStageCommentToContractor({
+          projectId,
+          stageId,
+          stageNumber: stage.stageNumber,
+          authorName: ownerName,
+          text: newCommentText.trim(),
+        });
       } catch {}
     }
     setNewCommentText("");
   };
 
   const handleApproveStage = () => {
+    const ownerName = getOwnerSession()?.fullName || "Property Owner";
+    const currentStage = stage;
+    const updatedStage: ProjectStage = {
+      ...currentStage,
+      status: "Approved",
+      ballInCourt: "Completed",
+      completedDate: "Today",
+      verifiedBy: `${ownerName} (Owner)`,
+    };
+
     setIsApprovedSuccess(true);
-    setStage((prev) => {
-      const updated = {
-        ...prev,
-        status: "Approved" as const,
-        ballInCourt: "Completed",
-        completedDate: "Today",
-        verifiedBy: "Dr. James Arinze (Owner)",
-      };
+    setStage(updatedStage);
 
-      if (typeof window !== "undefined") {
-        try {
-          const stagesKey = `vantaged_stages_${projectId}`;
-          const saved = localStorage.getItem(stagesKey);
-          const currentStages: ProjectStage[] = saved ? JSON.parse(saved) : project.stages;
-          const nextStages = currentStages.map((s) =>
-            s.id === stageId
-              ? {
-                  ...s,
-                  status: "Approved" as const,
-                  completedDate: "Today",
-                  verifiedBy: "Dr. James Arinze (Owner)",
-                }
-              : s
-          );
-          localStorage.setItem(stagesKey, JSON.stringify(nextStages));
-          syncOwnerStageDecisionToContractor({
-            projectId,
-            stageId,
-            stageNumber: prev.stageNumber,
-            stageTitle: prev.title,
-            decision: "APPROVED",
-          });
-          if (nextStages.every((s) => s.status === "Approved")) {
-            markProjectAsCompleted(projectId);
-          }
-          window.dispatchEvent(new Event("vantaged_storage_update"));
-        } catch {}
-      }
-
-      return updated;
-    });
+    // Run side effects outside of setState updater to avoid updating other components during render
+    if (typeof window !== "undefined") {
+      try {
+        const stagesKey = `vantaged_stages_${projectId}`;
+        const saved = localStorage.getItem(stagesKey);
+        const currentStages: ProjectStage[] = saved ? JSON.parse(saved) : project.stages;
+        const nextStages = currentStages.map((s) =>
+          s.id === stageId
+            ? {
+                ...s,
+                status: "Approved" as const,
+                completedDate: "Today",
+                verifiedBy: `${ownerName} (Owner)`,
+              }
+            : s
+        );
+        localStorage.setItem(stagesKey, JSON.stringify(nextStages));
+        syncOwnerStageDecisionToContractor({
+          projectId,
+          stageId,
+          stageNumber: currentStage.stageNumber,
+          stageTitle: currentStage.title,
+          decision: "APPROVED",
+          ownerName: `${ownerName} (Owner)`,
+        });
+        if (nextStages.every((s) => s.status === "Approved")) {
+          markProjectAsCompleted(projectId);
+        }
+        window.dispatchEvent(new Event("vantaged_storage_update"));
+      } catch {}
+    }
   };
 
   const handleRejectStage = () => {
+    const ownerName = getOwnerSession()?.fullName || "Property Owner";
+    const currentStage = stage;
+    const updatedStage: ProjectStage = {
+      ...currentStage,
+      status: "In Progress",
+      ballInCourt: "Contractor (Fixing Issues)",
+      rejectionCount: (currentStage.rejectionCount || 0) + 1,
+      issues: [
+        ...(currentStage.issues || []),
+        {
+          id: `iss-${Date.now()}`,
+          issueCode: `ISSUE-0${(currentStage.issues?.length || 0) + 2}`,
+          title: rejectionComment || "Checklist rectification requested by client",
+          status: "Open",
+          assignedTo: project.siteManager.name,
+          dateRaised: "Today",
+        },
+      ],
+    };
+
     setIsRejectSuccess(true);
-    setStage((prev) => {
-      const updated = {
-        ...prev,
-        status: "In Progress" as const,
-        ballInCourt: "Contractor (Fixing Issues)",
-        rejectionCount: (prev.rejectionCount || 0) + 1,
-        issues: [
-          ...(prev.issues || []),
-          {
-            id: `iss-${Date.now()}`,
-            issueCode: `ISSUE-0${(prev.issues?.length || 0) + 2}`,
-            title: rejectionComment || "Checklist rectification requested by client",
-            status: "Open" as const,
-            assignedTo: project.siteManager.name,
-            dateRaised: "Today",
-          },
-        ],
-      };
+    setStage(updatedStage);
 
-      if (typeof window !== "undefined") {
-        try {
-          const stagesKey = `vantaged_stages_${projectId}`;
-          const saved = localStorage.getItem(stagesKey);
-          const currentStages: ProjectStage[] = saved ? JSON.parse(saved) : project.stages;
-          const nextStages = currentStages.map((s) =>
-            s.id === stageId
-              ? {
-                  ...s,
-                  status: "In Progress" as const,
-                  ballInCourt: "Contractor (Fixing Issues)",
-                }
-              : s
-          );
-          localStorage.setItem(stagesKey, JSON.stringify(nextStages));
-          syncOwnerStageDecisionToContractor({
-            projectId,
-            stageId,
-            stageNumber: prev.stageNumber,
-            stageTitle: prev.title,
-            decision: "FIX_REQUESTED",
-            failedChecklistIds,
-            fixNote: rejectionComment,
-            ownerName: "Dr. James Arinze (Owner)",
-          });
-        } catch {}
-      }
-
-      return updated;
-    });
+    // Run side effects outside of setState updater to avoid updating other components during render
+    if (typeof window !== "undefined") {
+      try {
+        const stagesKey = `vantaged_stages_${projectId}`;
+        const saved = localStorage.getItem(stagesKey);
+        const currentStages: ProjectStage[] = saved ? JSON.parse(saved) : project.stages;
+        const nextStages = currentStages.map((s) =>
+          s.id === stageId
+            ? {
+                ...s,
+                status: "In Progress" as const,
+                ballInCourt: "Contractor (Fixing Issues)",
+              }
+            : s
+        );
+        localStorage.setItem(stagesKey, JSON.stringify(nextStages));
+        syncOwnerStageDecisionToContractor({
+          projectId,
+          stageId,
+          stageNumber: currentStage.stageNumber,
+          stageTitle: currentStage.title,
+          decision: "FIX_REQUESTED",
+          failedChecklistIds,
+          fixNote: rejectionComment,
+          ownerName: `${ownerName} (Owner)`,
+        });
+      } catch {}
+    }
   };
 
   return (

@@ -1,24 +1,41 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SidebarNav } from "../../components/SidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
-import { getProjectDetail } from "./projectData";
+import { getProjectDetail, ProjectDetailData, ProjectStage } from "./projectData";
 import {
   IconCheck,
   IconClose,
   IconLock,
   IconShieldCheck,
   IconArrowRight,
+  IconArrowLeft,
   IconAlertTriangle,
   IconDownload,
   IconPrinter,
+  IconReceipt,
+  IconClock,
+  IconCamera,
+  IconCheckCircle,
+  IconMapPin,
+  IconMaximize,
 } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
+import { ProposalNegotiationChat } from "../../../../shared/ProposalNegotiationChat";
+import { getOwnerSession } from "../../../../shared/vantagedAuth";
+import { SHARED_SYNC_EVENT } from "../../../../shared/vantagedSyncBridge";
 
-import { acceptProposedPlan, getBriefForPlan, updateBriefStatus, ProjectBrief } from "./projectStore";
+import {
+  acceptProposedPlan,
+  cacheDynamicPlanRecord,
+  getBriefForPlan,
+  parseBudgetToNaira,
+  updateBriefStatus,
+  ProjectBrief,
+} from "./projectStore";
 
 interface ProjectPlanReviewPageProps {
   projectId?: string;
@@ -27,8 +44,123 @@ interface ProjectPlanReviewPageProps {
 export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanReviewPageProps) {
   const scrollRef = useScrollRestoration<HTMLElement>(`proj_plan_review_${projectId}`);
   const router = useRouter();
-  const project = getProjectDetail(projectId);
-  const linkedBrief = getBriefForPlan(projectId);
+  const baseProject = useMemo(() => getProjectDetail(projectId), [projectId]);
+  const [remoteBrief, setRemoteBrief] = useState<ProjectBrief | null>(null);
+
+  useEffect(() => {
+    const loadPlanRecord = async () => {
+      // 1. Check cached dynamic plan in localStorage first
+      if (typeof window !== "undefined") {
+        try {
+          const cached = localStorage.getItem(`vantaged_dynamic_plan_${projectId}`);
+          if (cached) {
+            setRemoteBrief(JSON.parse(cached));
+          } else {
+            const localBrief = getBriefForPlan(projectId);
+            if (localBrief) setRemoteBrief(localBrief);
+          }
+        } catch {}
+      }
+
+      // 2. Fetch latest plan from backend /api/project-requests (captures company price/stage edits)
+      try {
+        const res = await fetch(
+          `/api/project-requests?planId=${encodeURIComponent(projectId)}`,
+          { cache: "no-store" }
+        );
+        if (res.ok) {
+          const json = await res.json();
+          const match: ProjectBrief | undefined = Array.isArray(json?.data)
+            ? json.data[0]
+            : undefined;
+          if (match) {
+            setRemoteBrief(match);
+            cacheDynamicPlanRecord(match);
+            if (match.status === "Plan Accepted & Active") {
+              setPlanStatus("ACCEPTED");
+            } else if (match.status === "Revisions Requested") {
+              setPlanStatus("CHANGES_REQUESTED");
+            } else if (match.status === "Proposal Ready") {
+              setPlanStatus("PROPOSED");
+            }
+          }
+        }
+      } catch {}
+    };
+
+    loadPlanRecord();
+    window.addEventListener(SHARED_SYNC_EVENT, loadPlanRecord);
+    window.addEventListener("storage", loadPlanRecord);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, loadPlanRecord);
+      window.removeEventListener("storage", loadPlanRecord);
+    };
+  }, [projectId]);
+
+  const linkedBrief = remoteBrief || getBriefForPlan(projectId);
+
+  const project: ProjectDetailData = useMemo(() => {
+    if (!linkedBrief) return baseProject;
+
+    const proposedPlan = linkedBrief.proposedPlan;
+    const rawBudget =
+      linkedBrief.proposedBudget ||
+      proposedPlan?.proposedBudget ||
+      linkedBrief.estimatedBudget;
+    const parsedValue = rawBudget ? parseBudgetToNaira(rawBudget) : baseProject.contractValue;
+
+    let mappedStages: ProjectStage[] = baseProject.stages;
+    if (proposedPlan && Array.isArray(proposedPlan.stages) && proposedPlan.stages.length > 0) {
+      const count = proposedPlan.stages.length;
+      const baseWeight = Math.floor(100 / count);
+      const remainder = 100 - baseWeight * count;
+      mappedStages = proposedPlan.stages.map((stg, idx) => {
+        const weight = idx === count - 1 ? baseWeight + remainder : baseWeight;
+        return {
+          id: `stg-dyn-${stg.order || idx + 1}`,
+          stageNumber: stg.order || idx + 1,
+          title: stg.title,
+          category: proposedPlan.category || linkedBrief.category || "Construction",
+          description: stg.evidence,
+          weightPercent: stg.weightPercent || weight,
+          trancheAmount: Math.round((parsedValue * (stg.weightPercent || weight)) / 100),
+          status: "Scheduled",
+          startDate: `Stage ${stg.order || idx + 1}`,
+          targetEndDate: proposedPlan.typicalDuration || "Per Schedule",
+          checklist: [
+            {
+              id: `chk-${idx + 1}-1`,
+              label: stg.evidence || "Geofenced site photos & inspection checklist",
+              isPassed: false,
+            },
+          ],
+          proofMedia: [],
+        };
+      });
+    }
+
+    const resolvedCategory: ProjectDetailData["category"] =
+      linkedBrief.category === "Commercial" || linkedBrief.category === "Industrial"
+        ? "Commercial"
+        : linkedBrief.category === "Waterfront" || linkedBrief.category === "Marine & Waterfront"
+        ? "Waterfront"
+        : "Residential";
+
+    return {
+      ...baseProject,
+      id: projectId,
+      title: linkedBrief.title || baseProject.title,
+      location: linkedBrief.location || baseProject.location,
+      category: resolvedCategory,
+      contractValue: parsedValue,
+      contractor: {
+        ...baseProject.contractor,
+        name: linkedBrief.companyName || proposedPlan?.companyName || baseProject.contractor.name,
+        directorName: proposedPlan?.directorName || baseProject.contractor.directorName,
+      },
+      stages: mappedStages,
+    };
+  }, [baseProject, linkedBrief, projectId]);
 
   const storageKey = `vantaged_plan_status_${projectId}`;
   const feedbackKey = `vantaged_plan_feedback_${projectId}`;
@@ -70,7 +202,7 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
 
   const handleAcceptPlan = () => {
     setPlanStatus("ACCEPTED");
-    acceptProposedPlan(projectId);
+    acceptProposedPlan(projectId, linkedBrief);
     if (linkedBrief) {
       updateBriefStatus(linkedBrief.id, "Plan Accepted & Active");
     }
@@ -78,10 +210,26 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
 
   const handleRequestChanges = () => {
     if (!changeFeedback.trim()) return;
+    const ownerSession = getOwnerSession();
     setPlanStatus("CHANGES_REQUESTED");
     if (linkedBrief) {
       updateBriefStatus(linkedBrief.id, "Revisions Requested");
     }
+    fetch("/api/project-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: linkedBrief?.id || projectId,
+        planId: projectId,
+        upsert: true,
+        status: "Revisions Requested",
+        appendMessage: {
+          sender: "owner",
+          senderName: ownerSession?.fullName || "Property Owner",
+          text: `[Change Request] ${changeFeedback.trim()}`,
+        },
+      }),
+    }).catch(() => {});
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(storageKey, "CHANGES_REQUESTED");
@@ -106,10 +254,7 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
                 title="Back to Projects"
                 className="w-8 h-8 rounded-lg bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] flex items-center justify-center transition-all shadow-2xs cursor-pointer"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="19" y1="12" x2="5" y2="12" />
-                  <polyline points="12 19 5 12 12 5" />
-                </svg>
+                <IconArrowLeft className="w-4 h-4" />
               </Link>
               <div className="flex items-center gap-1.5 text-xs">
                 <Link href="/owner/projects" className="text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] font-semibold transition-colors">
@@ -242,15 +387,15 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
 
         {/* ── Originating Project Brief Card ── */}
         {linkedBrief && (
-          <section className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 shadow-2xs flex flex-col gap-3 font-sans">
+          <section className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 shadow-2xs flex flex-col gap-3.5 font-sans">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--vt-color-neutral-100,#EFEEF5)] pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] border border-[var(--vt-color-orange-200,#FDCAA9)] flex items-center justify-center font-black text-xs shrink-0">
-                  📋
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] border border-[var(--vt-color-orange-200,#FDCAA9)] flex items-center justify-center shrink-0 shadow-2xs">
+                  <IconReceipt className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-[var(--vt-color-indigo-900,#261A66)]">
+                    <span className="text-xs sm:text-sm font-black text-[var(--vt-color-indigo-900,#261A66)]">
                       Originating Project Brief
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]">
@@ -266,19 +411,15 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
               <button
                 type="button"
                 onClick={() => setIsOriginatingBriefModalOpen(true)}
-                className="h-8 px-3 rounded-md bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] transition-colors self-start sm:self-auto cursor-pointer shadow-2xs font-sans inline-flex items-center gap-1.5"
+                className="h-8 px-3 rounded-lg bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-200,#FDCAA9)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] transition-colors self-start sm:self-auto cursor-pointer shadow-2xs font-sans inline-flex items-center gap-1.5"
               >
                 <span>View Full Brief</span>
-                <svg className="w-3.5 h-3.5 text-[var(--vt-color-neutral-400,#A3A0B8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
+                <IconMaximize className="w-3.5 h-3.5" />
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-neutral-100,#EFEEF5)]">
+              <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-neutral-100,#EFEEF5)]">
                 <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block">
                   Your Requested Budget
                 </span>
@@ -290,19 +431,20 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-neutral-100,#EFEEF5)]">
+              <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-neutral-100,#EFEEF5)]">
                 <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block">
-                  Project Title & Category
+                  Project Title &amp; Location
                 </span>
                 <span className="text-xs font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5 block truncate">
                   {linkedBrief.title}
                 </span>
-                <span className="text-[10.5px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 block">
-                  {linkedBrief.category} • {linkedBrief.location}
+                <span className="text-[10.5px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 inline-flex items-center gap-1">
+                  <IconMapPin className="w-3 h-3 text-[var(--vt-color-orange-500,#EF5F18)]" />
+                  <span>{linkedBrief.category} • {linkedBrief.location}</span>
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-neutral-100,#EFEEF5)]">
+              <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-neutral-100,#EFEEF5)]">
                 <span className="text-[10px] uppercase font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] block">
                   Contractor Scoping Note
                 </span>
@@ -316,53 +458,97 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
 
         {/* ── Key Contract Numbers ── */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs">
-            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-              Total Contract Price
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-1">
-              {formatNaira(project.contractValue)}
+          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Total Contract Price
+              </span>
+              <span className="w-7 h-7 rounded-lg bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] border border-[var(--vt-color-orange-200,#FDCAA9)] flex items-center justify-center">
+                <IconReceipt className="w-3.5 h-3.5" />
+              </span>
             </div>
-            <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1 block">
-              100% of building budget
-            </span>
+            <div>
+              <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)]">
+                {formatNaira(project.contractValue)}
+              </div>
+              <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 block">
+                100% of building budget
+              </span>
+            </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs">
-            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-              Mobilisation Deposit (10%)
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-1">
-              {formatNaira(depositAmount)}
+          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Mobilisation Deposit (10%)
+              </span>
+              <span className="w-7 h-7 rounded-lg bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-indigo-900,#261A66)] flex items-center justify-center">
+                <IconClock className="w-3.5 h-3.5" />
+              </span>
             </div>
-            <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1 block">
-              Due when plan is accepted
-            </span>
+            <div>
+              <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)]">
+                {formatNaira(depositAmount)}
+              </div>
+              <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 block">
+                Due when plan is accepted
+              </span>
+            </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs">
-            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-              Total Stages & Weights
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-green-700,#1F6B3E)] mt-1">
-              {project.stages.length} Stages ({stageWeightsTotal}%)
+          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Total Stages &amp; Weights
+              </span>
+              <span className="w-7 h-7 rounded-lg bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)] flex items-center justify-center">
+                <IconCheckCircle className="w-3.5 h-3.5" />
+              </span>
             </div>
-            <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1 block">
-              All 6 milestones mapped (100%)
-            </span>
+            <div>
+              <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-green-700,#1F6B3E)]">
+                {project.stages.length} Stages ({stageWeightsTotal}%)
+              </div>
+              <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 block">
+                All {project.stages.length} milestones mapped (100%)
+              </span>
+            </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs">
-            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-              Retention Holdback (5%)
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-1">
-              {formatNaira(retentionAmount)}
+          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Retention Holdback (5%)
+              </span>
+              <span className="w-7 h-7 rounded-lg bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-indigo-900,#261A66)] flex items-center justify-center">
+                <IconLock className="w-3.5 h-3.5" />
+              </span>
             </div>
-            <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1 block">
-              Held until final handover
-            </span>
+            <div>
+              <div className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)]">
+                {formatNaira(retentionAmount)}
+              </div>
+              <span className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 block">
+                Held until final handover
+              </span>
+            </div>
           </div>
+        </section>
+
+        {/* ── Live Price & Plan Discussion Box (Owner ↔ Company) ── */}
+        <section>
+          <ProposalNegotiationChat
+            requestId={linkedBrief?.id || projectId}
+            planId={linkedBrief?.planId || projectId}
+            currentRole="owner"
+            currentUserName={getOwnerSession()?.fullName || "Property Owner"}
+            counterpartyName={project.contractor.name}
+            projectTitle={project.title}
+            ownerId={linkedBrief?.ownerId || getOwnerSession()?.userId}
+            ownerEmail={linkedBrief?.ownerEmail || getOwnerSession()?.email}
+            companyId={linkedBrief?.companyId}
+            companyName={linkedBrief?.companyName || project.contractor.name}
+          />
         </section>
 
         {/* ── Proposed Stages Review Table ── */}
@@ -445,7 +631,7 @@ export function ProjectPlanReviewPage({ projectId = "proj-lekki" }: ProjectPlanR
 
                         <td className="py-3.5 px-4 text-[11px] text-[var(--vt-color-neutral-600,#5E5A7D)]">
                           <span className="inline-flex items-center gap-1 text-[var(--vt-color-green-700,#1F6B3E)] font-bold">
-                            <IconCheck className="w-3 h-3" />
+                            <IconCamera className="w-3.5 h-3.5" />
                             <span>Min 3 GPS Photos</span>
                           </span>
                         </td>

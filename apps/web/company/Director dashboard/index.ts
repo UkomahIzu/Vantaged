@@ -1,6 +1,7 @@
 export { DirectorDashboardHomePage } from "./pages/DirectorDashboardHomePage";
 export { DirectorProjectsPage } from "./pages/DirectorProjectsPage";
 export { DirectorRequestsPage } from "./pages/DirectorRequestsPage";
+export { ContractorPlanReviewPage } from "./pages/ContractorPlanReviewPage";
 export { DirectorMessagesPage } from "./pages/DirectorMessagesPage";
 export { DirectorPresetsPage } from "./pages/DirectorPresetsPage";
 export { DirectorTeamPage } from "./pages/DirectorTeamPage";

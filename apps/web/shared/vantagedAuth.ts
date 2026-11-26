@@ -54,6 +54,12 @@ export interface ContractorAccountRecord {
   submissionId?: string;
   createdAt: string;
   issuedBy?: "Vantaged Admin" | "Company Director";
+  status?: "ACTIVE" | "SUSPENDED";
+  planId?: string;
+  planName?: string;
+  baseSlots?: number;
+  extraSlots?: number;
+  slotsUsed?: number;
 }
 
 export interface ContractorSession {
@@ -121,6 +127,7 @@ function persistOwnerSession(account: OwnerAccountRecord): OwnerSession {
     signedInAt: new Date().toISOString(),
   };
   localStorage.setItem(KEY_OWNER_SESSION, JSON.stringify(session));
+  localStorage.setItem("vantaged_owner_demo_mode", "false");
   localStorage.setItem("vantaged_user_name", account.fullName);
   localStorage.setItem("vantaged_fullName", account.fullName);
   localStorage.setItem("vantaged_user_email", account.email);
@@ -143,108 +150,76 @@ export async function signUpOwner(input: {
   orgName?: string;
   rcNumber?: string;
 }): Promise<{ ok: true; session: OwnerSession } | { ok: false; error: string }> {
-  const normalizedEmail = input.email.trim().toLowerCase();
-  if (!normalizedEmail || !input.password || !input.fullName.trim()) {
-    return { ok: false, error: "Please fill in your full name, email, and password." };
+  try {
+    const res = await fetch("/api/auth/owners", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "signup", ...input }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success || !json.data) {
+      return { ok: false, error: json.error || "Failed to create account." };
+    }
+
+    const created = json.data as OwnerAccountRecord;
+    // Ensure a newly registered owner starts cleanly in Live State
+    localStorage.setItem("vantaged_owner_demo_mode", "false");
+    const session = persistOwnerSession(created);
+    return { ok: true, session };
+  } catch {
+    return { ok: false, error: "Could not reach Vantaged server. Please try again." };
   }
-
-  const existing = readRegisteredOwners();
-  const duplicate = existing.find(
-    (u) => u.email.trim().toLowerCase() === normalizedEmail
-  );
-  if (duplicate) {
-    return {
-      ok: false,
-      error: "An account with this email already exists. Please log in instead.",
-    };
-  }
-
-  const created: OwnerAccountRecord = {
-    id: `own-${Date.now()}`,
-    fullName: input.fullName.trim(),
-    email: normalizedEmail,
-    password: input.password,
-    phone: input.phone.trim(),
-    countryCode: input.countryCode,
-    role: input.role,
-    idMethod: input.idMethod,
-    idNumber: input.idNumber.trim(),
-    orgName: input.orgName?.trim(),
-    rcNumber: input.rcNumber?.trim(),
-    createdAt: new Date().toISOString(),
-  };
-
-  localStorage.setItem(KEY_REGISTERED_OWNERS, JSON.stringify([created, ...existing]));
-
-  // Ensure a newly registered owner always starts in a clean empty state (never leftover legacy data)
-  localStorage.setItem("vantaged_owner_demo_mode", "false");
-  const legacyKeys = [
-    "vantaged_active_projects",
-    "vantaged_proposed_plans",
-    "vantaged_contract_history",
-    "vantaged_project_briefs",
-    "vantaged_owner_live_notifications",
-    "vantaged_owner_notifications",
-    "vantaged_shared_conversations",
-    "vantaged_client_reps_list",
-    "vantaged_inspection_tickets",
-    "vantaged_active_share_links",
-    "vantaged_owner_tier",
-    "vantaged_owner_extra_slots",
-    "vantaged_owner_quick_slots",
-  ];
-  legacyKeys.forEach((k) => localStorage.removeItem(k));
-
-  const session = persistOwnerSession(created);
-  return { ok: true, session };
 }
 
 export async function signInOwner(
   email: string,
   password: string
 ): Promise<{ ok: true; session: OwnerSession } | { ok: false; error: string }> {
-  const normalizedEmail = email.trim().toLowerCase();
-  const owners = readRegisteredOwners();
-  const matched = owners.find(
-    (u) => u.email.trim().toLowerCase() === normalizedEmail
-  );
+  try {
+    const res = await fetch("/api/auth/owners", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "signin", email, password }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success || !json.data) {
+      return {
+        ok: false,
+        error: json.error || "Invalid email or password.",
+      };
+    }
 
-  if (!matched) {
-    return {
-      ok: false,
-      error: "No account found with this email. Please sign up first to create your Owner account.",
-    };
+    const session = persistOwnerSession(json.data as OwnerAccountRecord);
+    return { ok: true, session };
+  } catch {
+    return { ok: false, error: "Could not reach Vantaged server. Please try again." };
   }
-
-  if (matched.password !== password) {
-    return {
-      ok: false,
-      error: "Incorrect password. Please check your password and try again.",
-    };
-  }
-
-  const session = persistOwnerSession(matched);
-  return { ok: true, session };
 }
 
 export async function signInOwnerWithGoogle(
   email: string
 ): Promise<{ ok: true; session: OwnerSession } | { ok: false; error: string }> {
-  const normalizedEmail = email.trim().toLowerCase();
-  const owners = readRegisteredOwners();
-  const matched = owners.find(
-    (u) => u.email.trim().toLowerCase() === normalizedEmail
-  );
+  try {
+    const res = await fetch("/api/auth/owners", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "google", email }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success || !json.data) {
+      return {
+        ok: false,
+        error:
+          json.error ||
+          `No registered Vantaged Owner account found for ${email || "this Google account"}. Please sign up first.`,
+      };
+    }
 
-  if (!matched) {
-    return {
-      ok: false,
-      error: `No registered Vantaged Owner account found for ${email || "this Google account"}. Please sign up first.`,
-    };
+    const session = persistOwnerSession(json.data as OwnerAccountRecord);
+    return { ok: true, session };
+  } catch {
+    return { ok: false, error: "Could not reach Vantaged server. Please try again." };
   }
-
-  const session = persistOwnerSession(matched);
-  return { ok: true, session };
 }
 
 export function signOutOwner(): void {
@@ -280,6 +255,46 @@ export function getContractorSession(): ContractorSession | null {
   }
 }
 
+/**
+ * Returns a localStorage key isolated to the currently signed-in Company account.
+ * Mirrors Supabase Row-Level Security (WHERE company_id = current_company_id()).
+ */
+export function getContractorScopedKey(baseKey: string): string {
+  const session = getContractorSession();
+  if (!session?.userId) return baseKey;
+  return `${baseKey}__${session.userId}`;
+}
+
+/**
+ * Reads accepted projects belonging to the currently signed-in Company (or all accepted projects in demo/unauthenticated preview).
+ */
+export function readScopedCompanyAcceptedProjects<T = any>(): T[] {
+  if (typeof window === "undefined") return [];
+  const session = getContractorSession();
+  try {
+    const raw = localStorage.getItem("vantaged_company_accepted_projects");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    if (!session?.userId && !session?.companyName) {
+      return parsed;
+    }
+    const myCompanyName = session.companyName?.trim().toLowerCase() || "";
+    return parsed.filter((p: any) => {
+      if (session.userId && p?.companyId && p.companyId === session.userId) {
+        return true;
+      }
+      if (myCompanyName && p?.companyName) {
+        return String(p.companyName).trim().toLowerCase() === myCompanyName;
+      }
+      // If project was accepted while companyId wasn't attached, include it when no conflicting companyId is set
+      return !p?.companyId && !p?.companyName;
+    });
+  } catch {
+    return [];
+  }
+}
+
 function persistContractorSession(
   account: ContractorAccountRecord
 ): ContractorSession {
@@ -293,6 +308,7 @@ function persistContractorSession(
     signedInAt: new Date().toISOString(),
   };
   localStorage.setItem(KEY_CONTRACTOR_SESSION, JSON.stringify(session));
+  localStorage.setItem("vantaged_director_demo_mode", "false");
   localStorage.setItem("vantaged_contractor_user_email", account.email);
   localStorage.setItem("vantaged_contractor_user_role", account.role);
   localStorage.setItem("vantaged_contractor_user_name", account.directorName);
@@ -348,6 +364,14 @@ export async function signInContractor(
     };
   }
 
+  if (matched.status === "SUSPENDED") {
+    return {
+      ok: false,
+      error:
+        "This company account has been suspended by Vantaged Admin. You cannot sign in until your account is reinstated.",
+    };
+  }
+
   if (
     selectedRoleLabel &&
     matched.role.toLowerCase() !== selectedRoleLabel.toLowerCase()
@@ -367,4 +391,47 @@ export function signOutContractor(): void {
   localStorage.removeItem(KEY_CONTRACTOR_SESSION);
   localStorage.removeItem("vantaged_contractor_user");
   broadcastAuthChange();
+}
+
+export async function checkContractorAccountStatus(): Promise<"ACTIVE" | "SUSPENDED"> {
+  const session = getContractorSession();
+  if (!session?.email) return "ACTIVE";
+  try {
+    const res = await fetch("/api/contractor-accounts", { cache: "no-store" });
+    if (!res.ok) return "ACTIVE";
+    const json = await res.json();
+    if (!json?.success || !Array.isArray(json.data)) return "ACTIVE";
+    const matched = json.data.find(
+      (a: ContractorAccountRecord) =>
+        a.email.trim().toLowerCase() === session.email.trim().toLowerCase()
+    );
+    if (matched?.status === "SUSPENDED") return "SUSPENDED";
+  } catch {
+    // ignore transient network errors
+  }
+  return "ACTIVE";
+}
+
+export async function syncContractorCompanyMetaToAdmin(updates: {
+  planId?: string;
+  planName?: string;
+  baseSlots?: number;
+  extraSlots?: number;
+  slotsUsed?: number;
+}): Promise<void> {
+  const session = getContractorSession();
+  if (!session?.email && !session?.companyName) return;
+  try {
+    await fetch("/api/contractor-accounts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: session.email,
+        companyName: session.companyName,
+        ...updates,
+      }),
+    });
+  } catch {
+    // ignore
+  }
 }

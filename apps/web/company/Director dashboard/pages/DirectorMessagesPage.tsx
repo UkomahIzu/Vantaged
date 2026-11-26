@@ -15,6 +15,7 @@ import {
   markConversationRead,
   readSharedConversations,
 } from "../../../shared/vantagedSyncBridge";
+import { getContractorSession } from "../../../shared/vantagedAuth";
 
 export function DirectorMessagesPage() {
   const searchParams = useSearchParams();
@@ -30,7 +31,13 @@ export function DirectorMessagesPage() {
 
   useEffect(() => {
     const sync = () => {
-      const all = readSharedConversations(isDemoMode);
+      const session = getContractorSession();
+      const rawAll = readSharedConversations(isDemoMode);
+      const all = isDemoMode
+        ? rawAll
+        : session?.userId
+        ? rawAll.filter((t) => t.companyId === session.userId)
+        : [];
       setThreads(all);
       setSelectedId((prev) => {
         if (prev && all.some((t) => t.id === prev)) return prev;

@@ -20,6 +20,15 @@ import {
   saveProjectKey,
 } from "./contractorProjectData";
 import { useContractorProject } from "./useContractorProject";
+import {
+  SHARED_SYNC_EVENT,
+  appendSharedMessage,
+  ensureProjectConversation,
+  isDemoProjectId,
+  normalizeCanonicalProjectId,
+  readSharedConversations,
+} from "../../../../shared/vantagedSyncBridge";
+import { getContractorSession } from "../../../../shared/vantagedAuth";
 
 interface ContractorProjectOverviewPageProps {
   projectId: string;
@@ -44,43 +53,70 @@ export function ContractorProjectOverviewPage({ projectId }: ContractorProjectOv
   const [variations, setVariations] = useState<ContractorVariationRequest[]>(project.variations);
   const [team, setTeam] = useState<ContractorSiteMember[]>(project.siteTeam);
 
-  // Project chat modal
+  // Project chat modal (connected 2-way to Owner's DraggableChatWindow & Messages)
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  const [messages, setMessages] = useState<ProjectMessage[]>([
-    {
-      id: "m-1",
-      sender: project.client.name,
-      role: "Property Owner",
-      text: "Hello team, please let me know once the latest stage proof photos are uploaded.",
-      time: "Yesterday · 16:10",
-      isCompany: false,
-    },
-    {
-      id: "m-2",
-      sender: "Engr. Tunde Bakare",
-      role: "Site Manager (You)",
-      text: "Will do! Our site engineer is completing the checklist photos and lab report upload now.",
-      time: "Today · 09:05",
-      isCompany: true,
-    },
-  ]);
+  const [messages, setMessages] = useState<ProjectMessage[]>(() =>
+    isDemoProjectId(projectId)
+      ? [
+          {
+            id: "m-1",
+            sender: project.client.name,
+            role: "Property Owner",
+            text: "Hello team, please let me know once the latest stage proof photos are uploaded.",
+            time: "Yesterday · 16:10",
+            isCompany: false,
+          },
+          {
+            id: "m-2",
+            sender: "Engr. Tunde Bakare",
+            role: "Site Manager (You)",
+            text: "Will do! Our site engineer is completing the checklist photos and lab report upload now.",
+            time: "Today · 09:05",
+            isCompany: true,
+          },
+        ]
+      : []
+  );
 
   useEffect(() => {
+    const canonicalId = normalizeCanonicalProjectId(projectId);
+    const convId = `conv-${canonicalId}`;
+
     const sync = () => {
       setStages(loadProjectKey(projectId, "stages", project.stages));
       setTranches(loadProjectKey(projectId, "tranches", project.tranches));
       setIssues(loadProjectKey(projectId, "issues", project.issues));
       setVariations(loadProjectKey(projectId, "variations", project.variations));
       setTeam(loadProjectKey(projectId, "team", project.siteTeam));
-      const savedMsgs = loadProjectKey<ProjectMessage[] | null>(projectId, "chat", null);
-      if (savedMsgs && savedMsgs.length > 0) setMessages(savedMsgs);
+
+      // Load shared 2-way conversation with Owner
+      const threads = readSharedConversations(false);
+      const thread = threads.find(
+        (t) => t.id === convId || normalizeCanonicalProjectId(t.projectId) === canonicalId
+      );
+      if (thread) {
+        setMessages(
+          thread.messages.map((m) => ({
+            id: m.id,
+            sender: m.senderName,
+            role: m.sender === "contractor" ? "Company (You)" : "Property Owner",
+            text: m.text,
+            time: m.timestamp,
+            isCompany: m.sender === "contractor",
+          }))
+        );
+      } else if (!isDemoProjectId(projectId)) {
+        setMessages([]);
+      }
     };
     sync();
     window.addEventListener(CONTRACTOR_STORAGE_EVENT, sync);
+    window.addEventListener(SHARED_SYNC_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener(CONTRACTOR_STORAGE_EVENT, sync);
+      window.removeEventListener(SHARED_SYNC_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, [projectId, project]);
@@ -115,19 +151,23 @@ export function ContractorProjectOverviewPage({ projectId }: ContractorProjectOv
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    const next: ProjectMessage[] = [
-      ...messages,
-      {
-        id: `m-${Date.now()}`,
-        sender: "Engr. Babatunde Adeleke",
-        role: "Director (You)",
-        text: chatInput.trim(),
-        time: "Just now",
-        isCompany: true,
-      },
-    ];
-    setMessages(next);
-    saveProjectKey(projectId, "chat", next);
+    const session = getContractorSession();
+    const senderName = session?.fullName || "Project Director";
+    const companyName = session?.companyName || "Building Company";
+    const thread = ensureProjectConversation({
+      projectId,
+      projectTitle: project.title,
+      ownerName: project.client.name,
+      companyId: session?.userId,
+      contractorName: senderName,
+      contractorCompany: companyName,
+    });
+    appendSharedMessage({
+      conversationId: thread.id,
+      sender: "contractor",
+      senderName,
+      text: chatInput.trim(),
+    });
     setChatInput("");
   };
 

@@ -5,11 +5,16 @@ import Link from "next/link";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
 import {
-  getProjectDetail,
   ProjectTransactionTranche,
   ProjectChangeRequestItem,
   ProjectDisputeItem,
 } from "./projectData";
+import { useOwnerProject } from "./useOwnerProject";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  syncOwnerEscrowDepositToContractor,
+} from "../../../../shared/vantagedSyncBridge";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import {
   IconCheck,
@@ -26,6 +31,11 @@ import {
   IconAlertTriangle,
 } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
+import { getOwnerSession } from "../../../../shared/vantagedAuth";
+import {
+  startPaystackCheckout,
+  verifyPaystackCallback,
+} from "../../../../shared/paystackClient";
 
 interface ProjectTransactionsPageProps {
   projectId?: string;
@@ -33,7 +43,7 @@ interface ProjectTransactionsPageProps {
 
 export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTransactionsPageProps) {
   const scrollRef = useScrollRestoration<HTMLElement>(`proj_tx_${projectId}`);
-  const project = getProjectDetail(projectId);
+  const project = useOwnerProject(projectId);
 
   // Dynamic transactions list (allows interactive deposit simulation)
   const [transactions, setTransactions] = useState<ProjectTransactionTranche[]>(() => project.transactions);
@@ -51,6 +61,66 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
   const [depositAmountInput, setDepositAmountInput] = useState("25000000");
   const [depositMethod, setDepositMethod] = useState<"transfer" | "card">("transfer");
   const [depositStep, setDepositStep] = useState<"form" | "confirming" | "success">("form");
+  const [depositError, setDepositError] = useState<string | null>(null);
+
+  // Verify Paystack Escrow Deposit callback on return
+  useEffect(() => {
+    verifyPaystackCallback().then((result) => {
+      if (!result.checked) return;
+      if (result.success && result.data && result.data.purpose === "escrow_deposit") {
+        const paidAmount = Number(result.data.amountNaira || 0);
+        const ref = String(result.data.reference || `PSTK-${Date.now()}`);
+        const newTx: ProjectTransactionTranche = {
+          id: `tx-dep-${ref}`,
+          trancheNumber: 0,
+          title: `Escrow Top-up: ${project.title}`,
+          stageLinked: "Escrow Reserve Deposit",
+          amount: paidAmount,
+          status: "Held on Vantaged",
+          dueDate: "Verified Paystack Escrow Credit",
+          paidDate: "Today, Just now",
+          bankSessionId: ref,
+          paymentMethod: `Paystack (${result.data.channel || "card/bank"})`,
+          notes: `₦${paidAmount.toLocaleString("en-NG")} verified by Paystack (${ref}) and locked in Vantaged Escrow Vault.`,
+        };
+        let addedNewTx = false;
+        let nextListForSync: ProjectTransactionTranche[] | null = null;
+        setTransactions((prev) => {
+          if (prev.some((t) => t.bankSessionId === ref)) return prev;
+          addedNewTx = true;
+          const next = [{ ...newTx, trancheNumber: prev.length + 1 }, ...prev];
+          nextListForSync = next;
+          return next;
+        });
+        // Run side effects outside of setState updater
+        if (addedNewTx && nextListForSync) {
+          try {
+            localStorage.setItem(`vantaged_tranches_${projectId}`, JSON.stringify(nextListForSync));
+            fetch("/api/project-state", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                key: `vantaged_tranches_${projectId}`,
+                value: nextListForSync,
+              }),
+            }).catch(() => {});
+            syncOwnerEscrowDepositToContractor({
+              projectId,
+              projectTitle: project.title,
+              amountNaira: paidAmount,
+              reference: ref,
+            });
+          } catch {}
+        }
+        setDepositAmountInput(String(paidAmount));
+        setDepositStep("success");
+        setIsDepositModalOpen(true);
+      } else if (result.error) {
+        setDepositError(result.error);
+        setIsDepositModalOpen(true);
+      }
+    });
+  }, [projectId, project.title]);
 
   // Change Requests sync from local storage with fallback (SSR hydration-safe)
   const [changeRequests, setChangeRequests] = useState<ProjectChangeRequestItem[]>(() => project.changeRequests || []);
@@ -96,26 +166,32 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
         const crSaved = localStorage.getItem(`vantaged_cr_${projectId}`);
         if (crSaved) {
           const parsed = JSON.parse(crSaved);
-          if (Array.isArray(parsed) && parsed.length > 0) setChangeRequests(parsed);
+          if (Array.isArray(parsed)) setChangeRequests(parsed);
+        } else {
+          setChangeRequests(project.changeRequests || []);
         }
         const dispSaved = localStorage.getItem(`vantaged_disputes_${projectId}`);
         if (dispSaved) {
           const parsed = JSON.parse(dispSaved);
-          if (Array.isArray(parsed) && parsed.length > 0) setDisputes(parsed);
+          if (Array.isArray(parsed)) setDisputes(parsed);
+        } else {
+          setDisputes(project.disputes || []);
         }
       } catch {}
     };
 
     handleSync();
-    window.addEventListener("vantaged_storage_update", handleSync);
+    window.addEventListener(SHARED_SYNC_EVENT, handleSync);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, handleSync);
     window.addEventListener("storage", handleSync);
     window.addEventListener("focus", handleSync);
     return () => {
-      window.removeEventListener("vantaged_storage_update", handleSync);
+      window.removeEventListener(SHARED_SYNC_EVENT, handleSync);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, handleSync);
       window.removeEventListener("storage", handleSync);
       window.removeEventListener("focus", handleSync);
     };
-  }, [projectId, project.transactions]);
+  }, [projectId, project.transactions, project.changeRequests, project.disputes]);
 
   const formatNaira = (val: number) => {
     if (val >= 1000000000) {
@@ -260,31 +336,31 @@ export function ProjectTransactionsPage({ projectId = "proj-lekki" }: ProjectTra
     });
   }, [transactions, activeTab, searchQuery]);
 
-  // Execute Deposit
-  const handleExecuteDeposit = () => {
+  // Execute real Paystack Escrow Deposit
+  const handleExecuteDeposit = async () => {
     const rawVal = depositAmountInput.replace(/[^0-9]/g, "");
-    const parsedAmount = Math.max(100000, parseInt(rawVal, 10) || 25000000);
+    const parsedAmount = Math.max(1000, parseInt(rawVal, 10) || 25000000);
+    setDepositError(null);
     setDepositStep("confirming");
 
-    setTimeout(() => {
-      const newRef = `DEP-2026-${Math.floor(10000 + Math.random() * 90000)}`;
-      const newTx: ProjectTransactionTranche = {
-        id: `tx-dep-${Date.now()}`,
-        trancheNumber: transactions.length + 1,
-        title: `Escrow Top-up: ${project.title}`,
-        stageLinked: "Escrow Reserve Deposit",
-        amount: parsedAmount,
-        status: "Held on Vantaged",
-        dueDate: "Instant Escrow Credit",
-        paidDate: "Today, Just now",
-        bankSessionId: `NIBSS/00001426${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-        paymentMethod: depositMethod === "transfer" ? "Providus Virtual Account (NIBSS Instant)" : "Debit Card (Instant)",
-        notes: `₦${parsedAmount.toLocaleString("en-NG")} deposited by owner into project escrow vault. Protected by Vantaged Escrow Guarantee.`,
-      };
+    const session = getOwnerSession();
+    const res = await startPaystackCheckout({
+      email: session?.email || "owner@vantaged.io",
+      amountNaira: parsedAmount,
+      purpose: "escrow_deposit",
+      callbackPath: `/owner/projects/${projectId}/transactions`,
+      metadata: {
+        projectId,
+        projectTitle: project.title,
+        ownerId: session?.userId,
+        depositMethod,
+      },
+    });
 
-      setTransactions((prev) => [newTx, ...prev]);
-      setDepositStep("success");
-    }, 1200);
+    if (!res.ok) {
+      setDepositStep("form");
+      setDepositError(res.error);
+    }
   };
 
   const handleExportStatement = () => {

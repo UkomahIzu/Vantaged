@@ -1,7 +1,10 @@
+import { getContractorScopedKey } from "../../../shared/vantagedAuth";
+
 export function readLocalData<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = localStorage.getItem(key);
+    const scopedKey = getContractorScopedKey(key);
+    const raw = localStorage.getItem(scopedKey);
     if (!raw) return fallback;
     return JSON.parse(raw) as T;
   } catch {
@@ -12,7 +15,8 @@ export function readLocalData<T>(key: string, fallback: T): T {
 export function writeLocalData<T>(key: string, value: T): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    const scopedKey = getContractorScopedKey(key);
+    localStorage.setItem(scopedKey, JSON.stringify(value));
   } catch {
     // ignore storage quota errors
   }

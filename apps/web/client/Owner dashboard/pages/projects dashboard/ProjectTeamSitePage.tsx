@@ -1,14 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ProjectSidebarNav } from "./ProjectSidebarNav";
 import { HeaderBar } from "../../components/HeaderBar";
 import { DraggableChatWindow } from "../../components/DraggableChatWindow";
-import { getProjectDetail } from "./projectData";
+import { useOwnerProject } from "./useOwnerProject";
 import { ProjectBreadcrumb } from "./ProjectBreadcrumb";
 import { IconArrowRight, IconMessage, IconPlus, IconShieldCheck } from "./ProjectIcons";
 import { useScrollRestoration } from "../../hooks/useScrollRestoration";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+} from "../../../../shared/vantagedSyncBridge";
 
 interface ProjectTeamSitePageProps {
   projectId?: string;
@@ -16,8 +20,44 @@ interface ProjectTeamSitePageProps {
 
 export function ProjectTeamSitePage({ projectId = "proj-lekki" }: ProjectTeamSitePageProps) {
   const scrollRef = useScrollRestoration<HTMLElement>(`proj_team_${projectId}`);
-  const project = getProjectDetail(projectId);
+  const project = useOwnerProject(projectId);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [assignedCrew, setAssignedCrew] = useState<
+    Array<{ id: string; name: string; role: string; phone: string; email: string; assigned?: boolean }>
+  >([]);
+
+  useEffect(() => {
+    const syncTeam = () => {
+      try {
+        const raw =
+          localStorage.getItem(`vantaged_team_${projectId}`) ||
+          localStorage.getItem(`vantaged_cproj_team_${projectId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            setAssignedCrew(parsed.filter((m: any) => m?.assigned !== false));
+          }
+        }
+      } catch {}
+    };
+    syncTeam();
+    window.addEventListener(SHARED_SYNC_EVENT, syncTeam);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, syncTeam);
+    window.addEventListener("storage", syncTeam);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncTeam);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncTeam);
+      window.removeEventListener("storage", syncTeam);
+    };
+  }, [projectId]);
+
+  const companyInitials =
+    project.contractor.name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() || "")
+      .join("") || "VT";
 
   return (
     <div
@@ -68,7 +108,7 @@ export function ProjectTeamSitePage({ projectId = "proj-lekki" }: ProjectTeamSit
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--vt-color-border-default,#E2E0EC)] pb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-[var(--vt-color-indigo-900,#261A66)] text-white flex items-center justify-center font-bold text-lg shrink-0">
-                JB
+                {companyInitials}
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -124,9 +164,31 @@ export function ProjectTeamSitePage({ projectId = "proj-lekki" }: ProjectTeamSit
               </div>
 
               <div className="p-3 rounded-xl bg-[var(--vt-color-green-50,#E9F6EC)]/70 border border-[var(--vt-color-green-200,#A3D9B1)]/80 mt-4 text-xs">
-                <span className="text-[10px] font-bold uppercase text-[var(--vt-color-green-800,#17512F)] block">Today's Check-in:</span>
+                <span className="text-[10px] font-bold uppercase text-[var(--vt-color-green-800,#17512F)] block">Today&apos;s Check-in:</span>
                 <p className="text-[var(--vt-color-green-700,#1F6B3E)] font-bold mt-0.5">{project.siteManager.lastSeen}</p>
               </div>
+
+              {assignedCrew.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-[var(--vt-color-border-default,#E2E0EC)]">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] block mb-2">
+                    Assigned Company Site Crew ({assignedCrew.length})
+                  </span>
+                  <div className="flex flex-col gap-2">
+                    {assignedCrew.map((member) => (
+                      <div
+                        key={member.id}
+                        className="p-2.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">{member.name}</p>
+                          <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">{member.role}</p>
+                        </div>
+                        <span className="text-[10.5px] font-mono text-[var(--vt-color-neutral-500,#7C7894)]">{member.phone}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="pt-3 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between text-xs">
@@ -156,24 +218,30 @@ export function ProjectTeamSitePage({ projectId = "proj-lekki" }: ProjectTeamSit
               </div>
 
               <div className="flex flex-col gap-2.5 mt-3">
-                {project.clientReps.map((rep) => (
-                  <div key={rep.id} className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <img src={rep.avatar} alt={rep.name} className="w-9 h-9 rounded-full object-cover shrink-0" />
-                      <div>
-                        <h4 className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)]">{rep.name}</h4>
-                        <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">{rep.role}</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {rep.modules.map((m, idx) => (
-                            <span key={idx} className="text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-white text-[var(--vt-color-indigo-900,#261A66)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-                              {m}
-                            </span>
-                          ))}
+                {project.clientReps.length === 0 ? (
+                  <div className="p-5 rounded-xl border border-dashed border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] text-center text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
+                    No site representatives assigned to this project yet. Click <strong>Add representative</strong> below to invite a family member or engineer.
+                  </div>
+                ) : (
+                  project.clientReps.map((rep) => (
+                    <div key={rep.id} className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <img src={rep.avatar} alt={rep.name} className="w-9 h-9 rounded-full object-cover shrink-0" />
+                        <div>
+                          <h4 className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)]">{rep.name}</h4>
+                          <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">{rep.role}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {rep.modules.map((m, idx) => (
+                              <span key={idx} className="text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-white text-[var(--vt-color-indigo-900,#261A66)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+                                {m}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -193,7 +261,10 @@ export function ProjectTeamSitePage({ projectId = "proj-lekki" }: ProjectTeamSit
       <DraggableChatWindow
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
+        projectId={project.id}
         projectName={project.title}
+        contractorName={project.contractor.directorName}
+        contractorCompany={project.contractor.name}
       />
     </div>
   );

@@ -5,7 +5,238 @@
  * Ensures canonical project IDs, unified localStorage keys, and live cross-tab events.
  */
 
-import { getOwnerScopedKey } from "./vantagedAuth";
+import {
+  getContractorScopedKey,
+  getContractorSession,
+  getOwnerScopedKey,
+  getOwnerSession,
+  readRegisteredOwners,
+} from "./vantagedAuth";
+
+export function pushProjectStateToBackend(entries: Record<string, any>): void {
+  if (typeof window === "undefined") return;
+  fetch("/api/project-state", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ entries }),
+  }).catch(() => {});
+}
+
+export const DEMO_PROJECT_ID_SET = new Set([
+  "proj-lekki",
+  "proj-enclave",
+  "proj-guzape",
+  "proj-eko",
+  "proj-banana",
+  "proj-vi",
+  "hist-ikoyi",
+  "hist-ikoyi-99",
+  "hist-vi-tech",
+  "hist-chevron",
+  "hist-epe-cold",
+  "hist-maitama",
+  "hist-asokoro",
+]);
+
+export function isDemoProjectId(projectId: string): boolean {
+  const canonical = normalizeCanonicalProjectId(projectId);
+  return DEMO_PROJECT_ID_SET.has(canonical) || canonical.startsWith("hist-");
+}
+
+/**
+ * Initializes a brand-new project workspace from ZERO on BOTH the Owner Project Dashboard
+ * and Company Project Dashboard (0% progress, ₦0 paid, ₦0 in escrow, 0 disputes, 0 change requests,
+ * 0 proof photos, exact agreed stages, and empty shared conversation) and persists it to `/api/project-state`.
+ */
+export function initializeFreshProjectWorkspace(params: {
+  projectId: string;
+  title: string;
+  location: string;
+  category: string;
+  contractValue: number;
+  ownerName: string;
+  ownerEmail?: string;
+  ownerPhone?: string;
+  ownerId?: string;
+  companyId?: string;
+  companyName: string;
+  directorName: string;
+  directorEmail?: string;
+  typicalDuration?: string;
+  stages?: Array<{ order: number; title: string; evidence: string; weightPercent?: number }>;
+}): void {
+  if (typeof window === "undefined") return;
+  const canonicalId = normalizeCanonicalProjectId(params.projectId);
+
+  const rawStages =
+    params.stages && params.stages.length > 0
+      ? params.stages
+      : [
+          {
+            order: 1,
+            title: "Site Mobilization & Substructure",
+            evidence: "Survey setting-out pegs, excavation log, blinding & rebar photos",
+          },
+          {
+            order: 2,
+            title: "Superstructure Frame & Blockwork",
+            evidence: "Column formwork, lintels, concrete cube strength test certificates",
+          },
+          {
+            order: 3,
+            title: "Roofing, MEP Rough-in & Plastering",
+            evidence: "Roof watertightness check, plumbing pressure test, wall screeding",
+          },
+          {
+            order: 4,
+            title: "Architectural Finishes & Handover",
+            evidence: "Tiling inspection, fixtures check, client snagging sign-off",
+          },
+        ];
+
+  const count = rawStages.length;
+  const baseWeight = Math.floor(100 / count);
+  const remainder = 100 - baseWeight * count;
+  const baseBps = Math.floor(10000 / count);
+  const remainderBps = 10000 - baseBps * count;
+
+  // 1. Clean Owner Stages (0% approved, 0 proof photos, all checklists unchecked)
+  const ownerStages = rawStages.map((stg, idx) => {
+    const order = stg.order || idx + 1;
+    const weightPercent =
+      typeof stg.weightPercent === "number" && stg.weightPercent > 0
+        ? stg.weightPercent
+        : idx === count - 1
+        ? baseWeight + remainder
+        : baseWeight;
+    const trancheAmount = Math.round((params.contractValue * weightPercent) / 100);
+    const cleanTitle = stg.title.replace(/^Stage\s+\d+:\s*/i, "");
+    return {
+      id: `stg-${order}`,
+      stageNumber: order,
+      title: cleanTitle,
+      category: params.category || "Construction",
+      description: stg.evidence || "Geofenced site photos and inspection checklist.",
+      weightPercent,
+      trancheAmount,
+      status: idx === 0 ? "In Progress" : "Scheduled",
+      ballInCourt: idx === 0 ? "Contractor" : "Scheduled",
+      startDate: idx === 0 ? "Ready to begin" : `Stage ${order}`,
+      targetEndDate: params.typicalDuration || "Per Schedule",
+      checklist: [
+        {
+          id: `chk-${order}-1`,
+          label: stg.evidence || `Complete ${cleanTitle} and upload verified site proof`,
+          isPassed: false,
+        },
+      ],
+      proofMedia: [],
+      comments: [],
+      activityLog: [],
+      issues: [],
+    };
+  });
+
+  // 2. Clean Contractor Stages (1:1 mirror of Owner Stages)
+  const contractorStages = ownerStages.map((os, idx) => {
+    const weightBps = idx === count - 1 ? baseBps + remainderBps : baseBps;
+    return {
+      id: os.id,
+      order: os.stageNumber,
+      title: `Stage ${os.stageNumber}: ${os.title}`,
+      summary: os.description,
+      weightBps,
+      trancheAmount: os.trancheAmount,
+      status: idx === 0 ? "In Progress" : "Scheduled",
+      dueDate: os.targetEndDate,
+      checklist: os.checklist.map((c) => ({
+        id: c.id,
+        label: c.label,
+        requiredProof: "Min 3 GPS Photos",
+        isCompleted: false,
+      })),
+      proofItems: [],
+      comments: [],
+    };
+  });
+
+  // 3. Clean Owner Tranches (all Scheduled — ₦0 paid, ₦0 in escrow until Owner deposits)
+  const ownerTranches = [
+    ...ownerStages.map((os) => ({
+      id: `trx-${os.stageNumber}`,
+      trancheNumber: os.stageNumber,
+      title: `Stage ${os.stageNumber}: ${os.title}`,
+      stageLinked: `Stage ${os.stageNumber}: ${os.title}`,
+      amount: os.trancheAmount,
+      status: "Scheduled",
+      dueDate: `Due upon approval of Stage ${os.stageNumber}`,
+      paymentMethod: "Vantaged Secure Escrow",
+      contractorConfirmed: false,
+      notes: "Scheduled milestone payment — released only after you inspect and approve this stage.",
+    })),
+    {
+      id: `trx-retention`,
+      trancheNumber: ownerStages.length + 1,
+      title: "5% Final Quality Guarantee Hold",
+      stageLinked: "Final Handover",
+      amount: Math.round(params.contractValue * 0.05),
+      status: "Scheduled",
+      dueDate: "Held until final handover warranty passes",
+      paymentMethod: "Vantaged Secure Escrow",
+      contractorConfirmed: false,
+      notes: "5% retention protection held safely until handover defects check.",
+    },
+  ];
+
+  // 4. Clean Contractor Tranches (all Upcoming — ₦0 confirmed, ₦0 awaiting confirmation)
+  const contractorTranches = contractorStages.map((cs) => {
+    const retainageAmount = Math.round(cs.trancheAmount * 0.05);
+    return {
+      id: `ctr-${cs.order}`,
+      reference: `ESC-${canonicalId.slice(-4).toUpperCase()}-0${cs.order}`,
+      stageTitle: cs.title,
+      grossAmount: cs.trancheAmount,
+      retainageAmount,
+      netPayout: cs.trancheAmount - retainageAmount,
+      status: "Upcoming",
+    };
+  });
+
+  // 5. Clean Initial Site Team (just the real Company Director — zero fake demo crew)
+  const initialTeam = [
+    {
+      id: `crew-dir-${Date.now()}`,
+      name: params.directorName || "Project Director",
+      role: "Director",
+      phone: "Verified Company Director",
+      email: params.directorEmail || "director@vantaged.ng",
+      location: params.location || "Lagos, Nigeria",
+      assigned: true,
+      points: 0,
+    },
+  ];
+
+  const entries: Record<string, any> = {
+    [`vantaged_stages_${canonicalId}`]: ownerStages,
+    [`vantaged_cproj_stages_${canonicalId}`]: contractorStages,
+    [`vantaged_tranches_${canonicalId}`]: ownerTranches,
+    [`vantaged_cproj_tranches_${canonicalId}`]: contractorTranches,
+    [`vantaged_disputes_${canonicalId}`]: [],
+    [`vantaged_cproj_issues_${canonicalId}`]: [],
+    [`vantaged_cr_${canonicalId}`]: [],
+    [`vantaged_cproj_variations_${canonicalId}`]: [],
+    [`vantaged_cproj_team_${canonicalId}`]: initialTeam,
+    [`vantaged_team_${canonicalId}`]: initialTeam,
+  };
+
+  try {
+    for (const [key, val] of Object.entries(entries)) {
+      localStorage.setItem(key, JSON.stringify(val));
+    }
+    pushProjectStateToBackend(entries);
+    broadcastPortalSync();
+  } catch {}
+}
 
 export const SHARED_SYNC_EVENT = "vantaged_storage_update";
 export const CONTRACTOR_SYNC_EVENT = "vantaged_contractor_project_update";
@@ -57,6 +288,7 @@ export function writeSharedJSON<T>(key: string, value: T): void {
 
 export interface CompanySentOwnerRequest {
   id: string;
+  companyId?: string;
   companyName: string;
   directorName: string;
   ownerIdentifier: string;
@@ -107,6 +339,8 @@ export interface SharedConversationThread {
   id: string;
   projectId: string;
   projectTitle: string;
+  ownerId?: string;
+  companyId?: string;
   ownerName: string;
   ownerPhone: string;
   contractorName: string;
@@ -234,49 +468,274 @@ export function readOwnerLiveNotifications(): OwnerLiveNotification[] {
   );
 }
 
+export function saveOwnerLiveNotifications(items: OwnerLiveNotification[]): void {
+  writeSharedJSON(getOwnerScopedKey(KEY_OWNER_LIVE_NOTIFICATIONS), items);
+}
+
+/**
+ * Resolves owner & company participant identifiers for a projectId from local caches
+ * so cross-browser notifications always route to the right recipient even when called
+ * from the counterparty's browser.
+ */
+function resolveProjectParticipants(projectId?: string): {
+  ownerId?: string;
+  ownerEmail?: string;
+  companyId?: string;
+  companyName?: string;
+} {
+  if (!projectId || typeof window === "undefined") return {};
+  const canonical = normalizeCanonicalProjectId(projectId);
+  const result: {
+    ownerId?: string;
+    ownerEmail?: string;
+    companyId?: string;
+    companyName?: string;
+  } = {};
+
+  try {
+    const dynRaw =
+      localStorage.getItem(`vantaged_dynamic_plan_${canonical}`) ||
+      localStorage.getItem(`vantaged_dynamic_plan_prop-${canonical.replace(/^proj-/, "")}`);
+    if (dynRaw) {
+      const dyn = JSON.parse(dynRaw);
+      if (dyn?.ownerId) result.ownerId = dyn.ownerId;
+      if (dyn?.ownerEmail || dyn?.ownerIdentifier) {
+        result.ownerEmail = dyn.ownerEmail || dyn.ownerIdentifier;
+      }
+      if (dyn?.companyId) result.companyId = dyn.companyId;
+      if (dyn?.companyName) result.companyName = dyn.companyName;
+    }
+
+    const keys = [
+      "vantaged_company_accepted_projects",
+      "vantaged_active_projects",
+      getOwnerScopedKey("vantaged_active_projects"),
+      KEY_SHARED_CONVERSATIONS,
+    ];
+    for (const k of keys) {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list)) continue;
+      const match = list.find(
+        (item: any) =>
+          normalizeCanonicalProjectId(item?.projectId || item?.id || "") === canonical
+      );
+      if (match) {
+        if (!result.ownerId && match.ownerId) result.ownerId = match.ownerId;
+        if (!result.ownerEmail && (match.ownerEmail || match.ownerIdentifier)) {
+          result.ownerEmail = match.ownerEmail || match.ownerIdentifier;
+        }
+        if (!result.companyId && match.companyId) result.companyId = match.companyId;
+        if (!result.companyName && (match.companyName || match.contractorCompany || match.contractor?.name)) {
+          result.companyName =
+            match.companyName || match.contractorCompany || match.contractor?.name;
+        }
+      }
+    }
+  } catch {}
+
+  return result;
+}
+
 export function pushOwnerLiveNotification(
-  notif: Omit<OwnerLiveNotification, "id" | "timestamp" | "isUnread">
+  notif: Omit<OwnerLiveNotification, "id" | "timestamp" | "isUnread"> & {
+    targetOwnerIdentifier?: string;
+    targetOwnerId?: string;
+    projectId?: string;
+  }
 ): OwnerLiveNotification {
+  const { targetOwnerIdentifier, targetOwnerId, projectId, ...rest } = notif;
+  const participants = resolveProjectParticipants(projectId);
   const created: OwnerLiveNotification = {
-    ...notif,
+    ...rest,
     id: `live-notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     timestamp: "Just now",
     isUnread: true,
   };
-  const scopedKey = getOwnerScopedKey(KEY_OWNER_LIVE_NOTIFICATIONS);
-  const existing = readSharedJSON<OwnerLiveNotification[]>(scopedKey, []);
-  writeSharedJSON(scopedKey, [created, ...existing]);
+
+  const resolvedEmail =
+    targetOwnerIdentifier || participants.ownerEmail || getOwnerSession()?.email;
+  let resolvedOwnerId =
+    targetOwnerId || participants.ownerId || getOwnerSession()?.userId;
+  let targetKey = resolvedOwnerId
+    ? `${KEY_OWNER_LIVE_NOTIFICATIONS}__${resolvedOwnerId}`
+    : getOwnerScopedKey(KEY_OWNER_LIVE_NOTIFICATIONS);
+
+  if (resolvedEmail) {
+    const cleanTarget = resolvedEmail.trim().toLowerCase();
+    const matchedOwner = readRegisteredOwners().find(
+      (o) =>
+        o.email.trim().toLowerCase() === cleanTarget ||
+        o.phone.replace(/\s+/g, "") === cleanTarget.replace(/\s+/g, "")
+    );
+    if (matchedOwner) {
+      targetKey = `${KEY_OWNER_LIVE_NOTIFICATIONS}__${matchedOwner.id}`;
+      resolvedOwnerId = matchedOwner.id;
+    }
+  }
+
+  const existing = readSharedJSON<OwnerLiveNotification[]>(targetKey, []);
+  writeSharedJSON(targetKey, [created, ...existing]);
+
+  // Persist to backend notifications table
+  if (typeof window !== "undefined") {
+    fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...created,
+        recipientType: "owner",
+        recipientId: resolvedOwnerId,
+        recipientEmail: resolvedEmail,
+      }),
+    }).catch(() => {});
+  }
+
   return created;
 }
 
+export function markOwnerNotificationsRead(ids?: string[]): void {
+  if (typeof window === "undefined") return;
+  const current = readOwnerLiveNotifications();
+  const idSet = ids && ids.length > 0 ? new Set(ids) : null;
+  const updated = current.map((n) =>
+    !idSet || idSet.has(n.id) ? { ...n, isUnread: false } : n
+  );
+  saveOwnerLiveNotifications(updated);
+
+  const session = getOwnerSession();
+  fetch("/api/notifications", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      recipientType: "owner",
+      recipientId: session?.userId,
+      recipientEmail: session?.email,
+      ...(idSet ? { ids } : { markAllRead: true }),
+    }),
+  }).catch(() => {});
+}
+
+export function deleteOwnerLiveNotification(id: string): void {
+  if (typeof window === "undefined") return;
+  const current = readOwnerLiveNotifications();
+  saveOwnerLiveNotifications(current.filter((n) => n.id !== id));
+
+  fetch(`/api/notifications?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  }).catch(() => {});
+}
+
 export function readCompanyLiveNotifications(): CompanyLiveNotification[] {
-  return readSharedJSON<CompanyLiveNotification[]>(KEY_COMPANY_LIVE_NOTIFICATIONS, []);
+  return readSharedJSON<CompanyLiveNotification[]>(
+    getContractorScopedKey(KEY_COMPANY_LIVE_NOTIFICATIONS),
+    []
+  );
 }
 
 export function pushCompanyLiveNotification(
-  notif: Omit<CompanyLiveNotification, "id" | "timestamp" | "isUnread">
+  notif: Omit<CompanyLiveNotification, "id" | "timestamp" | "isUnread"> & {
+    targetCompanyId?: string;
+    targetCompanyEmail?: string;
+    targetCompanyName?: string;
+    projectId?: string;
+  }
 ): CompanyLiveNotification {
+  const {
+    targetCompanyId,
+    targetCompanyEmail,
+    targetCompanyName,
+    projectId,
+    ...rest
+  } = notif;
+  const participants = resolveProjectParticipants(projectId);
   const created: CompanyLiveNotification = {
-    ...notif,
+    ...rest,
     id: `comp-notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     timestamp: "Just now",
     isUnread: true,
   };
-  const existing = readCompanyLiveNotifications();
-  writeSharedJSON(KEY_COMPANY_LIVE_NOTIFICATIONS, [created, ...existing]);
+  const resolvedCompanyId =
+    targetCompanyId || participants.companyId || getContractorSession()?.userId;
+  const resolvedCompanyName =
+    targetCompanyName || participants.companyName || getContractorSession()?.companyName;
+  const resolvedCompanyEmail =
+    targetCompanyEmail || getContractorSession()?.email;
+
+  const scopedKey = resolvedCompanyId
+    ? `${KEY_COMPANY_LIVE_NOTIFICATIONS}__${resolvedCompanyId}`
+    : getContractorScopedKey(KEY_COMPANY_LIVE_NOTIFICATIONS);
+  const existing = readSharedJSON<CompanyLiveNotification[]>(scopedKey, []);
+  writeSharedJSON(scopedKey, [created, ...existing]);
+
+  // Persist to backend notifications table
+  if (typeof window !== "undefined") {
+    fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...created,
+        recipientType: "company",
+        recipientId: resolvedCompanyId,
+        recipientEmail: resolvedCompanyEmail,
+        recipientCompanyName: resolvedCompanyName,
+      }),
+    }).catch(() => {});
+  }
+
   return created;
 }
 
 export function saveCompanyLiveNotifications(items: CompanyLiveNotification[]): void {
-  writeSharedJSON(KEY_COMPANY_LIVE_NOTIFICATIONS, items);
+  writeSharedJSON(getContractorScopedKey(KEY_COMPANY_LIVE_NOTIFICATIONS), items);
 }
+
+export function markCompanyNotificationsRead(ids?: string[]): void {
+  if (typeof window === "undefined") return;
+  const current = readCompanyLiveNotifications();
+  const idSet = ids && ids.length > 0 ? new Set(ids) : null;
+  const updated = current.map((n) =>
+    !idSet || idSet.has(n.id) ? { ...n, isUnread: false } : n
+  );
+  saveCompanyLiveNotifications(updated);
+
+  const session = getContractorSession();
+  fetch("/api/notifications", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      recipientType: "company",
+      recipientId: session?.userId,
+      recipientEmail: session?.email,
+      recipientCompanyName: session?.companyName,
+      ...(idSet ? { ids } : { markAllRead: true }),
+    }),
+  }).catch(() => {});
+}
+
+export function deleteCompanyLiveNotification(id: string): void {
+  if (typeof window === "undefined") return;
+  const current = readCompanyLiveNotifications();
+  saveCompanyLiveNotifications(current.filter((n) => n.id !== id));
+
+  fetch(`/api/notifications?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  }).catch(() => {});
+}
+
+const DEMO_CONVERSATION_IDS = new Set(DEFAULT_SHARED_CONVERSATIONS.map((c) => c.id));
 
 export function readSharedConversations(includeDemoFallback = true): SharedConversationThread[] {
   const stored = readSharedJSON<SharedConversationThread[] | null>(
     KEY_SHARED_CONVERSATIONS,
     null
   );
-  if (Array.isArray(stored) && stored.length > 0) return stored;
+  if (Array.isArray(stored) && stored.length > 0) {
+    return includeDemoFallback
+      ? stored
+      : stored.filter((c) => !DEMO_CONVERSATION_IDS.has(c.id));
+  }
   return includeDemoFallback ? DEFAULT_SHARED_CONVERSATIONS : [];
 }
 
@@ -284,6 +743,8 @@ export function ensureProjectConversation(params: {
   projectId: string;
   projectTitle: string;
   ownerName: string;
+  ownerId?: string;
+  companyId?: string;
   contractorName: string;
   contractorCompany: string;
 }): SharedConversationThread {
@@ -296,6 +757,8 @@ export function ensureProjectConversation(params: {
     id: `conv-${canonicalId}`,
     projectId: canonicalId,
     projectTitle: params.projectTitle,
+    ownerId: params.ownerId,
+    companyId: params.companyId,
     ownerName: params.ownerName,
     ownerPhone: "Verified Owner",
     contractorName: params.contractorName,
@@ -312,6 +775,13 @@ export function ensureProjectConversation(params: {
     messages: [],
   };
   saveSharedConversations([created, ...existing]);
+  if (typeof window !== "undefined") {
+    fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(created),
+    }).catch(() => {});
+  }
   return created;
 }
 
@@ -353,10 +823,25 @@ export function appendSharedMessage(params: {
 
   saveSharedConversations(updated);
 
+  if (typeof window !== "undefined") {
+    fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "append_message",
+        conversationId: params.conversationId,
+        sender: params.sender,
+        senderName: params.senderName,
+        text: params.text.trim(),
+      }),
+    }).catch(() => {});
+  }
+
   if (targetThread) {
     const t = targetThread as SharedConversationThread;
     if (params.sender === "owner") {
       pushCompanyLiveNotification({
+        targetCompanyId: t.companyId,
         category: "site",
         projectTitle: t.projectTitle,
         title: `New message from ${params.senderName}`,
@@ -365,6 +850,7 @@ export function appendSharedMessage(params: {
       });
     } else {
       pushOwnerLiveNotification({
+        targetOwnerId: t.ownerId,
         category: "site",
         projectTitle: t.projectTitle,
         title: `New message from ${params.senderName}`,
@@ -389,7 +875,216 @@ export function markConversationRead(
       : { ...t, contractorUnreadCount: 0 };
   });
   saveSharedConversations(updated);
+  if (typeof window !== "undefined") {
+    fetch("/api/conversations", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId, viewer }),
+    }).catch(() => {});
+  }
   return updated;
+}
+
+/**
+ * Pulls latest projects, incoming company requests, notifications, conversations,
+ * and shared project state from backend APIs into the Owner's live view.
+ */
+export async function hydrateOwnerPortalFromBackend(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const session = getOwnerSession();
+  if (!session?.userId) return;
+
+  try {
+    const [projRes, reqRes, notifRes, convRes, stateRes] = await Promise.all([
+      fetch(`/api/projects?ownerId=${encodeURIComponent(session.userId)}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch(
+        `/api/project-requests?direction=company_to_owner&ownerIdentifier=${encodeURIComponent(
+          session.email
+        )}`,
+        { cache: "no-store" }
+      )
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch(
+        `/api/notifications?recipientType=owner&recipientId=${encodeURIComponent(
+          session.userId
+        )}&recipientEmail=${encodeURIComponent(session.email)}`,
+        { cache: "no-store" }
+      )
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch(`/api/conversations?ownerId=${encodeURIComponent(session.userId)}`, {
+        cache: "no-store",
+      })
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch("/api/project-state", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => null),
+    ]);
+
+    let changed = false;
+    const syncKey = (key: string, nextValue: any) => {
+      const nextStr = JSON.stringify(nextValue);
+      if (localStorage.getItem(key) !== nextStr) {
+        localStorage.setItem(key, nextStr);
+        changed = true;
+      }
+    };
+
+    const mergeByIdKey = (key: string, remoteItems: any[]) => {
+      if (!Array.isArray(remoteItems) || remoteItems.length === 0) return;
+      let localItems: any[] = [];
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) localItems = parsed;
+        }
+      } catch {}
+      const map = new Map<string, any>();
+      for (const item of localItems) if (item?.id) map.set(item.id, item);
+      for (const item of remoteItems) {
+        if (!item?.id) continue;
+        const prev = map.get(item.id);
+        map.set(item.id, prev ? { ...prev, ...item } : item);
+      }
+      syncKey(key, Array.from(map.values()));
+    };
+
+    if (projRes?.success && Array.isArray(projRes.data)) {
+      mergeByIdKey(getOwnerScopedKey("vantaged_active_projects"), projRes.data);
+    }
+    if (reqRes?.success && Array.isArray(reqRes.data) && reqRes.data.length > 0) {
+      syncKey(KEY_COMPANY_SENT_REQUESTS, reqRes.data);
+    }
+    if (notifRes?.success && Array.isArray(notifRes.data)) {
+      // Authoritative server sync for notifications so read/deleted states persist cleanly
+      syncKey(getOwnerScopedKey(KEY_OWNER_LIVE_NOTIFICATIONS), notifRes.data);
+    }
+    if (convRes?.success && Array.isArray(convRes.data)) {
+      mergeByIdKey(KEY_SHARED_CONVERSATIONS, convRes.data);
+    }
+    if (stateRes?.success && stateRes.data && typeof stateRes.data === "object") {
+      for (const [k, v] of Object.entries(stateRes.data)) {
+        syncKey(k, v);
+      }
+    }
+
+    if (changed) {
+      broadcastPortalSync();
+    }
+  } catch {
+    // ignore transient fetch errors
+  }
+}
+
+/**
+ * Pulls latest projects, owner briefs, notifications, conversations,
+ * and shared project state from backend APIs into the Company's live view.
+ */
+export async function hydrateContractorPortalFromBackend(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const session = getContractorSession();
+  if (!session?.userId) return;
+
+  try {
+    const [projRes, briefRes, notifRes, convRes, stateRes] = await Promise.all([
+      fetch(
+        `/api/projects?companyId=${encodeURIComponent(
+          session.userId
+        )}&companyName=${encodeURIComponent(session.companyName || "")}`,
+        {
+          cache: "no-store",
+        }
+      )
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch(
+        `/api/project-requests?direction=owner_to_company&companyId=${encodeURIComponent(
+          session.userId
+        )}&companyName=${encodeURIComponent(session.companyName)}`,
+        { cache: "no-store" }
+      )
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch(
+        `/api/notifications?recipientType=company&recipientId=${encodeURIComponent(
+          session.userId
+        )}&recipientEmail=${encodeURIComponent(
+          session.email
+        )}&recipientCompanyName=${encodeURIComponent(session.companyName || "")}`,
+        { cache: "no-store" }
+      )
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch(`/api/conversations?companyId=${encodeURIComponent(session.userId)}`, {
+        cache: "no-store",
+      })
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch("/api/project-state", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => null),
+    ]);
+
+    let changed = false;
+    const syncKey = (key: string, nextValue: any) => {
+      const nextStr = JSON.stringify(nextValue);
+      if (localStorage.getItem(key) !== nextStr) {
+        localStorage.setItem(key, nextStr);
+        changed = true;
+      }
+    };
+
+    const mergeByIdKey = (key: string, remoteItems: any[]) => {
+      if (!Array.isArray(remoteItems) || remoteItems.length === 0) return;
+      let localItems: any[] = [];
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) localItems = parsed;
+        }
+      } catch {}
+      const map = new Map<string, any>();
+      for (const item of localItems) if (item?.id) map.set(item.id, item);
+      for (const item of remoteItems) {
+        if (!item?.id) continue;
+        const prev = map.get(item.id);
+        map.set(item.id, prev ? { ...prev, ...item } : item);
+      }
+      syncKey(key, Array.from(map.values()));
+    };
+
+    if (projRes?.success && Array.isArray(projRes.data)) {
+      mergeByIdKey("vantaged_company_accepted_projects", projRes.data);
+    }
+    if (briefRes?.success && Array.isArray(briefRes.data) && briefRes.data.length > 0) {
+      syncKey("vantaged_project_briefs", briefRes.data);
+    }
+    if (notifRes?.success && Array.isArray(notifRes.data)) {
+      // Authoritative server sync for notifications so read/deleted states persist cleanly
+      syncKey(getContractorScopedKey(KEY_COMPANY_LIVE_NOTIFICATIONS), notifRes.data);
+    }
+    if (convRes?.success && Array.isArray(convRes.data)) {
+      mergeByIdKey(KEY_SHARED_CONVERSATIONS, convRes.data);
+    }
+    if (stateRes?.success && stateRes.data && typeof stateRes.data === "object") {
+      for (const [k, v] of Object.entries(stateRes.data)) {
+        syncKey(k, v);
+      }
+    }
+
+    if (changed) {
+      window.dispatchEvent(new Event("vantaged_company_projects_update"));
+      broadcastPortalSync();
+    }
+  } catch {
+    // ignore transient fetch errors
+  }
 }
 
 /**
@@ -503,6 +1198,7 @@ export function syncContractorStagesToOwner(
     });
 
     localStorage.setItem(ownerKey, JSON.stringify(mapped));
+    pushProjectStateToBackend({ [ownerKey]: mapped });
 
     // Notify owner if any stage newly transitioned to Ready for Review
     const newlyReady = contractorStages.find((cs) => {
@@ -515,6 +1211,7 @@ export function syncContractorStagesToOwner(
 
     if (newlyReady) {
       pushOwnerLiveNotification({
+        projectId: canonicalId,
         category: "inspection",
         projectTitle: newlyReady.title,
         title: `${newlyReady.title} is Ready for Your Review`,
@@ -525,6 +1222,167 @@ export function syncContractorStagesToOwner(
   } catch {
     // ignore storage errors
   }
+}
+
+/**
+ * Syncs Owner's stage comment directly into both `vantaged_stages_${canonicalId}`
+ * and Company's `vantaged_cproj_stages_${canonicalId}` + backend `/api/project-state`.
+ */
+export function syncOwnerStageCommentToContractor(params: {
+  projectId: string;
+  stageId: string;
+  stageNumber?: number;
+  authorName: string;
+  text: string;
+}): void {
+  if (typeof window === "undefined") return;
+  const canonicalId = normalizeCanonicalProjectId(params.projectId);
+  const companyStagesKey = `vantaged_cproj_stages_${canonicalId}`;
+  const ownerStagesKey = `vantaged_stages_${canonicalId}`;
+  const commentId = `cm-owner-${Date.now()}`;
+
+  try {
+    const entries: Record<string, any> = {};
+
+    const cRaw = localStorage.getItem(companyStagesKey);
+    if (cRaw) {
+      const stages = JSON.parse(cRaw);
+      if (Array.isArray(stages)) {
+        const updated = stages.map((s: any) => {
+          const isMatch =
+            s.id === params.stageId ||
+            (params.stageNumber !== undefined && s.order === params.stageNumber);
+          if (!isMatch) return s;
+          return {
+            ...s,
+            comments: [
+              ...(Array.isArray(s.comments) ? s.comments : []),
+              {
+                id: commentId,
+                authorName: params.authorName,
+                authorRole: "Property Owner",
+                text: params.text,
+                timestamp: "Just now",
+                isCompany: false,
+              },
+            ],
+          };
+        });
+        localStorage.setItem(companyStagesKey, JSON.stringify(updated));
+        entries[companyStagesKey] = updated;
+      }
+    }
+
+    const oRaw = localStorage.getItem(ownerStagesKey);
+    if (oRaw) {
+      const stages = JSON.parse(oRaw);
+      if (Array.isArray(stages)) {
+        const updated = stages.map((s: any) => {
+          const isMatch =
+            s.id === params.stageId ||
+            (params.stageNumber !== undefined && s.stageNumber === params.stageNumber);
+          if (!isMatch) return s;
+          return {
+            ...s,
+            comments: [
+              ...(Array.isArray(s.comments) ? s.comments : []),
+              {
+                id: commentId,
+                authorName: params.authorName,
+                authorRole: "Building Owner (You)",
+                text: params.text,
+                timestamp: "Just now",
+                isClient: true,
+              },
+            ],
+          };
+        });
+        localStorage.setItem(ownerStagesKey, JSON.stringify(updated));
+        entries[ownerStagesKey] = updated;
+      }
+    }
+
+    if (Object.keys(entries).length > 0) {
+      pushProjectStateToBackend(entries);
+    }
+
+    pushCompanyLiveNotification({
+      projectId: canonicalId,
+      category: "stage",
+      projectTitle: `Stage ${params.stageNumber || ""}`.trim() || "Site Update",
+      title: `New Stage Comment from ${params.authorName}`,
+      description: params.text.slice(0, 110),
+      href: `/contractor/projects/${canonicalId}/stages/${params.stageId}`,
+    });
+
+    broadcastPortalSync();
+  } catch {}
+}
+
+/**
+ * Syncs an Owner Escrow Deposit into Company's tranches (`Upcoming` -> `Held in Escrow`)
+ * so both dashboards reflect funded milestone coverage in real time.
+ */
+export function syncOwnerEscrowDepositToContractor(params: {
+  projectId: string;
+  projectTitle: string;
+  amountNaira: number;
+  reference: string;
+}): void {
+  if (typeof window === "undefined") return;
+  const canonicalId = normalizeCanonicalProjectId(params.projectId);
+  const companyTranchesKey = `vantaged_cproj_tranches_${canonicalId}`;
+
+  try {
+    const raw = localStorage.getItem(companyTranchesKey);
+    if (raw) {
+      const tranches = JSON.parse(raw);
+      if (Array.isArray(tranches)) {
+        let remaining = params.amountNaira;
+        const updated = tranches.map((t: any) => {
+          if (t.status === "Upcoming" && remaining > 0) {
+            remaining -= Number(t.grossAmount || 0);
+            return {
+              ...t,
+              status: "Held in Escrow",
+              reference: params.reference || t.reference,
+            };
+          }
+          return t;
+        });
+        localStorage.setItem(companyTranchesKey, JSON.stringify(updated));
+        pushProjectStateToBackend({ [companyTranchesKey]: updated });
+      }
+    }
+
+    pushCompanyLiveNotification({
+      projectId: canonicalId,
+      category: "receipt",
+      projectTitle: params.projectTitle,
+      title: `Owner Funded Escrow: ₦${params.amountNaira.toLocaleString("en-NG")}`,
+      description: `Escrow deposit verified (${params.reference}). Milestone funds are now secured for upcoming stages.`,
+      href: `/contractor/projects/${canonicalId}/transactions`,
+    });
+
+    broadcastPortalSync();
+  } catch {}
+}
+
+/**
+ * Syncs Company's assigned site team into Owner's `vantaged_team_${canonicalId}`
+ * so Owner's Site & Team page always displays the real assigned engineers & crew.
+ */
+export function syncContractorTeamToOwner(
+  projectId: string,
+  team: Array<any>
+): void {
+  if (typeof window === "undefined") return;
+  const canonicalId = normalizeCanonicalProjectId(projectId);
+  const ownerTeamKey = `vantaged_team_${canonicalId}`;
+  try {
+    localStorage.setItem(ownerTeamKey, JSON.stringify(team));
+    pushProjectStateToBackend({ [ownerTeamKey]: team });
+  } catch {}
 }
 
 /**
@@ -544,25 +1402,74 @@ export function syncOwnerStageDecisionToContractor(params: {
   if (typeof window === "undefined") return;
   const canonicalId = normalizeCanonicalProjectId(params.projectId);
   const companyStagesKey = `vantaged_cproj_stages_${canonicalId}`;
+  const ownerStagesKey = `vantaged_stages_${canonicalId}`;
 
   try {
+    const stateBatch: Record<string, any> = {};
+
+    // Helper: advance the first Scheduled stage after an Approved stage to "In Progress"
+    const advanceNextStage = (list: any[]) => {
+      const hasInProgress = list.some(
+        (s) => s.status === "In Progress" || s.status === "Ready for Review" || s.status === "Fix Requested"
+      );
+      if (hasInProgress) return list;
+      let advanced = false;
+      return list.map((s) => {
+        if (!advanced && s.status === "Scheduled") {
+          advanced = true;
+          return { ...s, status: "In Progress" };
+        }
+        return s;
+      });
+    };
+
+    let approvedCount = 0;
+    let totalStagesCount = 0;
+    let approvedStageTrancheAmount = 0;
+
+    // 1. Update Owner stages in backend state (and advance next Scheduled stage on approval)
+    const ownerRaw = localStorage.getItem(ownerStagesKey);
+    if (ownerRaw) {
+      const oStages = JSON.parse(ownerRaw);
+      if (Array.isArray(oStages)) {
+        const nextOwnerStages =
+          params.decision === "APPROVED" ? advanceNextStage(oStages) : oStages;
+        localStorage.setItem(ownerStagesKey, JSON.stringify(nextOwnerStages));
+        stateBatch[ownerStagesKey] = nextOwnerStages;
+        approvedCount = nextOwnerStages.filter((s: any) => s.status === "Approved").length;
+        totalStagesCount = nextOwnerStages.length;
+        const matchedOwnerStage = nextOwnerStages.find(
+          (s: any) =>
+            s.id === params.stageId ||
+            (params.stageNumber !== undefined && s.stageNumber === params.stageNumber)
+        );
+        if (matchedOwnerStage?.trancheAmount) {
+          approvedStageTrancheAmount = Number(matchedOwnerStage.trancheAmount) || 0;
+        }
+      }
+    }
+
+    // 2. Update Company stages
     const raw = localStorage.getItem(companyStagesKey);
     if (raw) {
       const stages = JSON.parse(raw);
       if (Array.isArray(stages)) {
-        const updated = stages.map((s: any) => {
+        let updated = stages.map((s: any) => {
           const isMatch =
             s.id === params.stageId ||
             (params.stageNumber !== undefined && s.order === params.stageNumber);
           if (!isMatch) return s;
 
           if (params.decision === "APPROVED") {
+            if (!approvedStageTrancheAmount && s.trancheAmount) {
+              approvedStageTrancheAmount = Number(s.trancheAmount) || 0;
+            }
             return {
               ...s,
               status: "Approved",
               approvedAt: "Today",
               checklist: Array.isArray(s.checklist)
-                ? s.checklist.map((c: any) => ({ ...c, ownerFlagged: false }))
+                ? s.checklist.map((c: any) => ({ ...c, isCompleted: true, ownerFlagged: false }))
                 : s.checklist,
             };
           }
@@ -585,11 +1492,18 @@ export function syncOwnerStageDecisionToContractor(params: {
               : s.checklist,
           };
         });
+        if (params.decision === "APPROVED") {
+          updated = advanceNextStage(updated);
+          approvedCount = updated.filter((s: any) => s.status === "Approved").length;
+          totalStagesCount = updated.length;
+        }
         localStorage.setItem(companyStagesKey, JSON.stringify(updated));
+        stateBatch[companyStagesKey] = updated;
       }
     }
 
-    // When Owner approves a stage, also release its payment into Company's 3-day Confirm Receipt queue
+    // 3. When Owner approves a stage, release its payment into Company's 3-day Confirm Receipt queue
+    //    AND update progress % on both Owner & Company Active Project folder cards
     if (params.decision === "APPROVED") {
       const nipRef = `NIP-${Date.now().toString().slice(-8)}`;
       const companyTranchesKey = `vantaged_cproj_tranches_${canonicalId}`;
@@ -597,11 +1511,12 @@ export function syncOwnerStageDecisionToContractor(params: {
       if (cTranchesRaw) {
         const cTranches = JSON.parse(cTranchesRaw);
         if (Array.isArray(cTranches)) {
-          const updatedCTranches = cTranches.map((t: any) => {
+          const updatedCTranches = cTranches.map((t: any, idx: number) => {
             const titleMatch =
               t.stageTitle?.toLowerCase().includes(params.stageTitle.toLowerCase()) ||
               (params.stageNumber !== undefined &&
-                t.stageTitle?.toLowerCase().startsWith(`stage ${params.stageNumber}`));
+                (t.stageTitle?.toLowerCase().startsWith(`stage ${params.stageNumber}`) ||
+                  idx + 1 === params.stageNumber));
             if (titleMatch && t.status !== "Receipt Confirmed") {
               return {
                 ...t,
@@ -615,6 +1530,7 @@ export function syncOwnerStageDecisionToContractor(params: {
             return t;
           });
           localStorage.setItem(companyTranchesKey, JSON.stringify(updatedCTranches));
+          stateBatch[companyTranchesKey] = updatedCTranches;
         }
       }
 
@@ -639,26 +1555,82 @@ export function syncOwnerStageDecisionToContractor(params: {
           return t;
         });
         localStorage.setItem(ownerTranchesKey, JSON.stringify(updatedOTranches));
+        stateBatch[ownerTranchesKey] = updatedOTranches;
+      }
+
+      // Sync live verified progress % on Active Project folder cards (Owner + Company + /api/projects)
+      if (totalStagesCount > 0) {
+        const nextPct = Math.round((approvedCount / totalStagesCount) * 100);
+        const updateFolderList = (storageKey: string) => {
+          try {
+            const listRaw = localStorage.getItem(storageKey);
+            if (!listRaw) return;
+            const list = JSON.parse(listRaw);
+            if (!Array.isArray(list)) return;
+            const nextList = list.map((p: any) =>
+              normalizeCanonicalProjectId(p.id) === canonicalId
+                ? {
+                    ...p,
+                    milestonesCount: approvedCount,
+                    milestonesTotal: totalStagesCount,
+                    progressPercent: nextPct,
+                    lastUpdated: "Today, Just now",
+                  }
+                : p
+            );
+            localStorage.setItem(storageKey, JSON.stringify(nextList));
+          } catch {}
+        };
+        updateFolderList("vantaged_active_projects");
+        updateFolderList(getOwnerScopedKey("vantaged_active_projects"));
+        updateFolderList("vantaged_company_accepted_projects");
+        window.dispatchEvent(new Event("vantaged_company_projects_update"));
+
+        fetch("/api/projects", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: canonicalId,
+            milestonesCount: approvedCount,
+            milestonesTotal: totalStagesCount,
+            progressPercent: nextPct,
+          }),
+        }).catch(() => {});
       }
 
       pushCompanyLiveNotification({
+        projectId: canonicalId,
         category: "receipt",
         projectTitle: params.stageTitle,
         title: `Owner Approved ${params.stageTitle} — Confirm Payment Receipt (3d)`,
-        description: `Payment transfer ${nipRef} has been released. Confirm bank receipt within 3 days.`,
+        description: `Payment transfer ${nipRef} has been released via Paystack Escrow. Confirm bank receipt within 3 days.`,
         href: `/contractor/projects/${canonicalId}/transactions`,
       });
+
+      // Trigger backend Paystack stage payout record & transfer
+      fetch("/api/paystack/payout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: canonicalId,
+          stageTitle: params.stageTitle,
+          amountNaira: approvedStageTrancheAmount || 15000000,
+        }),
+      }).catch(() => {});
     }
 
     if (params.decision === "FIX_REQUESTED") {
       const issuesKey = `vantaged_cproj_issues_${canonicalId}`;
       const issuesRaw = localStorage.getItem(issuesKey);
       const existingIssues = issuesRaw ? JSON.parse(issuesRaw) : [];
+      const fixCode = `FIX-${Date.now().toString().slice(-4)}`;
+      const fixId = `iss-${Date.now()}`;
+      const fixTitle = params.fixNote?.trim() || `Fix requested on ${params.stageTitle}`;
       const newIssue = {
-        id: `iss-${Date.now()}`,
-        code: `FIX-${Date.now().toString().slice(-4)}`,
+        id: fixId,
+        code: fixCode,
         kind: "Fix Request",
-        title: params.fixNote?.trim() || `Fix requested on ${params.stageTitle}`,
+        title: fixTitle,
         stageTitle: params.stageTitle,
         severity: "Moderate Defect",
         status: "Action Required",
@@ -668,7 +1640,7 @@ export function syncOwnerStageDecisionToContractor(params: {
         raisedBy: params.ownerName || "Property Owner",
         openedDate: "Just now",
         deadlineLabel: "48 hours to send fix plan",
-        heldAmount: 0,
+        heldAmount: approvedStageTrancheAmount || 0,
         ownerDescription:
           params.fixNote?.trim() ||
           "Owner flagged checklist items during stage review. Please upload fresh proof and resubmit.",
@@ -682,12 +1654,59 @@ export function syncOwnerStageDecisionToContractor(params: {
           },
         ],
       };
-      localStorage.setItem(
-        issuesKey,
-        JSON.stringify([newIssue, ...(Array.isArray(existingIssues) ? existingIssues : [])])
-      );
+      const nextIssues = [
+        newIssue,
+        ...(Array.isArray(existingIssues) ? existingIssues : []),
+      ];
+      localStorage.setItem(issuesKey, JSON.stringify(nextIssues));
+      stateBatch[issuesKey] = nextIssues;
+
+      // Mirror the fix request into Owner's Fixes & Disputes store as well
+      const ownerDisputesKey = `vantaged_disputes_${canonicalId}`;
+      const oDispRaw = localStorage.getItem(ownerDisputesKey);
+      const existingOwnerDisp = oDispRaw ? JSON.parse(oDispRaw) : [];
+      const ownerDispRecord = {
+        id: fixId,
+        disputeCode: fixCode,
+        title: fixTitle,
+        category: "Quality of Work",
+        linkedStage: params.stageTitle,
+        linkedTrancheAmount: approvedStageTrancheAmount || 0,
+        escrowQuarantineAmount: approvedStageTrancheAmount || 0,
+        status: "Active Dispute",
+        escalationTier: "Tier 1: Direct Contractor Rectification",
+        openedDate: "Just now",
+        daysRemaining: 2,
+        cureNoticeDeadline: "In 48 Hours",
+        raisedBy: params.ownerName || "Property Owner",
+        defectSeverity: "Moderate Defect",
+        cureStatus: "Awaiting Builder Response",
+        responseWindowHoursRemaining: 48,
+        whatHappened:
+          params.fixNote?.trim() ||
+          "Owner flagged checklist items during stage review.",
+        builderReply: "Awaiting contractor fix plan.",
+        timelineEvents: [
+          {
+            id: `tl-${Date.now()}`,
+            timestamp: "Just now",
+            author: params.ownerName || "Property Owner",
+            role: "Owner",
+            tier: "Tier 1: Direct Contractor Rectification",
+            action: `Fix Requested on ${params.stageTitle}`,
+            notes: params.fixNote?.trim() || "Checklist items flagged for rectification.",
+          },
+        ],
+      };
+      const nextOwnerDisp = [
+        ownerDispRecord,
+        ...(Array.isArray(existingOwnerDisp) ? existingOwnerDisp : []),
+      ];
+      localStorage.setItem(ownerDisputesKey, JSON.stringify(nextOwnerDisp));
+      stateBatch[ownerDisputesKey] = nextOwnerDisp;
 
       pushCompanyLiveNotification({
+        projectId: canonicalId,
         category: "stage",
         projectTitle: params.stageTitle,
         title: `Fix Requested on ${params.stageTitle}`,
@@ -696,6 +1715,10 @@ export function syncOwnerStageDecisionToContractor(params: {
           "Property Owner flagged checklist items. Reply with a Fix Plan within 48 hours.",
         href: `/contractor/projects/${canonicalId}/disputes`,
       });
+    }
+
+    if (Object.keys(stateBatch).length > 0) {
+      pushProjectStateToBackend(stateBatch);
     }
 
     broadcastPortalSync();
@@ -736,6 +1759,7 @@ export function syncContractorReceiptConfirmedToOwner(params: {
     existingMap[params.bankSessionId] = confirmationRecord;
     existingMap[params.stageTitle.toLowerCase()] = confirmationRecord;
     localStorage.setItem(mapKey, JSON.stringify(existingMap));
+    pushProjectStateToBackend({ [mapKey]: existingMap });
 
     if (Array.isArray(parsed) && parsed.length > 0) {
       const updated = parsed.map((t: any) => {
@@ -754,9 +1778,11 @@ export function syncContractorReceiptConfirmedToOwner(params: {
         return t;
       });
       localStorage.setItem(ownerTranchesKey, JSON.stringify(updated));
+      pushProjectStateToBackend({ [ownerTranchesKey]: updated });
     }
 
     pushOwnerLiveNotification({
+      projectId: canonicalId,
       category: "escrow",
       projectTitle: params.stageTitle,
       title: `Builder Confirmed Receipt of ₦${params.netPayout.toLocaleString("en-NG")}`,
@@ -851,6 +1877,7 @@ export function syncOwnerDisputesToContractor(
     });
 
     localStorage.setItem(companyIssuesKey, JSON.stringify(mapped));
+    pushProjectStateToBackend({ [companyIssuesKey]: mapped });
     broadcastPortalSync();
   } catch {
     // ignore storage errors
@@ -931,9 +1958,11 @@ export function syncContractorIssueUpdateToOwner(params: {
       });
 
       localStorage.setItem(ownerDisputesKey, JSON.stringify(updated));
+      pushProjectStateToBackend({ [ownerDisputesKey]: updated });
     }
 
     pushOwnerLiveNotification({
+      projectId: canonicalId,
       category: "inspection",
       projectTitle: params.stageTitle,
       title:
@@ -974,22 +2003,24 @@ export function syncOwnerChangeRequestsToContractor(
     const existingCompany: any[] = existingRaw ? JSON.parse(existingRaw) : [];
 
     const mapped = ownerCRs.map((cr) => {
+      const code = cr.requestCode || cr.voCode || "VO-2026-01";
       const prevComp =
-        existingCompany.find((v) => v.id === cr.id || v.code === cr.voCode) || null;
+        existingCompany.find((v) => v.id === cr.id || v.code === code) || null;
 
       const status =
         cr.status === "Approved & Signed" || cr.status === "Approved"
           ? "Approved"
           : cr.status === "Declined" || cr.status === "Rejected"
           ? "Declined"
-          : cr.status === "Waiting for Builder Price"
+          : cr.status === "Waiting for Builder Price" ||
+            cr.status === "Awaiting Contractor Assessment"
           ? "Needs Builder Quote"
           : "Awaiting Owner Approval";
 
       return {
         ...(prevComp || {}),
         id: prevComp?.id || cr.id,
-        code: cr.voCode || prevComp?.code || "VO-2026-01",
+        code,
         title: cr.title,
         linkedStage: cr.affectedStage || prevComp?.linkedStage || "Stage 1",
         category: prevComp?.category || "Scope Addition",
@@ -999,13 +2030,21 @@ export function syncOwnerChangeRequestsToContractor(
             ? cr.costImpact
             : prevComp?.costImpact ?? 0,
         timelineDays:
-          typeof cr.timeImpactDays === "number"
+          typeof cr.timeExtensionDays === "number"
+            ? cr.timeExtensionDays
+            : typeof cr.timeImpactDays === "number"
             ? cr.timeImpactDays
             : prevComp?.timelineDays ?? 0,
         status,
-        submittedAt: cr.dateSubmitted || prevComp?.submittedAt || "Recently",
+        submittedAt: cr.date || cr.dateSubmitted || prevComp?.submittedAt || "Recently",
         reason: cr.reason || prevComp?.reason || "",
-        boqBreakdown: cr.boqSummary || prevComp?.boqBreakdown || "Itemized pricing pending.",
+        boqBreakdown:
+          cr.boqSummary ||
+          (Array.isArray(cr.breakdown)
+            ? cr.breakdown
+                .map((b: any) => `${b.item}: ₦${Number(b.cost || 0).toLocaleString("en-NG")}`)
+                .join("; ")
+            : prevComp?.boqBreakdown || "Itemized pricing pending."),
         ownerNote: cr.declineReason || cr.ownerApprovalNote || prevComp?.ownerNote,
       };
     });
@@ -1026,6 +2065,7 @@ export function syncOwnerChangeRequestsToContractor(
 
     if (notable) {
       pushCompanyLiveNotification({
+        projectId: canonicalId,
         category: "request",
         projectTitle: notable.title,
         title:
@@ -1042,7 +2082,9 @@ export function syncOwnerChangeRequestsToContractor(
       });
     }
 
-    localStorage.setItem(companyVarKey, JSON.stringify([...mapped, ...extraContractor]));
+    const nextVariations = [...mapped, ...extraContractor];
+    localStorage.setItem(companyVarKey, JSON.stringify(nextVariations));
+    pushProjectStateToBackend({ [companyVarKey]: nextVariations });
     broadcastPortalSync();
   } catch {
     // ignore storage errors
@@ -1074,21 +2116,35 @@ export function syncContractorVariationToOwner(params: {
     const existing: any[] = raw ? JSON.parse(raw) : [];
 
     const matchIndex = existing.findIndex(
-      (c: any) => c.id === params.id || c.voCode === params.code
+      (c: any) => c.id === params.id || c.requestCode === params.code || c.voCode === params.code
     );
 
     const ownerRecord = {
       id: params.id,
+      requestCode: params.code,
       voCode: params.code,
       title: params.title,
       affectedStage: params.linkedStage,
       requestedBy: params.requestedBy || "Contractor",
+      requesterName:
+        params.requestedBy === "Owner"
+          ? "Property Owner"
+          : getContractorSession()?.fullName || "Project Director (Builder)",
+      date: "Just now",
       costImpact: params.costImpact,
+      timeExtensionDays: params.timelineDays,
       timeImpactDays: params.timelineDays,
       status: "Waiting for Your Approval",
       dateSubmitted: "Just now",
       reason: params.reason,
       boqSummary: params.boqBreakdown,
+      contractorAssessmentNote: params.boqBreakdown,
+      breakdown: [
+        {
+          item: params.boqBreakdown || `${params.title} — Materials & Installation`,
+          cost: params.costImpact,
+        },
+      ],
     };
 
     const next =
@@ -1099,8 +2155,10 @@ export function syncContractorVariationToOwner(params: {
         : [ownerRecord, ...existing];
 
     localStorage.setItem(ownerCRKey, JSON.stringify(next));
+    pushProjectStateToBackend({ [ownerCRKey]: next });
 
     pushOwnerLiveNotification({
+      projectId: canonicalId,
       category: "escrow",
       projectTitle: params.title,
       title:

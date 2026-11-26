@@ -6,6 +6,7 @@ import {
   AUTH_CHANGE_EVENT,
   getOwnerSession,
 } from "../../../shared/vantagedAuth";
+import { hydrateOwnerPortalFromBackend } from "../../../shared/vantagedSyncBridge";
 
 export function OwnerAuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -14,22 +15,32 @@ export function OwnerAuthGuard({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    const verify = () => {
+    const verify = async () => {
       const session = getOwnerSession();
       if (!session) {
         setStatus("redirecting");
         router.replace("/login");
       } else {
         setStatus("authenticated");
+        await hydrateOwnerPortalFromBackend();
       }
     };
 
     verify();
+    const interval = setInterval(() => {
+      if (getOwnerSession()) hydrateOwnerPortalFromBackend();
+    }, 5000);
+    const onFocus = () => {
+      if (getOwnerSession()) hydrateOwnerPortalFromBackend();
+    };
     window.addEventListener(AUTH_CHANGE_EVENT, verify);
     window.addEventListener("storage", verify);
+    window.addEventListener("focus", onFocus);
     return () => {
+      clearInterval(interval);
       window.removeEventListener(AUTH_CHANGE_EVENT, verify);
       window.removeEventListener("storage", verify);
+      window.removeEventListener("focus", onFocus);
     };
   }, [router]);
 

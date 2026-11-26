@@ -7,6 +7,11 @@ import { useTheme } from "../../context/ThemeContext";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useDemoMode } from "../hooks/useDemoMode";
 import { OwnerProfileModal } from "./OwnerProfileModal";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  readOwnerLiveNotifications,
+} from "../../../shared/vantagedSyncBridge";
 
 interface HeaderBarProps {
   leftSlot?: React.ReactNode;
@@ -271,9 +276,44 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
   const currentUser = useCurrentUser();
   const { isDemoMode } = useDemoMode();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const syncUnread = () => {
+      const liveUnread = readOwnerLiveNotifications().filter((n) => n.isUnread).length;
+      let demoUnread = 0;
+      if (isDemoMode) {
+        try {
+          const saved = localStorage.getItem("vantaged_owner_notifications");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) {
+              demoUnread = parsed.filter((n: any) => n?.isUnread).length;
+            }
+          } else {
+            demoUnread = 3;
+          }
+        } catch {
+          demoUnread = 3;
+        }
+      }
+      setUnreadNotifCount(liveUnread + demoUnread);
+    };
+    syncUnread();
+    window.addEventListener(SHARED_SYNC_EVENT, syncUnread);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, syncUnread);
+    window.addEventListener("vantaged_demo_toggle", syncUnread);
+    window.addEventListener("storage", syncUnread);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncUnread);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncUnread);
+      window.removeEventListener("vantaged_demo_toggle", syncUnread);
+      window.removeEventListener("storage", syncUnread);
+    };
+  }, [isDemoMode]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -471,8 +511,10 @@ export function HeaderBar({ leftSlot }: HeaderBarProps = {}) {
             <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
             <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
           </svg>
-          {isDemoMode && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] ring-1.5 ring-white" />
+          {unreadNotifCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] text-white text-[9.5px] font-black flex items-center justify-center ring-2 ring-white shadow-xs">
+              {unreadNotifCount > 9 ? "9+" : unreadNotifCount}
+            </span>
           )}
         </button>
 

@@ -4,8 +4,11 @@ import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   AUTH_CHANGE_EVENT,
+  checkContractorAccountStatus,
   getContractorSession,
+  signOutContractor,
 } from "../../../shared/vantagedAuth";
+import { hydrateContractorPortalFromBackend } from "../../../shared/vantagedSyncBridge";
 
 export function ContractorAuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -22,22 +25,36 @@ export function ContractorAuthGuard({ children }: { children: React.ReactNode })
       return;
     }
 
-    const verify = () => {
+    const verify = async () => {
       const session = getContractorSession();
       if (!session) {
         setStatus("redirecting");
         router.replace("/contractor/login");
-      } else {
-        setStatus("authenticated");
+        return;
       }
+
+      const accountStatus = await checkContractorAccountStatus();
+      if (accountStatus === "SUSPENDED") {
+        signOutContractor();
+        setStatus("redirecting");
+        router.replace("/contractor/login?suspended=1");
+        return;
+      }
+
+      setStatus("authenticated");
+      await hydrateContractorPortalFromBackend();
     };
 
     verify();
+    const interval = setInterval(verify, 5000);
     window.addEventListener(AUTH_CHANGE_EVENT, verify);
     window.addEventListener("storage", verify);
+    window.addEventListener("focus", verify);
     return () => {
+      clearInterval(interval);
       window.removeEventListener(AUTH_CHANGE_EVENT, verify);
       window.removeEventListener("storage", verify);
+      window.removeEventListener("focus", verify);
     };
   }, [isLoginRoute, router]);
 

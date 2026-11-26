@@ -14,6 +14,7 @@ import {
   markConversationRead,
   readSharedConversations,
 } from "../../../shared/vantagedSyncBridge";
+import { getOwnerSession } from "../../../shared/vantagedAuth";
 
 export interface MessageItem {
   id: string;
@@ -135,7 +136,15 @@ export function OwnerMessagesPage() {
   const subscription = useOwnerSubscription();
 
   const getSourceConversations = useCallback((): ConversationItem[] => {
-    const shared = readSharedConversations(isDemoMode).map(
+    const session = getOwnerSession();
+    const rawThreads = readSharedConversations(isDemoMode);
+    const scopedThreads = isDemoMode
+      ? rawThreads
+      : session?.userId
+      ? rawThreads.filter((t) => t.ownerId === session.userId)
+      : [];
+
+    const shared = scopedThreads.map(
       (t): ConversationItem => ({
         id: t.id,
         counterpartName: t.contractorName,

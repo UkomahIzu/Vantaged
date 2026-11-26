@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 
 import { fontStyle, useOwnerMobile } from '../context/OwnerMobileContext';
@@ -1332,18 +1334,27 @@ export function OwnerProfileModal({
   visible: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const { user, setUserProfile, palette, isDemoMode } = useOwnerMobile();
   const [fullName, setFullName] = useState(user.fullName);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState('+234 803 456 7890');
-  const [region, setRegion] = useState('Lagos State (Ikoyi / Lekki)');
+  const [region, setRegion] = useState('Lagos State (Ikoyi / Lekki Corridor)');
+  const [isEditing, setIsEditing] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
+
+  const totalSlots = isDemoMode ? 3 : 1;
+  const activeCount = isDemoMode ? 3 : 0;
+  const tierName = isDemoMode ? 'Portfolio Investor' : 'Private Owner';
+  const tierPrice = isDemoMode ? '$49.99 / mo' : 'Free Forever';
+  const pct = Math.min(100, totalSlots > 0 ? Math.round((activeCount / totalSlots) * 100) : 0);
 
   const handleSave = () => {
     setUserProfile({
       fullName: fullName.trim() || user.fullName,
       email: email.trim() || user.email,
     });
+    setIsEditing(false);
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2400);
   };
@@ -1358,14 +1369,66 @@ export function OwnerProfileModal({
             styles.sheet,
             { backgroundColor: palette.surface, borderColor: palette.border },
           ]}>
-          <View style={[styles.header, { borderBottomColor: palette.borderSubtle }]}>
-            <View style={styles.headerTextCol}>
-              <Text style={[styles.title, fontStyle('extrabold'), { color: palette.textPrimary }]}>
-                Owner Profile &amp; Tier
-              </Text>
-              <Text style={[styles.sub, fontStyle('regular'), { color: palette.textMuted }]}>
-                {isDemoMode ? 'Portfolio Investor (3 / 3 Slots)' : 'Private Owner (1 Free Slot Ready)'}
-              </Text>
+          {/* Web-Matched Profile Header */}
+          <View
+            style={[
+              styles.header,
+              { backgroundColor: palette.surfaceSubtle, borderBottomColor: palette.borderSubtle },
+            ]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <View style={{ position: 'relative' }}>
+                <Image
+                  source={{
+                    uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces',
+                  }}
+                  style={{
+                    width: 50,
+                    height: 50,
+                    borderRadius: 25,
+                    borderWidth: 2,
+                    borderColor: '#FFFFFF',
+                  }}
+                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    width: 13,
+                    height: 13,
+                    borderRadius: 7,
+                    backgroundColor: '#2E9E57',
+                    borderWidth: 2,
+                    borderColor: '#FFFFFF',
+                  }}
+                />
+              </View>
+              <View style={styles.headerTextCol}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                      backgroundColor: palette.brandSoftBg,
+                      borderWidth: 1,
+                      borderColor: palette.brandSoftBorder,
+                    }}>
+                    <Text style={[{ fontSize: 9.5, color: palette.brandSoftText }, fontStyle('bold')]}>
+                      PROPERTY OWNER
+                    </Text>
+                  </View>
+                  <Text style={[{ fontSize: 10.5, color: palette.greenText }, fontStyle('bold')]}>
+                    ● NIN Verified
+                  </Text>
+                </View>
+                <Text style={[styles.title, fontStyle('extrabold'), { color: palette.textPrimary }]}>
+                  {fullName}
+                </Text>
+                <Text style={[styles.sub, fontStyle('regular'), { color: palette.textMuted }]}>
+                  {email}
+                </Text>
+              </View>
             </View>
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <Text style={[styles.closeTxt, fontStyle('bold'), { color: palette.textMuted }]}>✕</Text>
@@ -1380,111 +1443,374 @@ export function OwnerProfileModal({
                   { backgroundColor: palette.greenBg, borderColor: palette.greenBorder },
                 ]}>
                 <Text style={[styles.noticeTxt, fontStyle('bold'), { color: palette.greenText }]}>
-                  ✓ Profile updated successfully
+                  ✓ Profile details updated successfully!
                 </Text>
               </View>
             )}
 
+            {/* Subscription & Capacity Card */}
             <View
-              style={[
-                styles.identityCard,
-                { backgroundColor: palette.surfaceSubtle, borderColor: palette.border },
-              ]}>
-              <OwnerNavIcon id="settings" color={palette.brandOrange} size={18} />
-              <View style={styles.headerTextCol}>
-                <Text style={[styles.linkProj, fontStyle('bold'), { color: palette.textPrimary }]}>
-                  NIN Identity Verification
+              style={{
+                padding: 14,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: palette.brandSoftBorder,
+                backgroundColor: palette.brandSoftBg,
+                gap: 10,
+              }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <View>
+                  <Text style={[{ fontSize: 9.5, letterSpacing: 0.6, color: palette.brandSoftText }, fontStyle('bold')]}>
+                    SUBSCRIPTION &amp; CAPACITY
+                  </Text>
+                  <Text style={[{ fontSize: 14.5, color: palette.textPrimary, marginTop: 2 }, fontStyle('extrabold')]}>
+                    {tierName}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                    backgroundColor: palette.surface,
+                    borderWidth: 1,
+                    borderColor: palette.brandSoftBorder,
+                  }}>
+                  <Text style={[{ fontSize: 11, color: palette.brandSoftText }, fontStyle('bold')]}>
+                    {tierPrice}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ gap: 5 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={[{ fontSize: 11.5, color: palette.textPrimary }, fontStyle('bold')]}>
+                    Active Project Slots:
+                  </Text>
+                  <Text style={[{ fontSize: 11.5, color: palette.brandOrange }, fontStyle('extrabold')]}>
+                    {activeCount} of {totalSlots} Slots Used
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    height: 7,
+                    borderRadius: 999,
+                    backgroundColor: palette.surface,
+                    borderWidth: 1,
+                    borderColor: palette.brandSoftBorder,
+                    overflow: 'hidden',
+                  }}>
+                  <View
+                    style={{
+                      width: `${pct}%`,
+                      height: '100%',
+                      borderRadius: 999,
+                      backgroundColor: activeCount >= totalSlots ? palette.brandOrange : '#2E9E57',
+                    }}
+                  />
+                </View>
+              </View>
+
+              <View
+                style={{
+                  paddingTop: 8,
+                  borderTopWidth: 1,
+                  borderTopColor: palette.brandSoftBorder,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                }}>
+                <Text style={[{ fontSize: 10.5, color: palette.brandSoftText, flex: 1 }, fontStyle('semibold')]}>
+                  {activeCount >= totalSlots
+                    ? 'At slot capacity limit'
+                    : `${totalSlots - activeCount} slot available to start new build`}
                 </Text>
-                <Text style={[styles.linkMeta, fontStyle('regular'), { color: palette.greenText }]}>
-                  Verified · NDPA 2023 Compliant
-                </Text>
+                <Pressable
+                  onPress={() => {
+                    onClose();
+                    router.push('/settings');
+                  }}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 7,
+                    backgroundColor: palette.brandOrange,
+                  }}>
+                  <Text style={[{ fontSize: 11, color: '#FFFFFF' }, fontStyle('bold')]}>
+                    Upgrade / Add Slots →
+                  </Text>
+                </Pressable>
               </View>
             </View>
 
-            <View style={styles.formGap}>
-              <View>
-                <Text style={[styles.fieldLabel, fontStyle('bold'), { color: palette.textPrimary }]}>
-                  FULL NAME
+            {/* Owner Identity & Contact Card */}
+            <View
+              style={{
+                padding: 14,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: palette.border,
+                backgroundColor: palette.surface,
+                gap: 10,
+              }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingBottom: 8,
+                  borderBottomWidth: 1,
+                  borderBottomColor: palette.borderSubtle,
+                }}>
+                <Text style={[{ fontSize: 11, letterSpacing: 0.6, color: palette.textPrimary }, fontStyle('bold')]}>
+                  OWNER IDENTITY &amp; CONTACT
                 </Text>
-                <TextInput
-                  value={fullName}
-                  onChangeText={setFullName}
-                  style={[
-                    styles.input,
-                    fontStyle('regular'),
-                    {
-                      backgroundColor: palette.surfaceSubtle,
-                      borderColor: palette.border,
-                      color: palette.textPrimary,
-                    },
-                  ]}
-                />
-              </View>
-              <View>
-                <Text style={[styles.fieldLabel, fontStyle('bold'), { color: palette.textPrimary }]}>
-                  EMAIL ADDRESS
-                </Text>
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={[
-                    styles.input,
-                    fontStyle('regular'),
-                    {
-                      backgroundColor: palette.surfaceSubtle,
-                      borderColor: palette.border,
-                      color: palette.textPrimary,
-                    },
-                  ]}
-                />
-              </View>
-              <View>
-                <Text style={[styles.fieldLabel, fontStyle('bold'), { color: palette.textPrimary }]}>
-                  PHONE NUMBER
-                </Text>
-                <TextInput
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  style={[
-                    styles.input,
-                    fontStyle('regular'),
-                    {
-                      backgroundColor: palette.surfaceSubtle,
-                      borderColor: palette.border,
-                      color: palette.textPrimary,
-                    },
-                  ]}
-                />
-              </View>
-              <View>
-                <Text style={[styles.fieldLabel, fontStyle('bold'), { color: palette.textPrimary }]}>
-                  STATE / CORRIDOR
-                </Text>
-                <TextInput
-                  value={region}
-                  onChangeText={setRegion}
-                  style={[
-                    styles.input,
-                    fontStyle('regular'),
-                    {
-                      backgroundColor: palette.surfaceSubtle,
-                      borderColor: palette.border,
-                      color: palette.textPrimary,
-                    },
-                  ]}
-                />
+                <Pressable onPress={() => setIsEditing((p) => !p)}>
+                  <Text style={[{ fontSize: 11.5, color: palette.brandOrange }, fontStyle('bold')]}>
+                    {isEditing ? 'Cancel' : 'Edit Details'}
+                  </Text>
+                </Pressable>
               </View>
 
-              <Pressable
-                onPress={handleSave}
-                style={[styles.primaryBtn, { backgroundColor: palette.brandPrimaryBtn }]}>
-                <Text style={[styles.primaryBtnTxt, fontStyle('bold')]}>Save Profile Changes</Text>
-              </Pressable>
+              {isEditing ? (
+                <View style={styles.formGap}>
+                  <View>
+                    <Text style={[styles.fieldLabel, fontStyle('bold'), { color: palette.textMuted }]}>
+                      FULL LEGAL NAME
+                    </Text>
+                    <TextInput
+                      value={fullName}
+                      onChangeText={setFullName}
+                      style={[
+                        styles.input,
+                        fontStyle('semibold'),
+                        {
+                          backgroundColor: palette.surfaceSubtle,
+                          borderColor: palette.border,
+                          color: palette.textPrimary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.fieldLabel, fontStyle('bold'), { color: palette.textMuted }]}>
+                      EMAIL ADDRESS
+                    </Text>
+                    <TextInput
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      style={[
+                        styles.input,
+                        fontStyle('semibold'),
+                        {
+                          backgroundColor: palette.surfaceSubtle,
+                          borderColor: palette.border,
+                          color: palette.textPrimary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.fieldLabel, fontStyle('bold'), { color: palette.textMuted }]}>
+                      PHONE NUMBER (WHATSAPP)
+                    </Text>
+                    <TextInput
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                      style={[
+                        styles.input,
+                        fontStyle('semibold'),
+                        {
+                          backgroundColor: palette.surfaceSubtle,
+                          borderColor: palette.border,
+                          color: palette.textPrimary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.fieldLabel, fontStyle('bold'), { color: palette.textMuted }]}>
+                      PRIMARY LOCATION / STATE
+                    </Text>
+                    <TextInput
+                      value={region}
+                      onChangeText={setRegion}
+                      style={[
+                        styles.input,
+                        fontStyle('semibold'),
+                        {
+                          backgroundColor: palette.surfaceSubtle,
+                          borderColor: palette.border,
+                          color: palette.textPrimary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Pressable
+                    onPress={handleSave}
+                    style={[styles.primaryBtn, { backgroundColor: palette.brandOrange }]}>
+                    <Text style={[styles.primaryBtnTxt, fontStyle('bold')]}>Save Changes</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={{ gap: 10 }}>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ fontSize: 9.5, color: palette.textMuted }, fontStyle('bold')]}>
+                        FULL NAME
+                      </Text>
+                      <Text style={[{ fontSize: 12, color: palette.textPrimary, marginTop: 2 }, fontStyle('bold')]}>
+                        {fullName}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ fontSize: 9.5, color: palette.textMuted }, fontStyle('bold')]}>
+                        EMAIL ADDRESS
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={[{ fontSize: 12, color: palette.textPrimary, marginTop: 2 }, fontStyle('bold')]}>
+                        {email}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ fontSize: 9.5, color: palette.textMuted }, fontStyle('bold')]}>
+                        PHONE / WHATSAPP
+                      </Text>
+                      <Text style={[{ fontSize: 12, color: palette.textPrimary, marginTop: 2 }, fontStyle('bold')]}>
+                        {phone}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ fontSize: 9.5, color: palette.textMuted }, fontStyle('bold')]}>
+                        STATE / REGION
+                      </Text>
+                      <Text style={[{ fontSize: 12, color: palette.textPrimary, marginTop: 2 }, fontStyle('bold')]}>
+                        {region}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Escrow Custody & Banking Card */}
+            <View
+              style={{
+                padding: 14,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: palette.border,
+                backgroundColor: palette.surface,
+                gap: 8,
+              }}>
+              <Text
+                style={[
+                  {
+                    fontSize: 11,
+                    letterSpacing: 0.6,
+                    color: palette.textPrimary,
+                    paddingBottom: 6,
+                    borderBottomWidth: 1,
+                    borderBottomColor: palette.borderSubtle,
+                  },
+                  fontStyle('bold'),
+                ]}>
+                ESCROW CUSTODY &amp; BANKING
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[{ fontSize: 9.5, color: palette.textMuted }, fontStyle('bold')]}>
+                    SETTLEMENT BANK
+                  </Text>
+                  <Text style={[{ fontSize: 12, color: palette.textPrimary, marginTop: 2 }, fontStyle('bold')]}>
+                    Guaranty Trust Bank (GTBank)
+                  </Text>
+                  <Text style={[{ fontSize: 11, color: palette.brandOrange, marginTop: 1 }, fontStyle('bold')]}>
+                    •••• •••• 4912
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[{ fontSize: 9.5, color: palette.textMuted }, fontStyle('bold')]}>
+                    SIGN-OFF SECURITY
+                  </Text>
+                  <Text style={[{ fontSize: 11.5, color: palette.greenText, marginTop: 2 }, fontStyle('bold')]}>
+                    ✓ 2FA Biometric &amp; SMS Pin
+                  </Text>
+                  <Text style={[{ fontSize: 10.5, color: palette.textMuted, marginTop: 1 }, fontStyle('regular')]}>
+                    Funds released only on sign-off
+                  </Text>
+                </View>
+              </View>
             </View>
           </ScrollView>
+
+          {/* Footer Actions */}
+          <View
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              borderTopWidth: 1,
+              borderTopColor: palette.borderSubtle,
+              backgroundColor: palette.surfaceSubtle,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}>
+            <Pressable
+              onPress={() => {
+                onClose();
+                router.push('/settings');
+              }}>
+              <Text style={[{ fontSize: 12, color: palette.textPrimary }, fontStyle('bold')]}>
+                Open Full Settings
+              </Text>
+            </Pressable>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  router.replace('/signin');
+                }}
+                style={{
+                  height: 36,
+                  paddingHorizontal: 12,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: '#FECDD3',
+                  backgroundColor: '#FFF1F2',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Text style={[{ fontSize: 12, color: '#E11D48' }, fontStyle('bold')]}>
+                  Log Out
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={onClose}
+                style={{
+                  height: 36,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  backgroundColor: palette.brandOrange,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Text style={[{ fontSize: 12, color: '#FFFFFF' }, fontStyle('bold')]}>
+                  Done
+                </Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>

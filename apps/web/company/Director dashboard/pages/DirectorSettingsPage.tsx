@@ -11,6 +11,17 @@ import { useTheme } from "../../../client/context/ThemeContext";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
 import { useContractorUser } from "../hooks/useContractorUser";
 import { readLocalData, writeLocalData } from "../utils/localPersistence";
+import {
+  getContractorSession,
+  syncContractorCompanyMetaToAdmin,
+} from "../../../shared/vantagedAuth";
+import {
+  fetchPaystackBanks,
+  parseNairaString,
+  startPaystackCheckout,
+  verifyBankAccountNuban,
+  verifyPaystackCallback,
+} from "../../../shared/paystackClient";
 
 type CompanySettingsTab =
   | "profile"
@@ -185,7 +196,7 @@ export function DirectorSettingsPage() {
     readLocalData("vantaged_director_bank_account", DEFAULT_BANK)
   );
   const [selectedPlanId, setSelectedPlanId] = useState<ContractorPricingTier["id"]>(() =>
-    normalizePlanId(readLocalData("vantaged_director_plan_id", "contractor-verified"))
+    normalizePlanId(readLocalData("vantaged_director_plan_id", "contractor-starter"))
   );
   const [currency, setCurrency] = useState<"NGN" | "USD">(() =>
     readLocalData("vantaged_director_currency", "NGN")
@@ -196,6 +207,50 @@ export function DirectorSettingsPage() {
   const [buySlotsInput, setBuySlotsInput] = useState<number>(1);
   const [contractorTiers, setContractorTiers] = useState<ContractorPricingTier[]>(DEFAULT_CONTRACTOR_TIERS);
   const [extraSlotNotice, setExtraSlotNotice] = useState<ExtraSlotNotice>(DEFAULT_EXTRA_SLOT_NOTICE);
+  const [paystackBanks, setPaystackBanks] = useState<Array<{ name: string; code: string }>>([]);
+  const [selectedBankCode, setSelectedBankCode] = useState<string>("057");
+  const [isVerifyingBank, setIsVerifyingBank] = useState<boolean>(false);
+  const [bankVerifiedStatus, setBankVerifiedStatus] = useState<string | null>(null);
+
+  // Load live Nigerian banks from Paystack & verify Paystack checkout callback if present
+  useEffect(() => {
+    fetchPaystackBanks().then((list) => {
+      if (list.length > 0) {
+        setPaystackBanks(list);
+        const match = list.find((b) =>
+          b.name.toLowerCase().includes(bank.bankName.split(" ")[0]?.toLowerCase() || "")
+        );
+        if (match) setSelectedBankCode(match.code);
+      }
+    });
+
+    verifyPaystackCallback().then((result) => {
+      if (!result.checked) return;
+      setActiveTab("plan");
+      if (result.success && result.data) {
+        const meta = result.data.metadata || {};
+        if (result.data.purpose === "company_plan" && meta.planId) {
+          const nextPlanId = normalizePlanId(meta.planId);
+          setSelectedPlanId(nextPlanId);
+          writeLocalData("vantaged_director_plan_id", nextPlanId);
+          showToast(
+            `Paystack verified (${result.data.reference})! Activated ${meta.planName || nextPlanId}.`
+          );
+        } else if (result.data.purpose === "company_extra_slots") {
+          const added = Number(meta.slotsCount || 1);
+          const curr = Number(readLocalData("vantaged_director_extra_slots", 0)) || 0;
+          const nextExtra = curr + added;
+          setExtraSlotsCount(nextExtra);
+          writeLocalData("vantaged_director_extra_slots", nextExtra);
+          showToast(
+            `Paystack verified (${result.data.reference})! Added ${added} extra project slot${added > 1 ? "s" : ""}.`
+          );
+        }
+      } else if (result.error) {
+        showToast(`Payment not completed: ${result.error}`);
+      }
+    });
+  }, []);
 
   const fetchPricing = useCallback(async () => {
     try {
@@ -381,10 +436,62 @@ export function DirectorSettingsPage() {
     showToast("Bank payout details updated.");
   };
 
-  const handleSelectPlan = (planId: ContractorPricingTier["id"], planName: string) => {
-    setSelectedPlanId(planId);
-    writeLocalData("vantaged_director_plan_id", planId);
-    showToast(`Switched company plan to ${planName}.`);
+  const handleVerifyBankWithPaystack = async () => {
+    setIsVerifyingBank(true);
+    setBankVerifiedStatus(null);
+    const res = await verifyBankAccountNuban(bank.accountNumber, selectedBankCode);
+    setIsVerifyingBank(false);
+    if (!res.ok) {
+      setBankVerifiedStatus(`Error: ${res.error}`);
+      showToast(`NUBAN check failed: ${res.error}`);
+      return;
+    }
+    setBank((prev) => ({ ...prev, accountName: res.accountName }));
+    setBankVerifiedStatus(`Verified via Paystack: ${res.accountName}`);
+    showToast(`Account verified: ${res.accountName}`);
+  };
+
+  const handleSelectPlan = async (planId: ContractorPricingTier["id"], planName: string) => {
+    const matchedTier = contractorTiers.find((t) => t.id === planId);
+    const nextBase = matchedTier?.capacitySlots ?? (planId === "contractor-prime" ? 8 : planId === "contractor-verified" ? 3 : 1);
+
+    if (planId === "contractor-starter") {
+      setSelectedPlanId(planId);
+      writeLocalData("vantaged_director_plan_id", planId);
+      syncContractorCompanyMetaToAdmin({
+        planId,
+        planName,
+        baseSlots: nextBase,
+        extraSlots: extraSlotsCount,
+      });
+      showToast(`Switched company plan to ${planName}.`);
+      return;
+    }
+
+    const priceStr =
+      billingCycle === "yearly"
+        ? matchedTier?.priceYearlyNGN || "₦750,000"
+        : matchedTier?.priceMonthlyNGN || "₦75,000";
+    const amountNaira = parseNairaString(priceStr, 75000);
+    const session = getContractorSession();
+    showToast(`Opening Paystack checkout for ${planName} (₦${amountNaira.toLocaleString("en-NG")})...`);
+
+    const res = await startPaystackCheckout({
+      email: session?.email || directorUser.email || "director@vantaged.io",
+      amountNaira,
+      purpose: "company_plan",
+      callbackPath: "/contractor/settings?tab=plan",
+      metadata: {
+        companyId: session?.userId,
+        planId,
+        planName,
+        baseSlots: nextBase,
+        billingCycle,
+      },
+    });
+    if (!res.ok) {
+      showToast(`Paystack error: ${res.error}`);
+    }
   };
 
   const handleBillingCycleChange = (cycle: "monthly" | "yearly") => {
@@ -397,14 +504,27 @@ export function DirectorSettingsPage() {
     writeLocalData("vantaged_director_currency", nextCurrency);
   };
 
-  const handleBuyProjectSlots = (e: React.FormEvent) => {
+  const handleBuyProjectSlots = async (e: React.FormEvent) => {
     e.preventDefault();
     const count = Math.max(1, Math.min(50, Math.floor(buySlotsInput || 1)));
-    const updatedExtra = extraSlotsCount + count;
-    setExtraSlotsCount(updatedExtra);
-    writeLocalData("vantaged_director_extra_slots", updatedExtra);
-    setBuySlotsInput(1);
-    showToast(`Added ${count} extra project slot${count > 1 ? "s" : ""}.`);
+    const unitNaira = parseNairaString(extraSlotNotice.ngn, 25000);
+    const amountNaira = count * unitNaira;
+    const session = getContractorSession();
+    showToast(`Opening Paystack checkout for ${count} slot${count > 1 ? "s" : ""} (₦${amountNaira.toLocaleString("en-NG")})...`);
+
+    const res = await startPaystackCheckout({
+      email: session?.email || directorUser.email || "director@vantaged.io",
+      amountNaira,
+      purpose: "company_extra_slots",
+      callbackPath: "/contractor/settings?tab=plan",
+      metadata: {
+        companyId: session?.userId,
+        slotsCount: count,
+      },
+    });
+    if (!res.ok) {
+      showToast(`Paystack error: ${res.error}`);
+    }
   };
 
   const handleRemoveExtraSlot = () => {
@@ -412,6 +532,12 @@ export function DirectorSettingsPage() {
     const updatedExtra = extraSlotsCount - 1;
     setExtraSlotsCount(updatedExtra);
     writeLocalData("vantaged_director_extra_slots", updatedExtra);
+    syncContractorCompanyMetaToAdmin({
+      planId: selectedPlanId,
+      planName: activePlan.name,
+      baseSlots: activePlan.capacitySlots,
+      extraSlots: updatedExtra,
+    });
     showToast("Released 1 extra project slot.");
   };
 
@@ -799,30 +925,59 @@ export function DirectorSettingsPage() {
                 </label>
                 <VantagedSelect
                   value={bank.bankName}
-                  onChange={(val) => setBank({ ...bank, bankName: val })}
-                  options={[
-                    "Zenith Bank Plc",
-                    "Access Bank Plc",
-                    "Guaranty Trust Bank (GTBank)",
-                    "First Bank of Nigeria",
-                    "Stanbic IBTC Bank",
-                    "UBA (United Bank for Africa)",
-                  ]}
+                  onChange={(val) => {
+                    setBank({ ...bank, bankName: val });
+                    const found = paystackBanks.find((b) => b.name === val);
+                    if (found) setSelectedBankCode(found.code);
+                  }}
+                  options={
+                    paystackBanks.length > 0
+                      ? paystackBanks.map((b) => b.name)
+                      : [
+                          "Zenith Bank Plc",
+                          "Access Bank Plc",
+                          "Guaranty Trust Bank (GTBank)",
+                          "First Bank of Nigeria",
+                          "Stanbic IBTC Bank",
+                          "UBA (United Bank for Africa)",
+                        ]
+                  }
                 />
               </div>
               <div>
                 <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
                   10-Digit Account Number
                 </label>
-                <input
-                  type="text"
-                  maxLength={10}
-                  value={bank.accountNumber}
-                  onChange={(e) =>
-                    setBank({ ...bank, accountNumber: e.target.value })
-                  }
-                  className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] font-mono font-bold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    maxLength={10}
+                    value={bank.accountNumber}
+                    onChange={(e) =>
+                      setBank({ ...bank, accountNumber: e.target.value })
+                    }
+                    className="flex-1 h-9 px-3 rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] font-mono font-bold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyBankWithPaystack}
+                    disabled={isVerifyingBank || bank.accountNumber.replace(/\D/g, "").length !== 10}
+                    className="h-9 px-3 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-indigo-800,#352782)] disabled:opacity-40 text-white text-[11px] font-bold cursor-pointer shrink-0 transition-colors"
+                  >
+                    {isVerifyingBank ? "Checking..." : "Verify NUBAN"}
+                  </button>
+                </div>
+                {bankVerifiedStatus && (
+                  <p
+                    className={`mt-1 text-[11px] font-semibold ${
+                      bankVerifiedStatus.startsWith("Error:")
+                        ? "text-rose-600"
+                        : "text-emerald-700"
+                    }`}
+                  >
+                    {bankVerifiedStatus}
+                  </p>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">

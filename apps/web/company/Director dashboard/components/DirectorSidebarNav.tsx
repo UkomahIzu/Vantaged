@@ -15,7 +15,7 @@ import {
   readCompanyLiveNotifications,
   readSharedConversations,
 } from "../../../shared/vantagedSyncBridge";
-import { signOutContractor } from "../../../shared/vantagedAuth";
+import { readScopedCompanyAcceptedProjects, signOutContractor } from "../../../shared/vantagedAuth";
 
 function renderNavIcon(id: DirectorNavId, isActive: boolean) {
   const cls = `w-4 h-4 shrink-0 transition-colors ${
@@ -125,15 +125,25 @@ export function DirectorSidebarNav({
       setLiveUnreadMessages(
         threads.reduce((acc, t) => acc + (t.contractorUnreadCount || 0), 0)
       );
-      const liveNotifs = readCompanyLiveNotifications();
-      setLiveUnreadNotifs(liveNotifs.filter((n) => n.isUnread).length);
-      try {
-        const raw = localStorage.getItem("vantaged_company_accepted_projects");
-        const parsed = raw ? JSON.parse(raw) : [];
-        setLiveProjectsCount(Array.isArray(parsed) ? parsed.length : 0);
-      } catch {
-        setLiveProjectsCount(0);
+      const liveNotifs = readCompanyLiveNotifications().filter((n) => n.isUnread).length;
+      let demoUnread = 0;
+      if (isDemoMode) {
+        try {
+          const saved = localStorage.getItem("vantaged_director_notifications");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) {
+              demoUnread = parsed.filter((n: any) => n?.isUnread).length;
+            }
+          } else {
+            demoUnread = 3;
+          }
+        } catch {
+          demoUnread = 3;
+        }
       }
+      setLiveUnreadNotifs(liveNotifs + demoUnread);
+      setLiveProjectsCount(readScopedCompanyAcceptedProjects().length);
     };
     syncCounts();
     window.addEventListener(SHARED_SYNC_EVENT, syncCounts);
@@ -168,8 +178,7 @@ export function DirectorSidebarNav({
       return liveUnreadMessages > 0 ? liveUnreadMessages : undefined;
     }
     if (id === "notifications") {
-      const total = (isDemoMode ? 4 : 0) + liveUnreadNotifs;
-      return total > 0 ? total : undefined;
+      return liveUnreadNotifs > 0 ? liveUnreadNotifs : undefined;
     }
     if (id === "projects") {
       const total = (isDemoMode ? 3 : 0) + liveProjectsCount;

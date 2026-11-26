@@ -1,0 +1,16 @@
+[
+  {
+    "id": "own-1795543463189",
+    "fullName": "Ukomah Izuchukwu",
+    "email": "uko@gmail.com",
+    "password": "123456789$$",
+    "phone": "08031234567",
+    "countryCode": "+234",
+    "role": "Owner Admin",
+    "idMethod": "NIN",
+    "idNumber": "19283746501",
+    "createdAt": "2026-11-24T18:04:23.189Z",
+    "tierId": "owner-portfolio",
+    "updatedAt": "2026-11-24T18:17:50.202Z"
+  }
+]

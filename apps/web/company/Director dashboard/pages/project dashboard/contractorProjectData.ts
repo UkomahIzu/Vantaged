@@ -6,8 +6,11 @@ import {
 import {
   broadcastPortalSync,
   normalizeCanonicalProjectId,
+  pushProjectStateToBackend,
   syncContractorStagesToOwner,
+  syncContractorTeamToOwner,
 } from "../../../../shared/vantagedSyncBridge";
+import { getContractorSession } from "../../../../shared/vantagedAuth";
 
 export type ContractorStageStatus =
   | "Approved"
@@ -1053,9 +1056,10 @@ export function getContractorProjectDetail(
     ...DEMO_DIRECTOR_PLAN_FOLDER_PROJECTS,
     ...DEMO_DIRECTOR_HISTORY_FOLDER_PROJECTS,
   ];
-  let matched = allFolders.find((p) => p.id === canonicalId);
+  let matched: any = allFolders.find((p) => p.id === canonicalId);
+  let dynamicPlan: any = null;
 
-  if (!matched && includeLocalStorage && typeof window !== "undefined") {
+  if (includeLocalStorage && typeof window !== "undefined") {
     try {
       const companyRaw = localStorage.getItem("vantaged_company_accepted_projects");
       const ownerRaw = localStorage.getItem("vantaged_active_projects");
@@ -1065,34 +1069,168 @@ export function getContractorProjectDetail(
         ...(Array.isArray(accepted) ? accepted : []),
         ...(Array.isArray(ownerActive) ? ownerActive : []),
       ];
-      matched = combined.find((p: any) => normalizeCanonicalProjectId(p.id) === canonicalId);
+      if (!matched) {
+        matched = combined.find((p: any) => normalizeCanonicalProjectId(p.id) === canonicalId);
+      }
+      const dynRaw =
+        localStorage.getItem(`vantaged_dynamic_plan_${canonicalId}`) ||
+        localStorage.getItem(`vantaged_dynamic_plan_prop-${canonicalId.replace(/^proj-/, "")}`);
+      if (dynRaw) dynamicPlan = JSON.parse(dynRaw);
     } catch {}
   }
 
-  if (matched) {
-    const parsedValue = Number(String(matched.escrowAmount || "150000000").replace(/[^0-9]/g, "")) || 150_000_000;
-    const baseTemplate = DEMO_PROJECTS_MAP["proj-lekki"];
-    return {
-      ...baseTemplate,
-      id: canonicalId,
-      jobId: matched.jobId || "JOB-NEW-01",
-      title: matched.title,
-      category: matched.category || "Residential",
-      location: matched.location || "Lagos, Nigeria",
-      address: matched.location || "Lagos, Nigeria",
-      specs: matched.specs || "Turnkey Construction Project",
-      status: matched.status === "Completed" ? "Completed" : "Active",
-      contractValue: parsedValue,
-      client: {
-        name: matched.contractor?.name || "Property Owner",
-        email: "owner@vantaged.ng",
-        phone: "+234 803 000 0000",
-        verifiedBadge: matched.contractor?.rating || "Verified Owner",
-      },
-    };
+  // Build a CLEAN ZERO-STATE ContractorProjectDetail for any newly created project
+  // (NEVER inherit demo tranches, demo issues, demo variations, or fake crew from proj-lekki!)
+  const rawStr = String(
+    dynamicPlan?.proposedBudget ||
+      dynamicPlan?.proposedPlan?.proposedBudget ||
+      matched?.escrowAmount ||
+      "0"
+  ).toUpperCase();
+  const numMatch = rawStr.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+  let parsedValue = 0;
+  if (numMatch) {
+    const base = parseFloat(numMatch[1]);
+    if (rawStr.includes("B")) parsedValue = Math.round(base * 1_000_000_000);
+    else if (rawStr.includes("M")) parsedValue = Math.round(base * 1_000_000);
+    else if (rawStr.includes("K")) parsedValue = Math.round(base * 1_000);
+    else if (base > 0) parsedValue = Math.round(base);
   }
 
-  return DEMO_PROJECTS_MAP["proj-lekki"];
+  const customRawStages: any[] = Array.isArray(matched?.proposedStages)
+    ? matched.proposedStages
+    : Array.isArray(dynamicPlan?.proposedPlan?.stages)
+    ? dynamicPlan.proposedPlan.stages
+    : [];
+
+  let dynamicStages: ContractorProjectStage[];
+  if (customRawStages.length > 0) {
+    const count = customRawStages.length;
+    const baseBps = Math.floor(10000 / count);
+    const remainderBps = 10000 - baseBps * count;
+    dynamicStages = customRawStages.map((stg, idx) => {
+      const weightBps = idx === count - 1 ? baseBps + remainderBps : baseBps;
+      const order = stg.order || idx + 1;
+      const cleanTitle = String(stg.title || `Stage ${order}`);
+      return {
+        id: `stg-${order}`,
+        order,
+        title: cleanTitle.startsWith("Stage")
+          ? cleanTitle
+          : `Stage ${order}: ${cleanTitle}`,
+        summary:
+          stg.evidence ||
+          "Milestone verification deliverables & geofenced site proof.",
+        weightBps,
+        trancheAmount: Math.round((parsedValue * weightBps) / 10000),
+        status: idx === 0 ? "In Progress" : "Scheduled",
+        dueDate: dynamicPlan?.proposedPlan?.typicalDuration || `Stage ${order} Window`,
+        checklist: [
+          {
+            id: `chk-${order}-1`,
+            label:
+              stg.evidence ||
+              "Upload geofenced site photos & inspection verification",
+            requiredProof: "Min 3 GPS Photos",
+            isCompleted: false,
+          },
+        ],
+        proofItems: [],
+        comments: [],
+      };
+    });
+  } else {
+    dynamicStages = [
+      {
+        id: "stg-1",
+        order: 1,
+        title: "Stage 1: Site Mobilization & Setting Out",
+        summary: "Survey setting-out pegs, perimeter setup, and initial groundwork.",
+        weightBps: 10000,
+        trancheAmount: parsedValue,
+        status: "In Progress",
+        dueDate: "Per Agreed Schedule",
+        checklist: [
+          {
+            id: "chk-1-1",
+            label: "Upload site mobilization & setting-out verification photos",
+            requiredProof: "Min 3 GPS Photos",
+            isCompleted: false,
+          },
+        ],
+        proofItems: [],
+        comments: [],
+      },
+    ];
+  }
+
+  // Zero-state tranches: all start as "Upcoming" (₦0 confirmed, ₦0 in escrow, ₦0 awaiting confirmation)
+  const freshTranches: ContractorProjectTranche[] = dynamicStages.map((st) => {
+    const retainageAmount = Math.round(st.trancheAmount * 0.05);
+    return {
+      id: `ctr-${st.order}`,
+      reference: `ESC-${canonicalId.slice(-4).toUpperCase()}-0${st.order}`,
+      stageTitle: st.title,
+      grossAmount: st.trancheAmount,
+      retainageAmount,
+      netPayout: st.trancheAmount - retainageAmount,
+      status: "Upcoming",
+    };
+  });
+
+  const contractorSession = includeLocalStorage ? getContractorSession() : null;
+  const freshTeam: ContractorSiteMember[] = [
+    {
+      id: `crew-dir-${canonicalId}`,
+      name:
+        contractorSession?.fullName ||
+        dynamicPlan?.proposedPlan?.directorName ||
+        matched?.contractor?.assignedRep ||
+        "Project Director",
+      role: "Director",
+      phone: "Verified Company Director",
+      email: contractorSession?.email || "director@vantaged.ng",
+      location: matched?.location || dynamicPlan?.location || "Lagos, Nigeria",
+      assigned: true,
+      points: 0,
+    },
+  ];
+
+  return {
+    id: canonicalId,
+    jobId:
+      matched?.jobId ||
+      `JOB-${String(canonicalId).replace(/[^0-9A-Za-z]/g, "").slice(-4).toUpperCase()}`,
+    title: dynamicPlan?.title || matched?.title || "New Building Project",
+    category: dynamicPlan?.category || matched?.category || "Residential",
+    location: dynamicPlan?.location || matched?.location || "Lagos, Nigeria",
+    address: dynamicPlan?.location || matched?.location || "Lagos, Nigeria",
+    specs:
+      dynamicPlan?.proposedPlan?.presetName ||
+      matched?.specs ||
+      `${dynamicStages.length}-Stage Construction Plan`,
+    status: matched?.status === "Completed" ? "Completed" : "Active",
+    ballInCourt: "CONTRACTOR",
+    contractValue: parsedValue,
+    retainagePercent: 5,
+    startDate: "Just started",
+    targetEndDate: dynamicPlan?.proposedPlan?.typicalDuration || "Per Agreed Schedule",
+    client: {
+      name:
+        dynamicPlan?.ownerName ||
+        matched?.ownerName ||
+        matched?.contractor?.name ||
+        "Property Owner",
+      email: dynamicPlan?.ownerEmail || "Verified via Vantaged",
+      phone: "Verified via Vantaged",
+      verifiedBadge: "NIN Verified Owner",
+    },
+    stages: dynamicStages,
+    tranches: freshTranches,
+    issues: [],
+    variations: [],
+    siteTeam: freshTeam,
+  };
 }
 
 export function loadProjectKey<T>(projectId: string, section: string, fallback: T): T {
@@ -1112,10 +1250,14 @@ export function loadProjectKey<T>(projectId: string, section: string, fallback: 
 export function saveProjectKey<T>(projectId: string, section: string, value: T): void {
   if (typeof window === "undefined") return;
   const canonicalId = normalizeCanonicalProjectId(projectId);
+  const fullKey = `vantaged_cproj_${section}_${canonicalId}`;
   try {
-    localStorage.setItem(`vantaged_cproj_${section}_${canonicalId}`, JSON.stringify(value));
+    localStorage.setItem(fullKey, JSON.stringify(value));
+    pushProjectStateToBackend({ [fullKey]: value });
     if (section === "stages" && Array.isArray(value)) {
       syncContractorStagesToOwner(canonicalId, value as unknown as ContractorProjectStage[]);
+    } else if (section === "team" && Array.isArray(value)) {
+      syncContractorTeamToOwner(canonicalId, value as unknown as ContractorSiteMember[]);
     }
     broadcastPortalSync();
   } catch {}

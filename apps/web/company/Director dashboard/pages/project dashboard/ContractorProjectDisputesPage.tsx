@@ -16,7 +16,10 @@ import {
   saveProjectKey,
 } from "./contractorProjectData";
 import { useContractorProject } from "./useContractorProject";
-import { syncContractorIssueUpdateToOwner } from "../../../../shared/vantagedSyncBridge";
+import {
+  SHARED_SYNC_EVENT,
+  syncContractorIssueUpdateToOwner,
+} from "../../../../shared/vantagedSyncBridge";
 
 interface ContractorProjectDisputesPageProps {
   projectId: string;
@@ -54,9 +57,11 @@ export function ContractorProjectDisputesPage({ projectId }: ContractorProjectDi
     };
     sync();
     window.addEventListener(CONTRACTOR_STORAGE_EVENT, sync);
+    window.addEventListener(SHARED_SYNC_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener(CONTRACTOR_STORAGE_EVENT, sync);
+      window.removeEventListener(SHARED_SYNC_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, [projectId, project.issues]);

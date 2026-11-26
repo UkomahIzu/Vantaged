@@ -1,0 +1,42 @@
+[
+  {
+    "id": "conv-proj-1795657397395",
+    "projectId": "proj-1795657397395",
+    "projectTitle": "nope",
+    "ownerId": "own-1795543463189",
+    "companyId": "ctr-acc-1795466864831",
+    "ownerName": "Ukomah Izuchukwu",
+    "ownerPhone": "Verified Owner",
+    "contractorName": "Engr. Babatunde Julius Adeleke",
+    "contractorRole": "Project Director",
+    "contractorCompany": "Crane & Stone Engineering Limited 2",
+    "contractorPhone": "Verified Builder",
+    "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face",
+    "isOnline": true,
+    "lastMessage": "Project conversation opened. Send your first message.",
+    "lastMessageTime": "Just now",
+    "ownerUnreadCount": 0,
+    "contractorUnreadCount": 0,
+    "messages": []
+  },
+  {
+    "id": "conv-proj-1795653417379",
+    "projectId": "proj-1795653417379",
+    "projectTitle": "ok",
+    "ownerId": "own-1795543463189",
+    "companyId": "ctr-acc-1795466864831",
+    "ownerName": "Property Owner",
+    "ownerPhone": "Verified Owner",
+    "contractorName": "Engr. Babatunde Julius Adeleke",
+    "contractorRole": "Project Director",
+    "contractorCompany": "Crane & Stone Engineering Limited 2",
+    "contractorPhone": "Verified Builder",
+    "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face",
+    "isOnline": true,
+    "lastMessage": "Project conversation opened. Send your first message.",
+    "lastMessageTime": "Just now",
+    "ownerUnreadCount": 0,
+    "contractorUnreadCount": 0,
+    "messages": []
+  }
+]

@@ -1,7 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { ACTIVE_PROJECTS } from "../pages/OwnerProjectsPage";
+import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { ProjectItem } from "./ProjectFolderCard";
+import { getActiveProjects } from "../pages/projects dashboard/projectStore";
+import { useDemoMode } from "../hooks/useDemoMode";
+import { getOwnerScopedKey } from "../../../shared/vantagedAuth";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+} from "../../../shared/vantagedSyncBridge";
 
 export interface ShareLinkItem {
   id: string;
@@ -58,48 +66,92 @@ interface ShareLinkModalProps {
 export function ShareLinkModal({
   isOpen,
   onClose,
-  defaultProjectId = "proj-lekki",
+  defaultProjectId,
 }: ShareLinkModalProps) {
+  const { isDemoMode } = useDemoMode();
+  const [activeProjects, setActiveProjects] = useState<ProjectItem[]>([]);
   const [activeTab, setActiveTab] = useState<"create" | "manage">("create");
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(defaultProjectId);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(defaultProjectId || "");
   const [expiryOption, setExpiryOption] = useState<number | null>(30); // 7, 30, 90, null (never)
   const [recipientEmail, setRecipientEmail] = useState("");
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [origin, setOrigin] = useState("");
 
-  const [shareLinks, setShareLinks] = useState<ShareLinkItem[]>(DEFAULT_SHARE_LINKS);
+  const [shareLinks, setShareLinks] = useState<ShareLinkItem[]>([]);
   const [recentlyCreatedLink, setRecentlyCreatedLink] = useState<ShareLinkItem | null>(null);
 
-  // Load saved links from localStorage on mount
+  const shareLinksStorageKey = isDemoMode
+    ? "vantaged_active_share_links"
+    : getOwnerScopedKey("vantaged_active_share_links");
+
+  // Load real user projects & saved share links whenever modal opens or projects/demo mode change
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const syncData = () => {
+      if (typeof window === "undefined") return;
       setOrigin(window.location.origin);
-      const saved = localStorage.getItem("vantaged_active_share_links");
+
+      const userProjects = getActiveProjects();
+      setActiveProjects(userProjects);
+      setSelectedProjectId((prev) => {
+        if (defaultProjectId && userProjects.some((p) => p.id === defaultProjectId)) {
+          return defaultProjectId;
+        }
+        if (prev && userProjects.some((p) => p.id === prev)) {
+          return prev;
+        }
+        return userProjects[0]?.id || "";
+      });
+
+      const saved = localStorage.getItem(shareLinksStorageKey);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             setShareLinks(parsed);
+            return;
           }
-        } catch {
-          // ignore parsing error
-        }
+        } catch {}
       }
-    }
-  }, []);
+      setShareLinks(isDemoMode ? DEFAULT_SHARE_LINKS : []);
+    };
+
+    syncData();
+    window.addEventListener(SHARED_SYNC_EVENT, syncData);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, syncData);
+    window.addEventListener("vantaged_demo_toggle", syncData);
+    window.addEventListener("storage", syncData);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncData);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncData);
+      window.removeEventListener("vantaged_demo_toggle", syncData);
+      window.removeEventListener("storage", syncData);
+    };
+  }, [isOpen, isDemoMode, defaultProjectId, shareLinksStorageKey]);
 
   const persistLinks = (next: ShareLinkItem[]) => {
     setShareLinks(next);
     if (typeof window !== "undefined") {
-      localStorage.setItem("vantaged_active_share_links", JSON.stringify(next));
+      try {
+        localStorage.setItem(shareLinksStorageKey, JSON.stringify(next));
+        // Also mirror to global key so PublicShareLinkPage (/s/[token]) can resolve any newly generated token
+        const globalRaw = localStorage.getItem("vantaged_active_share_links");
+        const globalList: ShareLinkItem[] = globalRaw ? JSON.parse(globalRaw) : [];
+        const byToken = new Map<string, ShareLinkItem>();
+        for (const l of globalList) if (l?.token) byToken.set(l.token, l);
+        for (const l of next) if (l?.token) byToken.set(l.token, l);
+        localStorage.setItem("vantaged_active_share_links", JSON.stringify(Array.from(byToken.values())));
+      } catch {}
     }
   };
 
-  const selectedProject =
-    ACTIVE_PROJECTS.find((p) => p.id === selectedProjectId) || ACTIVE_PROJECTS[0];
+  const selectedProject = useMemo(
+    () => activeProjects.find((p) => p.id === selectedProjectId) || activeProjects[0] || null,
+    [activeProjects, selectedProjectId]
+  );
 
   const handleGenerateLink = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedProject) return;
     const now = new Date();
     const expiryDate = expiryOption
       ? new Date(now.getTime() + expiryOption * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
@@ -387,55 +439,73 @@ export function ShareLinkModal({
                   <label className="block text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-2">
                     1. Which project do you want to create a link for?
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {ACTIVE_PROJECTS.map((proj) => {
-                      const isSelected = proj.id === selectedProjectId;
-                      return (
-                        <div
-                          key={proj.id}
-                          onClick={() => setSelectedProjectId(proj.id)}
-                          className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2 ${
-                            isSelected
-                              ? "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-500,#EF5F18)] shadow-2xs"
-                              : "bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border-[var(--vt-color-border-default,#E2E0EC)]"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-xs line-clamp-1">
-                                {proj.title}
-                              </p>
-                              <p className="text-[10.5px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
-                                {proj.location}
-                              </p>
+                  {activeProjects.length === 0 ? (
+                    <div className="p-6 rounded-xl border border-dashed border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] text-center flex flex-col items-center gap-2">
+                      <p className="font-bold text-xs text-[var(--vt-color-indigo-900,#261A66)]">
+                        No Active Projects Yet
+                      </p>
+                      <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] max-w-xs leading-relaxed">
+                        Once you start a building project and lock your plan with a contractor, it will appear here so you can share live progress links.
+                      </p>
+                      <Link
+                        href="/owner/find-companies"
+                        onClick={onClose}
+                        className="mt-1 h-8 px-3.5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold inline-flex items-center"
+                      >
+                        Start a Project
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {activeProjects.map((proj) => {
+                        const isSelected = proj.id === selectedProject?.id;
+                        return (
+                          <div
+                            key={proj.id}
+                            onClick={() => setSelectedProjectId(proj.id)}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                              isSelected
+                                ? "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-500,#EF5F18)] shadow-2xs"
+                                : "bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border-[var(--vt-color-border-default,#E2E0EC)]"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-xs line-clamp-1">
+                                  {proj.title}
+                                </p>
+                                <p className="text-[10.5px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
+                                  {proj.location}
+                                </p>
+                              </div>
+                              <span
+                                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                                  isSelected
+                                    ? "bg-[var(--vt-color-orange-500,#EF5F18)] border-[var(--vt-color-orange-500,#EF5F18)] text-white"
+                                    : "border-[var(--vt-color-neutral-300,#CBC8DA)] bg-white"
+                                }`}
+                              >
+                                {isSelected && (
+                                  <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                )}
+                              </span>
                             </div>
-                            <span
-                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
-                                isSelected
-                                  ? "bg-[var(--vt-color-orange-500,#EF5F18)] border-[var(--vt-color-orange-500,#EF5F18)] text-white"
-                                  : "border-[var(--vt-color-neutral-300,#CBC8DA)] bg-white"
-                              }`}
-                            >
-                              {isSelected && (
-                                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              )}
-                            </span>
-                          </div>
 
-                          <div className="flex items-center justify-between text-[10.5px] pt-1.5 border-t border-[var(--vt-color-border-default,#E2E0EC)]/60">
-                            <span className="font-bold text-[var(--vt-color-orange-700,#B33C08)]">
-                              {proj.progressPercent}% verified
-                            </span>
-                            <span className="text-[var(--vt-color-neutral-400,#A3A0B8)] truncate max-w-[120px]">
-                              {proj.contractor.name}
-                            </span>
+                            <div className="flex items-center justify-between text-[10.5px] pt-1.5 border-t border-[var(--vt-color-border-default,#E2E0EC)]/60">
+                              <span className="font-bold text-[var(--vt-color-orange-700,#B33C08)]">
+                                {proj.progressPercent}% verified
+                              </span>
+                              <span className="text-[var(--vt-color-neutral-400,#A3A0B8)] truncate max-w-[120px]">
+                                {proj.contractor.name}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* STEP 2: Link Expiration Period */}
@@ -487,7 +557,8 @@ export function ShareLinkModal({
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full h-10 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                    disabled={!selectedProject}
+                    className="w-full h-10 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] disabled:opacity-45 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />

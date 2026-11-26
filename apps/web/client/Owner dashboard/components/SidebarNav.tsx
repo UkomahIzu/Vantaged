@@ -34,8 +34,24 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
     const updateCount = () => {
       const list = getActiveProjects();
       setActiveProjectsCount(list.length);
-      const liveNotifs = readOwnerLiveNotifications();
-      setLiveUnreadNotifs(liveNotifs.filter((n) => n.isUnread).length);
+      const liveNotifs = readOwnerLiveNotifications().filter((n) => n.isUnread).length;
+      let demoUnread = 0;
+      if (isDemoMode) {
+        try {
+          const saved = localStorage.getItem("vantaged_owner_notifications");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) {
+              demoUnread = parsed.filter((n: any) => n?.isUnread).length;
+            }
+          } else {
+            demoUnread = 3;
+          }
+        } catch {
+          demoUnread = 3;
+        }
+      }
+      setLiveUnreadNotifs(liveNotifs + demoUnread);
     };
     updateCount();
     window.addEventListener("vantaged_storage_update", updateCount);
@@ -46,7 +62,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
       window.removeEventListener("storage", updateCount);
       window.removeEventListener("vantaged_demo_toggle", updateCount);
     };
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     if (currentActiveItem) {
@@ -223,10 +239,7 @@ export function SidebarNav({ currentActiveItem }: { currentActiveItem?: string }
     {
       id: "notifications",
       label: "Notifications",
-      badge:
-        (isDemoMode ? 3 : 0) + liveUnreadNotifs > 0
-          ? (isDemoMode ? 3 : 0) + liveUnreadNotifs
-          : undefined,
+      badge: liveUnreadNotifs > 0 ? liveUnreadNotifs : undefined,
       icon: (isActive) => (
         <svg
           className={`w-4 h-4 shrink-0 transition-colors ${

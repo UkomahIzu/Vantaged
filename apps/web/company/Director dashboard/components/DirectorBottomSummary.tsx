@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
 import { DEMO_TEAM_MEMBERS, DirectorTeamSummary } from "../data/directorData";
+import { readLocalData } from "../utils/localPersistence";
 
 export function DirectorBottomSummary() {
   const { isDemoMode } = useDirectorDemoMode();
@@ -11,12 +12,10 @@ export function DirectorBottomSummary() {
 
   useEffect(() => {
     const sync = () => {
-      try {
-        const raw = localStorage.getItem("vantaged_director_team");
-        const parsed = raw ? JSON.parse(raw) : [];
-        if (Array.isArray(parsed)) {
-          setSavedTeam(
-            parsed.map((m: any) => ({
+      const parsed = readLocalData<any[]>("vantaged_director_team_custom_roster", []);
+      setSavedTeam(
+        Array.isArray(parsed)
+          ? parsed.map((m: any) => ({
               id: m.id,
               name: m.name,
               role: m.role,
@@ -24,11 +23,8 @@ export function DirectorBottomSummary() {
               points: m.points ?? 0,
               status: m.status === "ON_SITE" ? "ON_SITE" : "ACTIVE",
             }))
-          );
-        }
-      } catch {
-        setSavedTeam([]);
-      }
+          : []
+      );
     };
     sync();
     window.addEventListener("vantaged_storage_update", sync);

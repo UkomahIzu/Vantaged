@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
   PanResponder,
@@ -10,15 +10,22 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  Easing,
   FadeIn,
   FadeOut,
   SlideInLeft,
   SlideOutLeft,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Svg, { Line } from 'react-native-svg';
 
 import {
   OWNER_BOTTOM_NAV_ITEMS,
@@ -53,12 +60,29 @@ export function OwnerMobileShell({ activeNav, children }: OwnerMobileShellProps)
     toggleTheme,
     isDemoMode,
     toggleDemoMode,
-    isDrawerOpen,
-    openDrawer,
-    closeDrawer,
   } = useOwnerMobile();
 
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  const floatOffset = useSharedValue(0);
+
+  useEffect(() => {
+    floatOffset.value = withRepeat(
+      withSequence(
+        withTiming(-4, { duration: 1250, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 1250, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    );
+  }, [floatOffset]);
+
+  const diamondFloatStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: floatOffset.value }],
+  }));
 
   const edgeOpenResponder = useMemo(
     () =>
@@ -98,9 +122,13 @@ export function OwnerMobileShell({ activeNav, children }: OwnerMobileShellProps)
     .map((p) => p.charAt(0).toUpperCase())
     .join('');
 
-  const handleNavigate = (href: (typeof OWNER_BOTTOM_NAV_ITEMS)[number]['href'] | (typeof OWNER_DRAWER_NAV_ITEMS)[number]['href']) => {
+  const handleNavigate = (
+    href:
+      | (typeof OWNER_BOTTOM_NAV_ITEMS)[number]['href']
+      | (typeof OWNER_DRAWER_NAV_ITEMS)[number]['href']
+  ) => {
     closeDrawer();
-    router.push(href);
+    router.navigate(href);
   };
 
   return (
@@ -210,7 +238,7 @@ export function OwnerMobileShell({ activeNav, children }: OwnerMobileShellProps)
         )}
       </View>
 
-      {/* ── Bottom Navigation Bar (Strictly: Home, Projects, Transactions, Representatives) ── */}
+      {/* ── Bottom Navigation Bar (Home, Projects, [+ Find Companies], Transactions, Reps) ── */}
       <View
         style={[
           styles.bottomBar,
@@ -220,7 +248,7 @@ export function OwnerMobileShell({ activeNav, children }: OwnerMobileShellProps)
             borderTopColor: palette.border,
           },
         ]}>
-        {OWNER_BOTTOM_NAV_ITEMS.map((item) => {
+        {OWNER_BOTTOM_NAV_ITEMS.slice(0, 2).map((item) => {
           const isActive = activeNav === item.id;
           const iconColor = isActive ? palette.brandOrange : palette.textMuted;
           const badge = item.id === 'projects' && isDemoMode ? 3 : undefined;
@@ -251,6 +279,75 @@ export function OwnerMobileShell({ activeNav, children }: OwnerMobileShellProps)
                     <Text style={[styles.tabBadgeText, fontStyle('bold')]}>{badge}</Text>
                   </View>
                 )}
+              </View>
+              <Text
+                style={[
+                  styles.bottomLabel,
+                  fontStyle(isActive ? 'bold' : 'semibold'),
+                  { color: isActive ? palette.brandOrange : palette.textMuted },
+                ]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+
+        {/* Center Diamond Quick-Start Button -> Find Companies */}
+        <Animated.View style={[styles.centerDiamondSlot, diamondFloatStyle]}>
+          <Pressable
+            onPress={() => handleNavigate('/find-companies')}
+            accessibilityRole="button"
+            accessibilityLabel="Start a new project via Find Companies"
+            style={[
+              styles.diamondBtn,
+              {
+                backgroundColor: palette.brandOrange,
+                borderColor: palette.surface,
+              },
+            ]}>
+            <View style={styles.diamondInner}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Line
+                  x1="12"
+                  y1="5"
+                  x2="12"
+                  y2="19"
+                  stroke="#FFFFFF"
+                  strokeWidth={2.6}
+                  strokeLinecap="round"
+                />
+                <Line
+                  x1="5"
+                  y1="12"
+                  x2="19"
+                  y2="12"
+                  stroke="#FFFFFF"
+                  strokeWidth={2.6}
+                  strokeLinecap="round"
+                />
+              </Svg>
+            </View>
+          </Pressable>
+        </Animated.View>
+
+        {OWNER_BOTTOM_NAV_ITEMS.slice(2).map((item) => {
+          const isActive = activeNav === item.id;
+          const iconColor = isActive ? palette.brandOrange : palette.textMuted;
+
+          return (
+            <Pressable
+              key={item.id}
+              onPress={() => handleNavigate(item.href)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              style={styles.bottomTab}>
+              <View style={styles.bottomIconWrap}>
+                <OwnerNavIcon
+                  id={item.id}
+                  color={iconColor}
+                  size={20}
+                  strokeWidth={isActive ? 2.3 : 1.9}
+                />
               </View>
               <Text
                 style={[
@@ -510,10 +607,12 @@ export function OwnerMobileShell({ activeNav, children }: OwnerMobileShellProps)
         </View>
       )}
 
-      <OwnerProfileModal
-        visible={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-      />
+      {isProfileOpen && (
+        <OwnerProfileModal
+          visible={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+        />
+      )}
     </View>
   );
 }
@@ -648,6 +747,34 @@ const styles = StyleSheet.create({
   bottomLabel: {
     fontSize: 10.5,
     textAlign: 'center',
+  },
+  centerDiamondSlot: {
+    width: 62,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  diamondBtn: {
+    position: 'absolute',
+    top: -31,
+    width: 46,
+    height: 46,
+    borderRadius: 13,
+    borderWidth: 2.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '45deg' }],
+    shadowColor: '#EF5F18',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.32,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  diamondInner: {
+    transform: [{ rotate: '-45deg' }],
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   drawerPanel: {
     position: 'absolute',

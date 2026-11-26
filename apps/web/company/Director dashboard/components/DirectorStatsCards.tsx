@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
 import { DEMO_DIRECTOR_PROJECTS } from "../data/directorData";
+import { readScopedCompanyAcceptedProjects } from "../../../shared/vantagedAuth";
 
 export function DirectorStatsCards() {
   const { isDemoMode } = useDirectorDemoMode();
@@ -11,13 +12,7 @@ export function DirectorStatsCards() {
 
   useEffect(() => {
     const sync = () => {
-      try {
-        const raw = localStorage.getItem("vantaged_company_accepted_projects");
-        const parsed = raw ? JSON.parse(raw) : [];
-        setAcceptedCount(Array.isArray(parsed) ? parsed.length : 0);
-      } catch {
-        setAcceptedCount(0);
-      }
+      setAcceptedCount(readScopedCompanyAcceptedProjects().length);
     };
     sync();
     window.addEventListener("vantaged_company_projects_update", sync);

@@ -1,0 +1,242 @@
+[
+  {
+    "id": "payout-1795659637103",
+    "reference": "VTG-OUT-1795659637101-360",
+    "purpose": "stage_payout",
+    "email": "",
+    "amountNaira": 20000000,
+    "status": "TRANSFERRED",
+    "channel": "paystack_recipient_escrow_sim",
+    "metadata": {
+      "projectId": "proj-1795657397395",
+      "stageTitle": "Concrete Box Culverts & U-Drain Channels",
+      "recipientCode": null,
+      "transferCode": null,
+      "note": "Escrow payout queued (awaiting company verified NUBAN bank code)."
+    },
+    "applied": true,
+    "createdAt": "2026-11-26T02:20:37.103Z",
+    "verifiedAt": "2026-11-26T02:20:37.103Z"
+  },
+  {
+    "id": "payout-1795659636652",
+    "reference": "VTG-OUT-1795659636647-221",
+    "purpose": "stage_payout",
+    "email": "",
+    "amountNaira": 20000000,
+    "status": "TRANSFERRED",
+    "channel": "paystack_recipient_escrow_sim",
+    "metadata": {
+      "projectId": "proj-1795657397395",
+      "stageTitle": "Concrete Box Culverts & U-Drain Channels",
+      "recipientCode": null,
+      "transferCode": null,
+      "note": "Escrow payout queued (awaiting company verified NUBAN bank code)."
+    },
+    "applied": true,
+    "createdAt": "2026-11-26T02:20:36.652Z",
+    "verifiedAt": "2026-11-26T02:20:36.652Z"
+  },
+  {
+    "id": "payout-1795658726412",
+    "reference": "VTG-OUT-1795658726406-858",
+    "purpose": "stage_payout",
+    "email": "",
+    "amountNaira": 20000000,
+    "status": "TRANSFERRED",
+    "channel": "paystack_recipient_escrow_sim",
+    "metadata": {
+      "projectId": "proj-1795657397395",
+      "stageTitle": "Site Clearing, Topsoil Stripping & Sub-Grade Compaction",
+      "recipientCode": null,
+      "transferCode": null,
+      "note": "Escrow payout queued (awaiting company verified NUBAN bank code)."
+    },
+    "applied": true,
+    "createdAt": "2026-11-26T02:05:26.412Z",
+    "verifiedAt": "2026-11-26T02:05:26.412Z"
+  },
+  {
+    "id": "payout-1795658725792",
+    "reference": "VTG-OUT-1795658725501-278",
+    "purpose": "stage_payout",
+    "email": "",
+    "amountNaira": 20000000,
+    "status": "TRANSFERRED",
+    "channel": "paystack_recipient_escrow_sim",
+    "metadata": {
+      "projectId": "proj-1795657397395",
+      "stageTitle": "Site Clearing, Topsoil Stripping & Sub-Grade Compaction",
+      "recipientCode": null,
+      "transferCode": null,
+      "note": "Escrow payout queued (awaiting company verified NUBAN bank code)."
+    },
+    "applied": true,
+    "createdAt": "2026-11-26T02:05:25.793Z",
+    "verifiedAt": "2026-11-26T02:05:25.793Z"
+  },
+  {
+    "id": "pay-1795545054636",
+    "reference": "VTG-1795545052666-5141",
+    "purpose": "company_extra_slots",
+    "email": "my@gmail.com",
+    "amountNaira": 510000,
+    "status": "PENDING",
+    "metadata": {
+      "companyId": "ctr-acc-1795466864831",
+      "slotsCount": 6,
+      "purpose": "company_extra_slots",
+      "requestedAmountNaira": 510000,
+      "paystackChargeNaira": 100000
+    },
+    "applied": false,
+    "createdAt": "2026-11-24T18:30:54.636Z"
+  },
+  {
+    "id": "pay-1795545037678",
+    "reference": "VTG-1795545036451-3421",
+    "purpose": "company_extra_slots",
+    "email": "my@gmail.com",
+    "amountNaira": 170000,
+    "status": "PENDING",
+    "metadata": {
+      "companyId": "ctr-acc-1795466864831",
+      "slotsCount": 2,
+      "purpose": "company_extra_slots",
+      "requestedAmountNaira": 170000,
+      "paystackChargeNaira": 170000
+    },
+    "applied": false,
+    "createdAt": "2026-11-24T18:30:37.678Z"
+  },
+  {
+    "id": "pay-1795545006395",
+    "reference": "VTG-1795545004935-2353",
+    "purpose": "company_plan",
+    "email": "my@gmail.com",
+    "amountNaira": 600000,
+    "status": "PENDING",
+    "metadata": {
+      "companyId": "ctr-acc-1795466864831",
+      "planId": "contractor-prime",
+      "planName": "Prime Consortium",
+      "baseSlots": 8,
+      "billingCycle": "monthly",
+      "purpose": "company_plan",
+      "requestedAmountNaira": 600000,
+      "paystackChargeNaira": 100000
+    },
+    "applied": false,
+    "createdAt": "2026-11-24T18:30:06.395Z"
+  },
+  {
+    "id": "pay-1795544979234",
+    "reference": "VTG-1795544976985-7689",
+    "purpose": "company_plan",
+    "email": "my@gmail.com",
+    "amountNaira": 600000,
+    "status": "PENDING",
+    "metadata": {
+      "companyId": "ctr-acc-1795466864831",
+      "planId": "contractor-prime",
+      "planName": "Prime Consortium",
+      "baseSlots": 8,
+      "billingCycle": "monthly",
+      "purpose": "company_plan",
+      "requestedAmountNaira": 600000,
+      "paystackChargeNaira": 100000
+    },
+    "applied": false,
+    "createdAt": "2026-11-24T18:29:39.234Z"
+  },
+  {
+    "id": "pay-1795544164076",
+    "reference": "VTG-1795544158464-5683",
+    "purpose": "owner_plan",
+    "email": "uko@gmail.com",
+    "amountNaira": 65000,
+    "status": "SUCCESS",
+    "metadata": {
+      "ownerId": "own-1795543463189",
+      "tierId": "owner-portfolio",
+      "billingCycle": "monthly",
+      "purpose": "owner_plan"
+    },
+    "applied": true,
+    "createdAt": "2026-11-24T18:16:04.076Z",
+    "channel": "card",
+    "verifiedAt": "2026-11-24T18:17:50.201Z"
+  },
+  {
+    "id": "pay-1795543954782",
+    "reference": "VTG-1795543953402-8528",
+    "purpose": "company_plan",
+    "email": "my@gmail.com",
+    "amountNaira": 600000,
+    "status": "PENDING",
+    "metadata": {
+      "companyId": "ctr-acc-1795466864831",
+      "planId": "contractor-prime",
+      "planName": "Prime Consortium",
+      "baseSlots": 8,
+      "billingCycle": "monthly",
+      "purpose": "company_plan"
+    },
+    "applied": false,
+    "createdAt": "2026-11-24T18:12:34.782Z"
+  },
+  {
+    "id": "pay-1795543824683",
+    "reference": "VTG-1795543822064-5399",
+    "purpose": "company_plan",
+    "email": "my@gmail.com",
+    "amountNaira": 600000,
+    "status": "PENDING",
+    "metadata": {
+      "companyId": "ctr-acc-1795466864831",
+      "planId": "contractor-prime",
+      "planName": "Prime Consortium",
+      "baseSlots": 8,
+      "billingCycle": "monthly",
+      "purpose": "company_plan"
+    },
+    "applied": false,
+    "createdAt": "2026-11-24T18:10:24.683Z"
+  },
+  {
+    "id": "pay-1795543727240",
+    "reference": "VTG-1795543726116-1345",
+    "purpose": "company_plan",
+    "email": "my@gmail.com",
+    "amountNaira": 600000,
+    "status": "PENDING",
+    "metadata": {
+      "companyId": "ctr-acc-1795466864831",
+      "planId": "contractor-prime",
+      "planName": "Prime Consortium",
+      "baseSlots": 8,
+      "billingCycle": "monthly",
+      "purpose": "company_plan"
+    },
+    "applied": false,
+    "createdAt": "2026-11-24T18:08:47.240Z"
+  },
+  {
+    "id": "pay-1795543590486",
+    "reference": "VTG-1795543587295-7457",
+    "purpose": "owner_plan",
+    "email": "uko@gmail.com",
+    "amountNaira": 65000,
+    "status": "SUCCESS",
+    "metadata": {
+      "ownerId": "own-1795543463189",
+      "tierId": "owner-portfolio",
+      "billingCycle": "monthly",
+      "purpose": "owner_plan"
+    },
+    "applied": true,
+    "createdAt": "2026-11-24T18:06:30.486Z",
+    "channel": "card",
+    "verifiedAt": "2026-11-24T18:07:58.548Z"
+  }
+]

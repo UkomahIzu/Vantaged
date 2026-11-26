@@ -2,12 +2,30 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { useDemoMode } from "../hooks/useDemoMode";
 import { useOwnerSubscription } from "../hooks/useOwnerSubscription";
-import { readOwnerLiveNotifications } from "../../../shared/vantagedSyncBridge";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+  deleteOwnerLiveNotification,
+  markOwnerNotificationsRead,
+  readOwnerLiveNotifications,
+} from "../../../shared/vantagedSyncBridge";
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconCheck,
+  IconCheckCircle,
+  IconClock,
+  IconClose,
+  IconMessage,
+  IconReceipt,
+  IconShieldCheck,
+} from "./projects dashboard/ProjectIcons";
 
 export interface OwnerNotification {
   id: string;
@@ -17,6 +35,7 @@ export interface OwnerNotification {
   description: string;
   timestamp: string;
   isUnread: boolean;
+  linkUrl?: string;
 }
 
 const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
@@ -25,36 +44,44 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     category: "inspection",
     projectTitle: "Lekki Phase 1 Luxury Villa",
     title: "Stage 2 first floor decking is ready for review",
-    description: "Julius B. Consortium submitted photos for the first floor decking. Engr. Adeleke confirmed concrete strength test passed.",
+    description:
+      "Julius B. Consortium submitted photos for the first floor decking. Engr. Adeleke confirmed concrete strength test passed.",
     timestamp: "Today, 08:40",
     isUnread: true,
+    linkUrl: "/owner/projects/proj-lekki/stages",
   },
   {
     id: "notif-2",
     category: "escrow",
     projectTitle: "The Enclave Waterfront Resort",
     title: "Escrow deposit confirmed for Shoreline Piling",
-    description: "₦48,500,000 safely deposited in escrow for Stage 2. Your money stays protected until you approve the inspection.",
+    description:
+      "₦48,500,000 safely deposited in escrow for Stage 2. Your money stays protected until you approve the inspection.",
     timestamp: "Today, 09:12",
     isUnread: true,
+    linkUrl: "/owner/projects/proj-enclave/transactions",
   },
   {
     id: "notif-3",
     category: "site",
     projectTitle: "Banana Island Horizon Penthouse",
     title: "Drone photos & site walkthrough uploaded",
-    description: "Site cameras and drone uploaded clear new photos and a video walkthrough of your building.",
+    description:
+      "Site cameras and drone uploaded clear new photos and a video walkthrough of your building.",
     timestamp: "Today, 09:40",
     isUnread: true,
+    linkUrl: "/owner/projects/proj-banana/stages",
   },
   {
     id: "notif-4",
     category: "inspection",
     projectTitle: "Guzape Hills Residence",
     title: "Plumbing pipes water test passed",
-    description: "Engr. Emeka Uche tested all underfloor plumbing pipes for 24 hours with zero leaks.",
+    description:
+      "Engr. Emeka Uche tested all underfloor plumbing pipes for 24 hours with zero leaks.",
     timestamp: "Yesterday, 16:40",
     isUnread: false,
+    linkUrl: "/owner/projects/proj-guzape/stages",
   },
   {
     id: "notif-5",
@@ -64,48 +91,70 @@ const INITIAL_NOTIFICATIONS: OwnerNotification[] = [
     description: "Gate pass #WP-2092 confirmed. Delivery slip and receipt signed on site.",
     timestamp: "Oct 10, 14:15",
     isUnread: false,
+    linkUrl: "/owner/projects/proj-lekki",
   },
   {
     id: "notif-6",
     category: "escrow",
     projectTitle: "Lekki Phase 1 Luxury Villa",
     title: "Foundation milestone payment sent to builder",
-    description: "₦32,800,000 released to builder after you approved the foundation inspection. Receipt generated.",
+    description:
+      "₦32,800,000 released to builder after you approved the foundation inspection. Receipt generated.",
     timestamp: "Oct 09, 11:30",
     isUnread: false,
+    linkUrl: "/owner/projects/proj-lekki/transactions",
   },
   {
     id: "notif-7",
     category: "inspection",
     projectTitle: "Banana Island Horizon Penthouse",
     title: "Terrace soundproofing inspection passed",
-    description: "Arc. Amina Yusuf inspected soundproofing insulation across upper bedroom terraces.",
+    description:
+      "Arc. Amina Yusuf inspected soundproofing insulation across upper bedroom terraces.",
     timestamp: "Oct 07, 15:20",
     isUnread: false,
+    linkUrl: "/owner/projects/proj-banana/stages",
   },
   {
     id: "notif-8",
     category: "escrow",
     projectTitle: "Guzape Hills Residence",
     title: "Building plan adjustment reviewed",
-    description: "Quantity surveyor Femi Oladipo approved builder request for upgraded anti-crack wall mesh (+₦1.2M).",
+    description:
+      "Quantity surveyor Femi Oladipo approved builder request for upgraded anti-crack wall mesh (+₦1.2M).",
     timestamp: "Oct 05, 13:10",
     isUnread: false,
+    linkUrl: "/owner/projects/proj-guzape/change-requests",
   },
 ];
 
+const DEMO_STORAGE_KEY = "vantaged_owner_notifications";
+const PREFS_STORAGE_KEY = "vantaged_owner_notif_prefs";
+
+function isLiveOwnerNotifId(id: string): boolean {
+  return id.startsWith("live-notif-") || id.startsWith("notif-live-") || !INITIAL_NOTIFICATIONS.some((d) => d.id === id);
+}
+
 export function OwnerNotificationsPage() {
+  const router = useRouter();
   const scrollRef = useScrollRestoration<HTMLElement>("owner_notifications");
-  const storageKey = "vantaged_owner_notifications";
   const { isDemoMode } = useDemoMode();
   const subscription = useOwnerSubscription();
+
+  const [filterTab, setFilterTab] = useState<"all" | "unread" | "inspection" | "escrow" | "site">("all");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const getSourceNotifications = useCallback((): OwnerNotification[] => {
     const liveNotifs = readOwnerLiveNotifications() as OwnerNotification[];
     if (!isDemoMode) return liveNotifs;
     let base: OwnerNotification[] = INITIAL_NOTIFICATIONS;
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved = localStorage.getItem(DEMO_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -121,36 +170,28 @@ export function OwnerNotificationsPage() {
     return [...liveNotifs, ...filteredBase.filter((n) => !seen.has(n.id))];
   }, [isDemoMode, subscription.tierId]);
 
-  const [notifications, setNotifications] = useState<OwnerNotification[]>(() => getSourceNotifications());
+  const [notifications, setNotifications] = useState<OwnerNotification[]>([]);
 
   useEffect(() => {
     const sync = () => {
       setNotifications(getSourceNotifications());
     };
     sync();
-    window.addEventListener("vantaged_storage_update", sync);
+    window.addEventListener(SHARED_SYNC_EVENT, sync);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, sync);
     window.addEventListener("vantaged_demo_toggle", sync);
     window.addEventListener("storage", sync);
     return () => {
-      window.removeEventListener("vantaged_storage_update", sync);
+      window.removeEventListener(SHARED_SYNC_EVENT, sync);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, sync);
       window.removeEventListener("vantaged_demo_toggle", sync);
       window.removeEventListener("storage", sync);
     };
   }, [getSourceNotifications]);
 
-  const persistNotifications = (updated: OwnerNotification[]) => {
-    setNotifications(updated);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(updated));
-      } catch {}
-    }
-  };
-
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [selectedProofPreview, setSelectedProofPreview] = useState<OwnerNotification | null>(null);
 
-  // Settings State (PRD §7.18 Notification Channels)
+  // Settings State (persisted to localStorage)
   const [settings, setSettings] = useState({
     pushMilestones: true,
     emailMilestones: true,
@@ -162,26 +203,156 @@ export function OwnerNotificationsPage() {
     quietHours: true,
   });
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(PREFS_STORAGE_KEY);
+      if (saved) {
+        setSettings((prev) => ({ ...prev, ...JSON.parse(saved) }));
+      }
+    } catch {}
+  }, []);
+
+  const handleSavePreferences = () => {
+    try {
+      localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(settings));
+    } catch {}
+    setIsSettingsModalOpen(false);
+    showToast("Notification preferences saved.");
+  };
+
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => n.isUnread).length;
   }, [notifications]);
 
-  // Mark all as read
+  const filteredNotifications = useMemo(() => {
+    return notifications.filter((n) => {
+      if (filterTab === "unread") return n.isUnread;
+      if (filterTab === "inspection") return n.category === "inspection";
+      if (filterTab === "escrow") return n.category === "escrow";
+      if (filterTab === "site") return n.category === "site";
+      return true;
+    });
+  }, [notifications, filterTab]);
+
+  // Mark all as read (persists to live store + backend API + demo store)
   const handleMarkAllAsRead = () => {
-    persistNotifications(notifications.map((n) => ({ ...n, isUnread: false })));
+    const updated = notifications.map((n) => ({ ...n, isUnread: false }));
+    setNotifications(updated);
+    markOwnerNotificationsRead();
+    if (typeof window !== "undefined") {
+      try {
+        const demoOnly = updated.filter((n) => !isLiveOwnerNotifId(n.id));
+        if (isDemoMode) {
+          localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoOnly));
+        }
+        window.dispatchEvent(new Event(SHARED_SYNC_EVENT));
+      } catch {}
+    }
+    showToast("All notifications marked as read.");
   };
 
-  // Mark single notification as read
+  // Mark single notification as read (persists to live store + backend API + demo store)
   const handleMarkSingleAsRead = (id: string) => {
-    persistNotifications(
-      notifications.map((n) => (n.id === id ? { ...n, isUnread: false } : n))
-    );
+    const updated = notifications.map((n) => (n.id === id ? { ...n, isUnread: false } : n));
+    setNotifications(updated);
+    if (isLiveOwnerNotifId(id)) {
+      markOwnerNotificationsRead([id]);
+    } else if (typeof window !== "undefined") {
+      try {
+        const demoOnly = updated.filter((n) => !isLiveOwnerNotifId(n.id));
+        localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoOnly));
+        window.dispatchEvent(new Event(SHARED_SYNC_EVENT));
+      } catch {}
+    }
   };
 
-  // Delete / dismiss notification
+  // Open notification target route & mark as read
+  const handleOpenNotification = (item: OwnerNotification) => {
+    if (item.isUnread) {
+      handleMarkSingleAsRead(item.id);
+    }
+    if (item.linkUrl) {
+      router.push(item.linkUrl);
+    } else if (item.category === "escrow") {
+      router.push("/owner/transactions");
+    } else if (item.category === "inspection") {
+      router.push("/owner/projects");
+    } else {
+      router.push("/owner/projects");
+    }
+  };
+
+  // Delete / dismiss notification permanently
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    persistNotifications(notifications.filter((n) => n.id !== id));
+    const updated = notifications.filter((n) => n.id !== id);
+    setNotifications(updated);
+    if (isLiveOwnerNotifId(id)) {
+      deleteOwnerLiveNotification(id);
+    } else if (typeof window !== "undefined") {
+      try {
+        const demoOnly = updated.filter((n) => !isLiveOwnerNotifId(n.id));
+        localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demoOnly));
+        window.dispatchEvent(new Event(SHARED_SYNC_EVENT));
+      } catch {}
+    }
+  };
+
+  const renderCategoryIcon = (item: OwnerNotification) => {
+    const isNegotiationOrChat =
+      item.title.toLowerCase().includes("message") ||
+      item.title.toLowerCase().includes("negotiation");
+
+    if (isNegotiationOrChat) {
+      return (
+        <div
+          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+            item.isUnread
+              ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] border-[var(--vt-color-orange-200,#FDCAA9)]"
+              : "bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-neutral-400,#A3A0B8)] border-[var(--vt-color-border-default,#E2E0EC)]"
+          }`}
+        >
+          <IconMessage className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (item.category === "escrow") {
+      return (
+        <div
+          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+            item.isUnread
+              ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border-[var(--vt-color-green-200,#A3D9B1)]"
+              : "bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-neutral-400,#A3A0B8)] border-[var(--vt-color-border-default,#E2E0EC)]"
+          }`}
+        >
+          <IconReceipt className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (item.category === "inspection") {
+      return (
+        <div
+          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+            item.isUnread
+              ? "bg-indigo-50 text-[var(--vt-color-indigo-900,#261A66)] border-indigo-200"
+              : "bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-neutral-400,#A3A0B8)] border-[var(--vt-color-border-default,#E2E0EC)]"
+          }`}
+        >
+          <IconShieldCheck className="w-4 h-4" />
+        </div>
+      );
+    }
+    return (
+      <div
+        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+          item.isUnread
+            ? "bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] border-[var(--vt-color-orange-200,#FDCAA9)]"
+            : "bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-neutral-400,#A3A0B8)] border-[var(--vt-color-border-default,#E2E0EC)]"
+        }`}
+      >
+        <IconCheckCircle className="w-4 h-4" />
+      </div>
+    );
   };
 
   return (
@@ -189,12 +360,14 @@ export function OwnerNotificationsPage() {
       style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
       className="flex flex-col md:flex-row h-screen w-screen max-w-full max-h-full overflow-hidden bg-[var(--vt-color-background-subtle,#F7F7FA)] text-[var(--vt-color-text-default,#261A66)] select-none"
     >
-      {/* ── Left Sidebar Navigation ── */}
+      {/* Left Sidebar Navigation */}
       <SidebarNav currentActiveItem="notifications" />
 
-      {/* ── Main Workspace ── */}
-      <main ref={scrollRef} className="flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-5 flex flex-col gap-5 pb-24 md:pb-5">
-        {/* Top Header Bar */}
+      {/* Main Workspace */}
+      <main
+        ref={scrollRef}
+        className="flex-1 h-full max-h-screen overflow-y-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-5 flex flex-col gap-5 pb-24 md:pb-5"
+      >
         <HeaderBar
           leftSlot={
             <Link
@@ -202,32 +375,36 @@ export function OwnerNotificationsPage() {
               title="Back to Dashboard"
               className="w-8 h-8 rounded-lg bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-300,#FBA674)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] flex items-center justify-center transition-all shadow-2xs cursor-pointer"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12" />
-                <polyline points="12 19 5 12 12 5" />
-              </svg>
+              <IconArrowLeft className="w-4 h-4" />
             </Link>
           }
         />
 
-        {/* ── Simplified Notifications Layout adhering strictly to Vantaged design tokens ── */}
-        <div className="w-full max-w-4xl mx-auto flex flex-col gap-6 pt-2 pb-16">
-          {/* Header row: Title + Subtitle on left, Mark all as read on right */}
+        <div className="w-full max-w-4xl mx-auto flex flex-col gap-5 pt-2 pb-16">
+          {/* Header Row */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight">
-                Notifications
-              </h1>
-              <p className="text-sm text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1.5 font-normal">
-                Everything across your projects, milestone inspections, and escrow vaults, in one place.
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight">
+                  Notifications
+                </h1>
+                {unreadCount > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] animate-pulse" />
+                    <span>{unreadCount} Unread</span>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1 font-normal">
+                Real-time alerts across your building plans, price negotiations, milestone inspections, and escrow vaults.
               </p>
             </div>
 
-            <div className="flex items-center gap-4 shrink-0 pt-1">
+            <div className="flex items-center gap-3 shrink-0 pt-1">
               <button
                 type="button"
                 onClick={() => setIsSettingsModalOpen(true)}
-                className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] hover:text-[var(--vt-color-indigo-900,#261A66)] font-semibold transition-colors cursor-pointer"
+                className="h-8 px-3 rounded-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] hover:text-[var(--vt-color-indigo-900,#261A66)] font-semibold transition-colors cursor-pointer"
               >
                 Preferences
               </button>
@@ -236,110 +413,122 @@ export function OwnerNotificationsPage() {
                 <button
                   type="button"
                   onClick={handleMarkAllAsRead}
-                  className="text-sm font-semibold text-[var(--vt-color-orange-600,#D84C0B)] hover:text-[var(--vt-color-orange-700,#B33C08)] transition-colors cursor-pointer"
+                  className="h-8 px-3 rounded-lg bg-[var(--vt-color-orange-50,#FFF4EE)] hover:bg-[var(--vt-color-orange-100,#FFE6D5)] border border-[var(--vt-color-orange-200,#FDCAA9)] text-xs font-bold text-[var(--vt-color-orange-700,#B33C08)] transition-colors cursor-pointer inline-flex items-center gap-1.5"
                 >
-                  Mark all as read
+                  <IconCheck className="w-3.5 h-3.5" />
+                  <span>Mark all as read</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Unified Notification Card */}
+          {/* Filter Pills */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {(
+              [
+                { id: "all", label: `All (${notifications.length})` },
+                { id: "unread", label: `Unread (${unreadCount})` },
+                { id: "inspection", label: "Inspections & Stages" },
+                { id: "escrow", label: "Escrow & Payments" },
+                { id: "site", label: "Plans, Site & Chat" },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setFilterTab(tab.id)}
+                className={`h-8 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                  filterTab === tab.id
+                    ? "bg-[var(--vt-color-indigo-900,#261A66)] text-white border-[var(--vt-color-indigo-900,#261A66)] shadow-2xs"
+                    : "bg-white text-[var(--vt-color-neutral-600,#5E5A7D)] border-[var(--vt-color-border-default,#E2E0EC)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Unified Notification Feed */}
           <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs divide-y divide-[var(--vt-color-border-default,#E2E0EC)]/70 overflow-hidden">
-            {notifications.length === 0 ? (
-              <div className="py-20 px-6 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center mb-4 border border-[var(--vt-color-orange-200,#FDCAA9)] shadow-xs">
-                  <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-                  </svg>
+            {filteredNotifications.length === 0 ? (
+              <div className="py-16 px-6 flex flex-col items-center justify-center text-center">
+                <div className="w-14 h-14 rounded-2xl bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center mb-4 border border-[var(--vt-color-orange-200,#FDCAA9)] shadow-xs">
+                  <IconCheckCircle className="w-7 h-7" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                  All Caught Up!
+                <h3 className="text-base sm:text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                  {filterTab === "unread" ? "All Caught Up!" : "No Notifications Here Yet"}
                 </h3>
                 <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-500,#7C7894)] max-w-md mt-1.5 leading-relaxed">
-                  You have no unread notifications. When your contractor requests a milestone sign-off, uploads concrete test results, or releases escrow payments, you will receive real-time alerts here.
+                  When a contractor sends a building plan, replies in your price negotiation chat, submits stage proof, or confirms a bank receipt, real-time alerts will appear here.
                 </p>
-                <div className="mt-5 flex items-center gap-3">
+                <div className="mt-5 flex items-center gap-2.5">
+                  {filterTab !== "all" && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterTab("all")}
+                      className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] cursor-pointer"
+                    >
+                      Show All
+                    </button>
+                  )}
                   <Link
                     href="/owner/dashboard"
-                    className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(239,95,24,0.3)] hover:shadow-[0_4px_14px_rgba(239,95,24,0.4)] flex items-center gap-1.5 font-sans cursor-pointer"
+                    className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     Return to Dashboard
                   </Link>
                 </div>
               </div>
             ) : (
-              notifications.map((item) => (
+              filteredNotifications.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => {
-                    if (item.category === "inspection") {
-                      setSelectedProofPreview(item);
-                    }
-                    if (item.isUnread) {
-                      handleMarkSingleAsRead(item.id);
-                    }
-                  }}
-                  className={`px-6 py-5 flex items-start justify-between gap-4 transition-colors cursor-pointer group ${
+                  onClick={() => handleOpenNotification(item)}
+                  className={`px-5 sm:px-6 py-4.5 flex items-start justify-between gap-4 transition-colors cursor-pointer group border-l-3 ${
                     item.isUnread
-                      ? "bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
-                      : "bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] opacity-95"
+                      ? "bg-[var(--vt-color-orange-50,#FFF4EE)]/30 hover:bg-[var(--vt-color-orange-50,#FFF4EE)]/60 border-l-[var(--vt-color-orange-500,#EF5F18)]"
+                      : "bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] border-l-transparent"
                   }`}
                 >
-                  {/* Left: Document Icon in Brand Orange Token + Title & Description */}
-                  <div className="flex items-start gap-4 min-w-0 flex-1">
-                    {/* The Document Outline Icon adhering to Vantaged brand tokens */}
-                    <div className="shrink-0 mt-0.5">
-                      <svg
-                        className={`w-5 h-5 transition-colors ${
-                          item.isUnread
-                            ? "text-[var(--vt-color-orange-500,#EF5F18)]"
-                            : "text-[var(--vt-color-neutral-400,#A3A0B8)]"
-                        }`}
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="16" y1="13" x2="8" y2="13" />
-                        <line x1="16" y1="17" x2="8" y2="17" />
-                        <polyline points="10 9 9 9 8 9" />
-                      </svg>
-                    </div>
+                  <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                    {renderCategoryIcon(item)}
 
-                    {/* Text Body */}
-                    <div className="flex flex-col min-w-0">
-                      <h3 className="text-[15px] font-bold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight leading-snug">
-                        {item.title}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1 leading-relaxed">
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight leading-snug">
+                          {item.title}
+                        </h3>
+                        {item.isUnread && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9.5px] font-black uppercase bg-[var(--vt-color-orange-500,#EF5F18)] text-white shrink-0">
+                            New
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] mt-1 leading-relaxed">
                         {item.description}
                       </p>
+                      <div className="mt-2 flex items-center gap-3 flex-wrap">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--vt-color-orange-600,#D84C0B)] group-hover:underline">
+                          <span>{item.projectTitle || "View Details"}</span>
+                          <IconArrowRight className="w-3 h-3" />
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Right: Timestamp */}
-                  <div className="flex items-center gap-3 shrink-0 pt-0.5">
-                    <span className="text-xs text-[var(--vt-color-neutral-400,#A3A0B8)] font-normal whitespace-nowrap">
-                      {item.timestamp}
+                  <div className="flex items-center gap-2.5 shrink-0 pt-0.5">
+                    <span className="text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] font-medium whitespace-nowrap inline-flex items-center gap-1">
+                      <IconClock className="w-3 h-3" />
+                      <span>{item.timestamp}</span>
                     </span>
 
-                    {/* Subtle dismiss on hover */}
                     <button
                       type="button"
                       onClick={(e) => handleDelete(item.id, e)}
-                      title="Dismiss"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center text-[var(--vt-color-neutral-400,#A3A0B8)] hover:text-[var(--vt-color-red-500,#E5483B)] cursor-pointer"
+                      title="Dismiss notification"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-md hover:bg-rose-50 flex items-center justify-center text-[var(--vt-color-neutral-400,#A3A0B8)] hover:text-rose-600 cursor-pointer"
                     >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
+                      <IconClose className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -349,14 +538,16 @@ export function OwnerNotificationsPage() {
         </div>
       </main>
 
-      {/* ── NOTIFICATION PREFERENCES MODAL (PRD §7.18) ── */}
+      {/* NOTIFICATION PREFERENCES MODAL */}
       {isSettingsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setIsSettingsModalOpen(false)}
+        >
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
           >
-            {/* Header */}
             <div className="px-5 py-4 border-b border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
@@ -366,26 +557,23 @@ export function OwnerNotificationsPage() {
                   Choose which alerts to receive across Push, Email, and SMS.
                 </p>
               </div>
-
               <button
                 type="button"
                 onClick={() => setIsSettingsModalOpen(false)}
                 className="w-7 h-7 rounded-lg hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-400,#A3A0B8)] hover:text-[var(--vt-color-indigo-900,#261A66)] flex items-center justify-center transition-colors cursor-pointer"
               >
-                ✕
+                <IconClose className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-5 flex flex-col gap-3 text-xs">
-              {/* Event 1: Milestone Reviews */}
               <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-3">
                 <div>
                   <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-xs">
-                    Stage Reviews & Proof
+                    Stage Reviews &amp; Proof
                   </p>
                   <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                    Contractor milestone readiness
+                    Contractor milestone readiness &amp; negotiations
                   </p>
                 </div>
                 <div className="flex items-center gap-2.5 shrink-0 text-[11px] font-semibold">
@@ -410,14 +598,13 @@ export function OwnerNotificationsPage() {
                 </div>
               </div>
 
-              {/* Event 2: Escrow & Payments */}
               <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-3">
                 <div>
                   <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-xs">
-                    Escrow Deposits & Payouts
+                    Escrow Deposits &amp; Payouts
                   </p>
                   <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                    Tranche movements & releases
+                    Tranche movements &amp; receipt confirmations
                   </p>
                 </div>
                 <div className="flex items-center gap-2.5 shrink-0 text-[11px] font-semibold">
@@ -451,7 +638,6 @@ export function OwnerNotificationsPage() {
                 </div>
               </div>
 
-              {/* Event 3: Daily Digest */}
               <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between">
                 <div>
                   <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-xs">
@@ -469,7 +655,6 @@ export function OwnerNotificationsPage() {
                 />
               </div>
 
-              {/* Event 4: Quiet Hours */}
               <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between">
                 <div>
                   <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)] text-xs">
@@ -488,7 +673,6 @@ export function OwnerNotificationsPage() {
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-5 py-3.5 bg-[var(--vt-color-neutral-50,#F7F7FA)] border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -499,7 +683,7 @@ export function OwnerNotificationsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setIsSettingsModalOpen(false)}
+                onClick={handleSavePreferences}
                 className="h-8 px-3.5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs"
               >
                 Save Preferences
@@ -509,74 +693,10 @@ export function OwnerNotificationsPage() {
         </div>
       )}
 
-      {/* ── PROOF PREVIEW MODAL ── */}
-      {selectedProofPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
-          >
-            {/* Header */}
-            <div className="px-5 py-4 border-b border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-bold text-[var(--vt-color-orange-600,#D84C0B)]">
-                  {selectedProofPreview.projectTitle}
-                </span>
-                <h3 className="text-sm font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                  {selectedProofPreview.title}
-                </h3>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedProofPreview(null)}
-                className="w-7 h-7 rounded-lg hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-400,#A3A0B8)] hover:text-[var(--vt-color-indigo-900,#261A66)] flex items-center justify-center transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-5 flex flex-col gap-3 text-xs">
-              <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] leading-relaxed">
-                {selectedProofPreview.description}
-              </p>
-
-              {/* Sample Evidence Asset */}
-              <div className="rounded-xl overflow-hidden border border-[var(--vt-color-border-default,#E2E0EC)] relative aspect-video bg-[var(--vt-color-indigo-950,#160F3D)]">
-                <img
-                  src="https://images.unsplash.com/photo-1541888946425-d0fbb1861564?w=600&h=350&fit=crop"
-                  alt="Stage Proof"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/75 text-white text-[10px] font-bold">
-                  Inspection Proof • Verified by Lead Rep
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="px-5 py-3.5 bg-[var(--vt-color-neutral-50,#F7F7FA)] border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setSelectedProofPreview(null)}
-                className="h-8 px-3 rounded-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] cursor-pointer"
-              >
-                Close
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  alert(`Navigating to project stage approval for ${selectedProofPreview.projectTitle}`);
-                  setSelectedProofPreview(null);
-                }}
-                className="h-8 px-3.5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs"
-              >
-                Open Project Stage →
-              </button>
-            </div>
-          </div>
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[70] px-4 py-2.5 rounded-xl bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-bold shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex items-center gap-2">
+          <IconCheckCircle className="w-4 h-4 text-[var(--vt-color-green-400,#4ADE80)]" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

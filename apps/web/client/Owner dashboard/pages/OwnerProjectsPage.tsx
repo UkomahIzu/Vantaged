@@ -19,6 +19,7 @@ import {
   getActiveProjects,
   getContractHistory,
   getProposedPlans,
+  syncRemoteOwnerPlansAndBriefs,
 } from "./projects dashboard/projectStore";
 
 export { ACTIVE_PROJECTS, CONTRACT_HISTORY, PROPOSED_PLANS };
@@ -52,10 +53,10 @@ export function OwnerProjectsPage() {
   const [isCapacityModalOpen, setIsCapacityModalOpen] = useState(false);
   const { isDemoMode } = useDemoMode();
 
-  // Synchronized lists for Active Projects, Plan & Contract, and Contract History
-  const [activeProjects, setActiveProjects] = useState<ProjectItem[]>(() => getActiveProjects());
-  const [proposedPlans, setProposedPlans] = useState<ProjectItem[]>(() => getProposedPlans());
-  const [contractHistory, setContractHistory] = useState<ProjectItem[]>(() => getContractHistory());
+  // Synchronized lists for Active Projects, Plan & Contract, and Contract History (hydration-safe)
+  const [activeProjects, setActiveProjects] = useState<ProjectItem[]>([]);
+  const [proposedPlans, setProposedPlans] = useState<ProjectItem[]>([]);
+  const [contractHistory, setContractHistory] = useState<ProjectItem[]>([]);
 
   const subscription = useOwnerSubscription(activeProjects.length);
 
@@ -67,10 +68,17 @@ export function OwnerProjectsPage() {
     };
 
     syncAll();
+    syncRemoteOwnerPlansAndBriefs().then(() => {
+      syncAll();
+    });
+    const poll = setInterval(() => {
+      syncRemoteOwnerPlansAndBriefs().then(() => syncAll());
+    }, 6000);
     window.addEventListener("vantaged_storage_update", syncAll);
     window.addEventListener("vantaged_demo_toggle", syncAll);
     window.addEventListener("storage", syncAll);
     return () => {
+      clearInterval(poll);
       window.removeEventListener("vantaged_storage_update", syncAll);
       window.removeEventListener("vantaged_demo_toggle", syncAll);
       window.removeEventListener("storage", syncAll);

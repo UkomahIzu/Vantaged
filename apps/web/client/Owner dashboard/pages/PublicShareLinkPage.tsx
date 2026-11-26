@@ -14,31 +14,45 @@ export function PublicShareLinkPage({ token }: PublicShareLinkPageProps) {
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
 
   useEffect(() => {
-    // Resolve project from token slug
+    // Resolve project from stored share links first, then fallback to demo token slugs
     let projId = "proj-lekki";
     if (token.includes("banana")) projId = "proj-banana";
     else if (token.includes("enclave") || token.includes("epe")) projId = "proj-enclave";
     else if (token.includes("guzape")) projId = "proj-guzape";
     else if (token.includes("eko")) projId = "proj-eko";
 
-    // Check localStorage for revoked status
+    // Check localStorage for matching share link (projectId & revoked status)
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("vantaged_active_share_links");
-      if (saved) {
-        try {
-          const links = JSON.parse(saved);
-          const matched = links.find((l: any) => l.token === token || token.includes(l.token));
-          if (matched && matched.isRevoked) {
+      try {
+        const allLinks: any[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key === "vantaged_active_share_links" || key.startsWith("vantaged_active_share_links__"))) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) allLinks.push(...parsed);
+            }
+          }
+        }
+        const matched = allLinks.find(
+          (l: any) => l?.token === token || (l?.token && token.includes(l.token))
+        );
+        if (matched) {
+          if (matched.isRevoked) {
             setIsRevoked(true);
             return;
           }
-        } catch {
-          // ignore
+          if (matched.projectId) {
+            projId = matched.projectId;
+          }
         }
+      } catch {
+        // ignore
       }
     }
 
-    const data = getProjectDetail(projId);
+    const data = getProjectDetail(projId, true);
     setProject(data);
   }, [token]);
 
@@ -85,7 +99,8 @@ export function PublicShareLinkPage({ token }: PublicShareLinkPageProps) {
 
   const currentStage =
     project.stages.find((s) => s.status === "Ready for Review") ||
-    project.stages[3] ||
+    project.stages.find((s) => s.status === "In Progress") ||
+    project.stages.find((s) => s.status !== "Approved") ||
     project.stages[0];
 
   return (

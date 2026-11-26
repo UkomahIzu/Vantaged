@@ -6,22 +6,28 @@ import { useRouter } from "next/navigation";
 import { SidebarNav } from "../components/SidebarNav";
 import { HeaderBar } from "../components/HeaderBar";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { useDemoMode } from "../hooks/useDemoMode";
 import { VantagedSelect } from "../components/VantagedSelect";
 import {
   ProjectBrief,
   getProjectBriefs,
   saveProjectBrief,
+  syncRemoteOwnerPlansAndBriefs,
   STORAGE_KEY_ACTIVE,
   STORAGE_KEY_PLANS,
 } from "./projects dashboard/projectStore";
 import { ProjectItem } from "../components/ProjectFolderCard";
+import { ProposalNegotiationChat } from "../../../shared/ProposalNegotiationChat";
 import {
   CompanySentOwnerRequest,
   broadcastPortalSync,
+  ensureProjectConversation,
+  initializeFreshProjectWorkspace,
+  pushCompanyLiveNotification,
   readCompanySentRequests,
   saveCompanySentRequests,
 } from "../../../shared/vantagedSyncBridge";
-import { getOwnerScopedKey } from "../../../shared/vantagedAuth";
+import { getOwnerScopedKey, getOwnerSession } from "../../../shared/vantagedAuth";
 
 export interface CompanyItem {
   id: string;
@@ -295,11 +301,13 @@ const INITIAL_COMPANIES: CompanyItem[] = [
 export function OwnerFindCompaniesPage() {
   const router = useRouter();
   const scrollRef = useScrollRestoration<HTMLElement>("owner_find_companies");
-  const [companies, setCompanies] = useState<CompanyItem[]>(INITIAL_COMPANIES);
+  const { isDemoMode } = useDemoMode();
+  const [companies, setCompanies] = useState<CompanyItem[]>([]);
   const [projectBriefs, setProjectBriefs] = useState<ProjectBrief[]>([]);
   const [incomingCompanyRequests, setIncomingCompanyRequests] = useState<CompanySentOwnerRequest[]>([]);
   const [activeTab, setActiveTab] = useState<"directory" | "my-briefs" | "incoming">("directory");
   const [incomingToast, setIncomingToast] = useState<string | null>(null);
+  const [openChatRequestId, setOpenChatRequestId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedState, setSelectedState] = useState<string>("All States");
@@ -307,13 +315,92 @@ export function OwnerFindCompaniesPage() {
   const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
 
+  // Load Admin-verified real companies into the Find Companies directory (Demo companies ONLY when Demo Mode is ON)
+  useEffect(() => {
+    fetch("/api/contractor-accounts", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) => {
+        const verifiedCompanies: CompanyItem[] =
+          json?.success && Array.isArray(json.data)
+            ? json.data
+                .filter((acc: any) => acc.role === "Director" && acc.status !== "SUSPENDED")
+                .map((acc: any) => {
+                  const initials = String(acc.companyName || "VB")
+                    .split(/\s+/)
+                    .slice(0, 2)
+                    .map((w: string) => w[0]?.toUpperCase() || "")
+                    .join("");
+                  return {
+                    id: acc.id,
+                    name: acc.companyName,
+                    tagline: "Admin-verified construction company active on Vantaged",
+                    category: "General Contractor",
+                    location: "Nigeria",
+                    state: "Lagos",
+                    rating: 5.0,
+                    reviewsCount: 0,
+                    completedProjectsCount: 0,
+                    escrowDelivered: "₦0",
+                    reliabilityRate: 100,
+                    licenseNumber: `CAC ${acc.rcNumber || "Verified"}`,
+                    isVerified: true,
+                    isFeatured: true,
+                    logoBg: "bg-[var(--vt-color-indigo-900,#261A66)]",
+                    logoColor: "text-white",
+                    logoInitials: initials || "VB",
+                    leadDirector: {
+                      name: acc.directorName,
+                      role: "Managing Director",
+                      avatar:
+                        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face",
+                    },
+                    specialties: ["Turnkey Construction", "Verified Milestones", "Stage Reporting"],
+                    recentProjects: [],
+                  };
+                })
+            : [];
+
+        if (isDemoMode) {
+          const existingNames = new Set(verifiedCompanies.map((c) => c.name.toLowerCase()));
+          setCompanies([
+            ...verifiedCompanies,
+            ...INITIAL_COMPANIES.filter((p) => !existingNames.has(p.name.toLowerCase())),
+          ]);
+        } else {
+          setCompanies(verifiedCompanies);
+        }
+      })
+      .catch(() => {
+        setCompanies(isDemoMode ? INITIAL_COMPANIES : []);
+      });
+  }, [isDemoMode]);
+
   // Load and listen to project briefs & incoming company requests from shared store
   useEffect(() => {
     const syncAll = () => {
       setProjectBriefs(getProjectBriefs());
-      setIncomingCompanyRequests(readCompanySentRequests());
+      const session = getOwnerSession();
+      const allReqs = readCompanySentRequests();
+      if (session) {
+        const emailLower = session.email.trim().toLowerCase();
+        const phoneClean = (session.phone || "").replace(/\s+/g, "");
+        setIncomingCompanyRequests(
+          allReqs.filter((r) => {
+            const idLower = r.ownerIdentifier.trim().toLowerCase();
+            return (
+              idLower === emailLower ||
+              (phoneClean && idLower.replace(/\s+/g, "") === phoneClean)
+            );
+          })
+        );
+      } else {
+        setIncomingCompanyRequests(allReqs);
+      }
     };
     syncAll();
+    syncRemoteOwnerPlansAndBriefs().then(() => {
+      setProjectBriefs(getProjectBriefs());
+    });
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
@@ -340,6 +427,15 @@ export function OwnerFindCompaniesPage() {
     );
     setIncomingCompanyRequests(updatedReqs);
     saveCompanySentRequests(updatedReqs);
+    fetch("/api/project-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: req.id,
+        status: decision,
+        ...(decision === "Accepted" ? { projectId: newProjId } : {}),
+      }),
+    }).catch(() => {});
 
     if (decision === "Accepted" && typeof window !== "undefined") {
       const folderCategory: ProjectItem["category"] =
@@ -383,12 +479,88 @@ export function OwnerFindCompaniesPage() {
 
         const compRaw = localStorage.getItem("vantaged_company_accepted_projects");
         const compList: ProjectItem[] = compRaw ? JSON.parse(compRaw) : [];
+        const session = getOwnerSession();
+        const companyTaggedProject = {
+          ...createdProject,
+          companyId: (req as any).companyId,
+          companyName: req.companyName,
+          ownerId: session?.userId,
+          ownerName: session?.fullName || "Property Owner",
+          contractor: {
+            name: session?.fullName || "Property Owner",
+            rating: "Client · Verified NIN",
+            assignedRep: req.directorName,
+          },
+        };
         localStorage.setItem(
           "vantaged_company_accepted_projects",
-          JSON.stringify([createdProject, ...compList])
+          JSON.stringify([companyTaggedProject, ...compList])
         );
+
+        // Initialize clean ZERO-STATE workspace for BOTH Owner & Company Project Dashboards
+        const parsedBudget = (() => {
+          const upper = String(req.budget || "150000000").toUpperCase();
+          const m = upper.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+          if (!m) return 150000000;
+          const n = parseFloat(m[1]);
+          if (upper.includes("B")) return Math.round(n * 1_000_000_000);
+          if (upper.includes("M")) return Math.round(n * 1_000_000);
+          if (upper.includes("K")) return Math.round(n * 1_000);
+          return Math.round(n) || 150000000;
+        })();
+
+        initializeFreshProjectWorkspace({
+          projectId: newProjId,
+          title: req.title,
+          location: req.location,
+          category: folderCategory,
+          contractValue: parsedBudget,
+          ownerName: session?.fullName || "Property Owner",
+          ownerEmail: session?.email,
+          ownerPhone: session?.phone,
+          ownerId: session?.userId,
+          companyId: req.companyId,
+          companyName: req.companyName,
+          directorName: req.directorName,
+        });
+
+        // Persist accepted project to backend database
+        fetch("/api/projects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(companyTaggedProject),
+        }).catch(() => {});
+
+        ensureProjectConversation({
+          projectId: newProjId,
+          projectTitle: req.title,
+          ownerName: session?.fullName || "Property Owner",
+          ownerId: session?.userId,
+          companyId: req.companyId,
+          contractorName: req.directorName,
+          contractorCompany: req.companyName,
+        });
+
+        pushCompanyLiveNotification({
+          targetCompanyId: req.companyId,
+          category: "request",
+          projectTitle: req.title,
+          title: `Owner Accepted Project Request: ${req.title}`,
+          description: `${session?.fullName || "Property Owner"} accepted your project request (${req.budget}). You can now start Stage 1 and message the owner.`,
+          href: `/contractor/projects/${newProjId}`,
+        });
+
         broadcastPortalSync();
       } catch {}
+    } else if (decision === "Declined") {
+      const session = getOwnerSession();
+      pushCompanyLiveNotification({
+        category: "request",
+        projectTitle: req.title,
+        title: `Project Request Declined: ${req.title}`,
+        description: `${session?.fullName || "Property Owner"} declined the project request for "${req.title}".`,
+        href: "/contractor/projects",
+      });
     }
 
     setIncomingToast(
@@ -466,11 +638,16 @@ export function OwnerFindCompaniesPage() {
     e.preventDefault();
     if (!briefTargetCompany || !briefForm.title.trim()) return;
 
+    const session = getOwnerSession();
     const newPlanId = `prop-${Date.now()}`;
     const newBrief: ProjectBrief = {
       id: `brf-${Date.now()}`,
       companyId: briefTargetCompany.id,
       companyName: briefTargetCompany.name,
+      ownerId: session?.userId,
+      ownerName: session?.fullName || "Property Owner",
+      ownerEmail: session?.email || "",
+      ownerIdentifier: session?.email || session?.phone || "",
       title: briefForm.title.trim(),
       category: briefForm.category,
       estimatedBudget: briefForm.estimatedBudget,
@@ -482,6 +659,15 @@ export function OwnerFindCompaniesPage() {
     };
 
     saveProjectBrief(newBrief);
+    pushCompanyLiveNotification({
+      targetCompanyId: briefTargetCompany.id,
+      targetCompanyName: briefTargetCompany.name,
+      category: "request",
+      projectTitle: newBrief.title,
+      title: `New Project Brief from ${newBrief.ownerName || "Property Owner"}`,
+      description: `${newBrief.title} (${newBrief.estimatedBudget}) · ${newBrief.location}. Review the brief and send a milestone plan.`,
+      href: "/contractor/requests",
+    });
     setProjectBriefs(getProjectBriefs());
     setIsBriefModalOpen(false);
     setActiveTab("my-briefs");
@@ -1000,74 +1186,105 @@ export function OwnerFindCompaniesPage() {
                     key={req.id}
                     className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] p-5 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-4"
                   >
-                    <div className="space-y-2 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[11px] font-mono font-bold text-[var(--vt-color-neutral-500,#7C7894)]">
-                          {req.id}
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
-                          {req.category}
-                        </span>
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${
-                            req.status === "Accepted"
-                              ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border-[var(--vt-color-green-200,#A3D9B1)]"
-                              : req.status === "Declined"
-                              ? "bg-rose-50 text-rose-700 border-rose-200"
-                              : "bg-indigo-50 text-[var(--vt-color-indigo-900,#261A66)] border-indigo-200"
-                          }`}
-                        >
-                          {req.status}
-                        </span>
+                    <div className="flex flex-col gap-3 w-full">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="space-y-2 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] font-mono font-bold text-[var(--vt-color-neutral-500,#7C7894)]">
+                              {req.id}
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
+                              {req.category}
+                            </span>
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${
+                                req.status === "Accepted"
+                                  ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border-[var(--vt-color-green-200,#A3D9B1)]"
+                                  : req.status === "Declined"
+                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                  : "bg-indigo-50 text-[var(--vt-color-indigo-900,#261A66)] border-indigo-200"
+                              }`}
+                            >
+                              {req.status}
+                            </span>
+                          </div>
+
+                          <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                            {req.title}
+                          </h3>
+
+                          <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)]">
+                            From <strong>{req.companyName}</strong> ({req.directorName}) · Location:{" "}
+                            <strong>{req.location}</strong> · Budget:{" "}
+                            <strong className="text-[var(--vt-color-orange-600,#D84C0B)]">{req.budget}</strong>
+                          </p>
+
+                          {req.notes && (
+                            <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-3">
+                              {req.notes}
+                            </p>
+                          )}
+
+                          <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
+                            Routed by Vantaged · Notification sent to <strong>{req.ownerIdentifier}</strong>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenChatRequestId((prev) => (prev === req.id ? null : req.id))
+                            }
+                            className="h-9 px-3.5 rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C0B)] text-xs font-bold cursor-pointer transition-colors"
+                          >
+                            {openChatRequestId === req.id ? "Hide Price Chat" : "Discuss Price"}
+                          </button>
+
+                          {req.status === "Pending Owner Review" ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleRespondToCompanyRequest(req, "Declined")}
+                                className="h-9 px-4 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold cursor-pointer"
+                              >
+                                Decline
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRespondToCompanyRequest(req, "Accepted")}
+                                className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.28)] cursor-pointer"
+                              >
+                                Accept &amp; Start Project
+                              </button>
+                            </>
+                          ) : req.status === "Accepted" && req.projectId ? (
+                            <Link
+                              href={`/owner/projects/${req.projectId}`}
+                              className="h-9 px-4 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-bold flex items-center justify-center"
+                            >
+                              Open Project →
+                            </Link>
+                          ) : null}
+                        </div>
                       </div>
 
-                      <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                        {req.title}
-                      </h3>
-
-                      <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)]">
-                        From <strong>{req.companyName}</strong> ({req.directorName}) · Location:{" "}
-                        <strong>{req.location}</strong> · Budget:{" "}
-                        <strong className="text-[var(--vt-color-orange-600,#D84C0B)]">{req.budget}</strong>
-                      </p>
-
-                      {req.notes && (
-                        <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-3">
-                          {req.notes}
-                        </p>
+                      {openChatRequestId === req.id && (
+                        <div className="pt-2 border-t border-[var(--vt-color-neutral-100,#EFEEF5)]">
+                          <ProposalNegotiationChat
+                            requestId={req.id}
+                            currentRole="owner"
+                            currentUserName={getOwnerSession()?.fullName || "Property Owner"}
+                            counterpartyName={req.companyName}
+                            projectTitle={req.title}
+                            ownerId={getOwnerSession()?.userId}
+                            ownerEmail={getOwnerSession()?.email}
+                            companyId={req.companyId}
+                            companyName={req.companyName}
+                            compact
+                          />
+                        </div>
                       )}
-
-                      <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
-                        Routed by Vantaged · Notification sent to <strong>{req.ownerIdentifier}</strong>
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2.5 shrink-0">
-                      {req.status === "Pending Owner Review" ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleRespondToCompanyRequest(req, "Declined")}
-                            className="h-9 px-4 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold cursor-pointer"
-                          >
-                            Decline
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRespondToCompanyRequest(req, "Accepted")}
-                            className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.28)] cursor-pointer"
-                          >
-                            Accept &amp; Start Project
-                          </button>
-                        </>
-                      ) : req.status === "Accepted" && req.projectId ? (
-                        <Link
-                          href={`/owner/projects/${req.projectId}`}
-                          className="h-9 px-4 rounded-md bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-bold flex items-center justify-center"
-                        >
-                          Open Project →
-                        </Link>
-                      ) : null}
                     </div>
                   </div>
                 ))}

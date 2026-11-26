@@ -39,56 +39,81 @@ export default function ContractorsDirectoryPage() {
     }
 
     if (!isDemoMode) {
-      fetch("/api/verifications")
-        .then((res) => res.json())
-        .then((resData) => {
-          if (resData?.success && Array.isArray(resData.data)) {
-            const pending = resData.data.filter(
+      Promise.all([
+        fetch("/api/verifications", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+        fetch("/api/contractor-accounts", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+      ])
+        .then(([verifRes, accRes]) => {
+          const accounts: any[] =
+            accRes?.success && Array.isArray(accRes.data) ? accRes.data : [];
+
+          if (verifRes?.success && Array.isArray(verifRes.data)) {
+            const pending = verifRes.data.filter(
               (s: any) => s.status === "PENDING_REVIEW"
             ).length;
             setPendingQueueCount(pending);
-            const verifiedLive: ContractorRecord[] = resData.data
+            const verifiedLive: ContractorRecord[] = verifRes.data
               .filter((s: any) => s.status === "VERIFIED")
-              .map((s: any) => ({
-                id: s.id,
-                name: s.companyName,
-                rcNumber: s.rcNumber || "RC-VERIFIED",
-                director: s.directorName,
-                email: s.directorEmail || s.email,
-                phone: s.directorPhone || s.phone || "",
-                state: s.state || "Lagos",
-                category: s.category || "General Contractor",
-                plan:
-                  s.selectedPlan === "contractor-prime"
+              .map((s: any) => {
+                const acc = accounts.find(
+                  (a) =>
+                    a.submissionId === s.id ||
+                    String(a.email || "").toLowerCase() ===
+                      String(s.directorEmail || s.email || "").toLowerCase()
+                );
+                const planId = acc?.planId || s.selectedPlan || "contractor-starter";
+                const planLabel: ContractorRecord["plan"] =
+                  planId === "contractor-prime" || planId === "enterprise"
                     ? "Prime Consortium"
-                    : s.selectedPlan === "contractor-verified"
+                    : planId === "contractor-verified" || planId === "verified"
                     ? "Verified Builder"
-                    : "Starter Builder",
-                status: "VERIFIED",
-                slotsUsed: 0,
-                slotsMax:
-                  s.selectedPlan === "contractor-prime"
+                    : "Starter Builder";
+                const baseSlots =
+                  typeof acc?.baseSlots === "number"
+                    ? acc.baseSlots
+                    : planLabel === "Prime Consortium"
                     ? 8
-                    : s.selectedPlan === "contractor-verified"
+                    : planLabel === "Verified Builder"
                     ? 3
-                    : 1,
-                activeSlots: "0 / 1 (Free Slot Available)",
-                badges: ["CAC Verified"],
-                verifiedDate: s.verifiedAt
-                  ? new Date(s.verifiedAt).toLocaleDateString()
-                  : "Recently",
-                rating: 5.0,
-                escrowVolume: "₦0",
-                completedBuilds: 0,
-                officeAddress: s.officeAddress || "",
-                tin: s.tin || "",
-                bankName: s.bankName || "",
-                accountNumber: s.accountNumber || "",
-                accountName: s.accountName || "",
-                corenNumber: s.corenNumber || "",
-                bppCategory: s.bppCategory || "",
-                yearsInBusiness: s.yearsInBusiness || "1+",
-              }));
+                    : 1;
+                const extraSlots = typeof acc?.extraSlots === "number" ? acc.extraSlots : 0;
+                const totalMax = baseSlots + extraSlots;
+                const used = typeof acc?.slotsUsed === "number" ? acc.slotsUsed : 0;
+                const activeSlotsLabel =
+                  extraSlots > 0
+                    ? `${used} / ${totalMax} (${baseSlots} plan + ${extraSlots} extra)`
+                    : `${used} / ${totalMax}`;
+
+                return {
+                  id: s.id,
+                  name: s.companyName,
+                  rcNumber: s.rcNumber || "RC-VERIFIED",
+                  tin: s.tin || "",
+                  director: s.directorName,
+                  directorRole: s.directorRole || "Managing Director",
+                  directorEmail: s.directorEmail || s.email || "",
+                  directorPhone: s.directorPhone || s.phone || "",
+                  state: s.state || "Lagos",
+                  officeAddress: s.officeAddress || "",
+                  category: s.category || "General Contractor",
+                  plan: planLabel,
+                  status: acc?.status === "SUSPENDED" ? "SUSPENDED" : "VERIFIED",
+                  slotsUsed: used,
+                  slotsMax: totalMax,
+                  activeSlots: activeSlotsLabel,
+                  freeSlotUsed: used > 0,
+                  badges:
+                    acc?.status === "SUSPENDED"
+                      ? ["Account Suspended"]
+                      : ["CAC Verified"],
+                  joinedDate: s.verifiedAt
+                    ? new Date(s.verifiedAt).toLocaleDateString()
+                    : "Recently",
+                  bankName: s.bankName || "",
+                  accountNumber: s.accountNumber || "",
+                  accountName: s.accountName || "",
+                };
+              });
             setContractors(verifiedLive);
           } else {
             setContractors([]);
@@ -127,14 +152,41 @@ export default function ContractorsDirectoryPage() {
   const handleToggleSuspend = async (contractor: ContractorRecord) => {
     const nextStatus = contractor.status === "SUSPENDED" ? "VERIFIED" : "SUSPENDED";
     const updatedContractors = contractors.map((c) =>
-      c.id === contractor.id ? { ...c, status: nextStatus as any } : c
+      c.id === contractor.id
+        ? {
+            ...c,
+            status: nextStatus as any,
+            badges:
+              nextStatus === "SUSPENDED"
+                ? ["Account Suspended"]
+                : ["CAC Verified"],
+          }
+        : c
     );
     setContractors(updatedContractors);
     if (selectedContractor && selectedContractor.id === contractor.id) {
-      setSelectedContractor({ ...selectedContractor, status: nextStatus as any });
+      setSelectedContractor({
+        ...selectedContractor,
+        status: nextStatus as any,
+        badges:
+          nextStatus === "SUSPENDED"
+            ? ["Account Suspended"]
+            : ["CAC Verified"],
+      });
     }
 
     try {
+      await fetch("/api/contractor-accounts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submissionId: contractor.id,
+          email: contractor.directorEmail,
+          companyName: contractor.name,
+          status: nextStatus === "SUSPENDED" ? "SUSPENDED" : "ACTIVE",
+        }),
+      });
+
       await fetch("/api/contractors", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -406,25 +458,62 @@ export default function ContractorsDirectoryPage() {
                 </td>
               </tr>
             ) : (
-              filtered.map((item) => (
+              filtered.map((item) => {
+                const isSuspended = item.status === "SUSPENDED";
+                return (
                 <tr
                   key={item.id}
                   onClick={() => setSelectedContractor(item)}
-                  className={`group hover:bg-[var(--vt-color-orange-50,#FFF4EE)]/50 transition-colors cursor-pointer ${
-                    selectedContractor?.id === item.id ? "bg-[var(--vt-color-orange-50,#FFF4EE)]/80" : ""
+                  className={`group transition-colors cursor-pointer ${
+                    isSuspended
+                      ? "bg-rose-50/80 hover:bg-rose-100/70"
+                      : selectedContractor?.id === item.id
+                      ? "bg-[var(--vt-color-orange-50,#FFF4EE)]/80"
+                      : "hover:bg-[var(--vt-color-orange-50,#FFF4EE)]/50"
                   }`}
                 >
                   {/* Company & Legal Entity */}
                   <td className="py-3 px-3 sm:px-4">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-[var(--vt-color-indigo-50,#F4F3FC)] text-[var(--vt-color-indigo-900,#261A66)] font-bold text-xs flex items-center justify-center border border-[var(--vt-color-indigo-100,#EAE8F9)] shrink-0">
+                    <div
+                      className={`flex items-center gap-2.5 min-w-0 rounded-lg px-2 py-1.5 -mx-2 -my-1.5 transition-colors ${
+                        isSuspended
+                          ? "bg-rose-100/90 border border-rose-300"
+                          : ""
+                      }`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center border shrink-0 ${
+                          isSuspended
+                            ? "bg-rose-600 text-white border-rose-700"
+                            : "bg-[var(--vt-color-indigo-50,#F4F3FC)] text-[var(--vt-color-indigo-900,#261A66)] border-[var(--vt-color-indigo-100,#EAE8F9)]"
+                        }`}
+                      >
                         {item.name.charAt(0)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-600,#D84C0B)] transition-colors truncate">
-                          {item.name}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`font-bold text-sm transition-colors truncate ${
+                              isSuspended
+                                ? "text-rose-800"
+                                : "text-[var(--vt-color-indigo-900,#261A66)] group-hover:text-[var(--vt-color-orange-600,#D84C0B)]"
+                            }`}
+                          >
+                            {item.name}
+                          </span>
+                          {isSuspended && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-rose-600 text-white shrink-0">
+                              Suspended
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] font-mono text-[var(--vt-color-neutral-500,#7C7894)] truncate">
+                        <div
+                          className={`flex items-center gap-2 mt-0.5 text-[11px] font-mono truncate ${
+                            isSuspended
+                              ? "text-rose-700/80"
+                              : "text-[var(--vt-color-neutral-500,#7C7894)]"
+                          }`}
+                        >
                           <span>{item.rcNumber}</span>
                           <span>·</span>
                           <span>{item.state}</span>
@@ -455,9 +544,19 @@ export default function ContractorsDirectoryPage() {
                       {item.badges.map((b, idx) => (
                         <span
                           key={idx}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-800,#134427)] border border-[var(--vt-color-green-200,#A3D9B1)]"
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            isSuspended
+                              ? "bg-rose-100 text-rose-800 border-rose-300"
+                              : "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-800,#134427)] border-[var(--vt-color-green-200,#A3D9B1)]"
+                          }`}
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-green-500,#2E9E57)]" />
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isSuspended
+                                ? "bg-rose-600"
+                                : "bg-[var(--vt-color-green-500,#2E9E57)]"
+                            }`}
+                          />
                           {b}
                         </span>
                       ))}
@@ -478,7 +577,8 @@ export default function ContractorsDirectoryPage() {
                     </Link>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
@@ -489,9 +589,21 @@ export default function ContractorsDirectoryPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/40 backdrop-blur-xs">
           <div className="bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in-50 zoom-in-95">
             {/* Modal Header */}
-            <div className="p-5 border-b border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-start justify-between gap-4 bg-[var(--vt-color-neutral-50,#F7F7FA)]">
+            <div
+              className={`p-5 border-b flex items-start justify-between gap-4 ${
+                selectedContractor.status === "SUSPENDED"
+                  ? "bg-rose-50 border-rose-200"
+                  : "bg-[var(--vt-color-neutral-50,#F7F7FA)] border-[var(--vt-color-neutral-100,#EFEEF5)]"
+              }`}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] text-white font-extrabold text-base flex items-center justify-center shadow-sm shrink-0">
+                <div
+                  className={`w-10 h-10 rounded-xl text-white font-extrabold text-base flex items-center justify-center shadow-sm shrink-0 ${
+                    selectedContractor.status === "SUSPENDED"
+                      ? "bg-rose-600"
+                      : "bg-[var(--vt-color-orange-500,#EF5F18)]"
+                  }`}
+                >
                   {selectedContractor.name.charAt(0)}
                 </div>
                 <div>

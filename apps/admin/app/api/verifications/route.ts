@@ -65,7 +65,14 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { id, status, rejectionReason, rejectionNotes, documentVerification } = body;
+    const {
+      id,
+      status,
+      rejectionReason,
+      rejectionNotes,
+      documentVerification,
+      directorCredentials,
+    } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: "Submission ID is required" }, { status: 400 });
@@ -79,10 +86,32 @@ export async function PATCH(request: Request) {
     }
 
     const current = submissions[index];
+    const loginEmail =
+      status === "VERIFIED"
+        ? String(
+            directorCredentials?.email ||
+              current.directorEmail ||
+              current.email ||
+              ""
+          )
+            .trim()
+            .toLowerCase()
+        : undefined;
+    const loginPassword =
+      status === "VERIFIED"
+        ? String(directorCredentials?.password || `VTG-${Math.floor(1000 + Math.random() * 9000)}!`).trim()
+        : undefined;
+
     const updated = {
       ...current,
       ...(status ? { status } : {}),
-      ...(status === "VERIFIED" ? { verifiedAt: new Date().toISOString() } : {}),
+      ...(status === "VERIFIED"
+        ? {
+            verifiedAt: new Date().toISOString(),
+            issuedDirectorEmail: loginEmail,
+            issuedDirectorPassword: loginPassword,
+          }
+        : {}),
       ...(rejectionReason !== undefined ? { rejectionReason } : {}),
       ...(rejectionNotes !== undefined ? { rejectionNotes } : {}),
       ...(documentVerification && current.documents
@@ -98,6 +127,43 @@ export async function PATCH(request: Request) {
 
     submissions[index] = updated;
     writeSubmissions(submissions);
+
+    // Atomically provision the Director login in contractor-accounts.json in the same data folder
+    if (status === "VERIFIED" && loginEmail && loginPassword) {
+      try {
+        const accountsPath = path.join(path.dirname(getStoragePath()), "contractor-accounts.json");
+        let accounts: any[] = [];
+        if (fs.existsSync(accountsPath)) {
+          const parsed = JSON.parse(fs.readFileSync(accountsPath, "utf8"));
+          if (Array.isArray(parsed)) accounts = parsed;
+        }
+        const existingIdx = accounts.findIndex(
+          (a) => String(a.email || "").trim().toLowerCase() === loginEmail
+        );
+        const record = {
+          id: existingIdx >= 0 ? accounts[existingIdx].id : `ctr-acc-${Date.now()}`,
+          companyName: current.companyName,
+          rcNumber: current.rcNumber || "RC-VERIFIED",
+          directorName: current.directorName,
+          email: loginEmail,
+          password: loginPassword,
+          role: "Director",
+          phone: current.directorPhone || current.phone,
+          submissionId: current.id,
+          createdAt:
+            existingIdx >= 0 ? accounts[existingIdx].createdAt : new Date().toISOString(),
+          issuedBy: "Vantaged Admin",
+        };
+        if (existingIdx >= 0) {
+          accounts[existingIdx] = record;
+        } else {
+          accounts.unshift(record);
+        }
+        fs.writeFileSync(accountsPath, JSON.stringify(accounts, null, 2), "utf8");
+      } catch (accErr) {
+        console.error("Failed to atomically provision contractor account:", accErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -31,8 +31,74 @@ export default function ContractorProjectsPage() {
 
   useEffect(() => {
     if (!isDemoMode) {
-      setLiveContractor(null);
-      setLiveProjects([]);
+      fetch("/api/verifications")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.success && Array.isArray(data.data)) {
+            const sub = data.data.find(
+              (s: any) =>
+                s.status === "VERIFIED" &&
+                (s.id === contractorId ||
+                  String(s.companyName || "")
+                    .toLowerCase()
+                    .replace(/\s+/g, "-") === contractorId.toLowerCase())
+            );
+            if (sub) {
+              setLiveContractor({
+                id: sub.id,
+                name: sub.companyName,
+                rcNumber: sub.rcNumber || "RC-VERIFIED",
+                tin: sub.tin || "",
+                director: sub.directorName,
+                directorRole: sub.directorRole || "Managing Director",
+                directorEmail: sub.directorEmail || sub.email || "",
+                directorPhone: sub.directorPhone || sub.phone || "",
+                state: sub.state || "Lagos",
+                officeAddress: sub.officeAddress || "",
+                category: sub.category || "General Contractor",
+                plan:
+                  sub.selectedPlan === "contractor-prime"
+                    ? "Prime Consortium"
+                    : sub.selectedPlan === "contractor-verified"
+                    ? "Verified Builder"
+                    : "Starter Builder",
+                status: "VERIFIED",
+                badges: ["CAC Verified"],
+                activeSlots: "0 / 1 (Free Slot Available)",
+                slotsUsed: 0,
+                slotsMax:
+                  sub.selectedPlan === "contractor-prime"
+                    ? 8
+                    : sub.selectedPlan === "contractor-verified"
+                    ? 3
+                    : 1,
+                freeSlotUsed: false,
+                bankName: sub.bankName || "",
+                accountNumber: sub.accountNumber || "",
+                accountName: sub.accountName || "",
+                joinedDate: sub.verifiedAt
+                  ? new Date(sub.verifiedAt).toLocaleDateString()
+                  : "Recently",
+              });
+            } else {
+              setLiveContractor(null);
+            }
+          }
+        })
+        .catch(() => setLiveContractor(null));
+
+      if (contractorId) {
+        fetch(`/api/contractors?projectsFor=${encodeURIComponent(contractorId)}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.success && Array.isArray(data.data)) {
+              setLiveProjects(data.data);
+            } else {
+              setLiveProjects([]);
+            }
+          })
+          .catch(() => setLiveProjects([]));
+      }
       return;
     }
 
@@ -62,10 +128,10 @@ export default function ContractorProjectsPage() {
     }
   }, [contractorId, isDemoMode]);
 
-  // Lookup contractor (static or live API)
+  // Lookup contractor (live verified API or demo static)
   const contractor = useMemo(() => {
-    if (!isDemoMode) return null;
     if (liveContractor) return liveContractor;
+    if (!isDemoMode) return null;
     return (
       INITIAL_CONTRACTORS.find((c) => c.id === contractorId) ||
       INITIAL_CONTRACTORS.find(
@@ -75,10 +141,12 @@ export default function ContractorProjectsPage() {
     );
   }, [contractorId, liveContractor, isDemoMode]);
 
-  // Lookup contractor's projects (seeded + dynamically created projects, clean slate for new firms)
+  // Lookup contractor's projects (live projects in Live State; seeded + live in Demo Mode)
   const initialList = useMemo(() => {
-    if (!isDemoMode || !contractor) return [];
-    const seeded = ALL_PROJECTS.filter((p) => p.contractorId === contractor.id);
+    if (!contractor) return [];
+    const seeded = isDemoMode
+      ? ALL_PROJECTS.filter((p) => p.contractorId === contractor.id)
+      : [];
     const merged = [...seeded];
     liveProjects.forEach((lp) => {
       if (!merged.some((m) => m.id === lp.id)) {
