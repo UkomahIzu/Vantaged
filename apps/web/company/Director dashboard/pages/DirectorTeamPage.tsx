@@ -1,39 +1,27 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { DirectorSidebarNav } from "../components/DirectorSidebarNav";
 import { DirectorHeaderBar } from "../components/DirectorHeaderBar";
 import { useScrollRestoration } from "../../../client/Owner dashboard/hooks/useScrollRestoration";
 import { VantagedSelect } from "../../../client/Owner dashboard/components/VantagedSelect";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { useContractorUser } from "../hooks/useContractorUser";
 import { readLocalData, writeLocalData } from "../utils/localPersistence";
+import {
+  KEY_REGISTERED_CONTRACTORS,
+  readLocalContractorAccounts,
+} from "../../../shared/vantagedAuth";
+import {
+  AddTeamMemberModal,
+  TEAM_ROSTER_UPDATE_EVENT,
+  type TeamPersonnelCardItem,
+  type TeamRole,
+} from "../components/AddTeamMemberModal";
 
-export type TeamRole =
-  | "Director"
-  | "Site Manager"
-  | "Office Coordinator"
-  | "Crew Member";
-
-export interface TeamPersonnelCardItem {
-  id: string;
-  name: string;
-  title: string;
-  role: TeamRole;
-  credential: string;
-  location: string;
-  email: string;
-  phone: string;
-  assignedSites: number;
-  assignedProjectName: string;
-  points: number;
-  attendanceRate: number;
-  status: "ON_SITE" | "ACTIVE";
-  avatar: string;
-  isFeatured?: boolean;
-  isStarred?: boolean;
-  specialties: string[];
-}
+export type { TeamPersonnelCardItem, TeamRole };
 
 const INITIAL_PERSONNEL: TeamPersonnelCardItem[] = [
   {
@@ -182,6 +170,8 @@ const INITIAL_PERSONNEL: TeamPersonnelCardItem[] = [
 export function DirectorTeamPage() {
   const scrollRef = useScrollRestoration<HTMLElement>("director_team_page");
   const { isDemoMode } = useDirectorDemoMode();
+  const contractorUser = useContractorUser();
+  const [mounted, setMounted] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"all" | "onsite">("all");
   const [selectedRole, setSelectedRole] = useState<string>("All");
@@ -195,19 +185,25 @@ export function DirectorTeamPage() {
     readLocalData("vantaged_director_team_custom_roster", [])
   );
   const [selectedPerson, setSelectedPerson] = useState<TeamPersonnelCardItem | null>(null);
+  const [isEditingPerson, setIsEditingPerson] = useState(false);
+  const [editRole, setEditRole] = useState<TeamRole>("Site Manager");
+  const [editSite, setEditSite] = useState("");
+  const [resetPasswordInput, setResetPasswordInput] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const [newMember, setNewMember] = useState({
-    name: "",
-    title: "",
-    role: "Site Manager" as TeamRole,
-    location: "Lekki Phase 1, Lagos",
-    assignedProjectName: "Lekki Phase 1 Five-Bedroom Villa",
-    email: "",
-    phone: "",
-    specialtiesText: "",
-  });
+  useEffect(() => {
+    setMounted(true);
+    const syncCustom = () => {
+      setCustomRoster(readLocalData("vantaged_director_team_custom_roster", []));
+    };
+    window.addEventListener(TEAM_ROSTER_UPDATE_EVENT, syncCustom);
+    window.addEventListener("storage", syncCustom);
+    return () => {
+      window.removeEventListener(TEAM_ROSTER_UPDATE_EVENT, syncCustom);
+      window.removeEventListener("storage", syncCustom);
+    };
+  }, []);
 
   const roster = useMemo(
     () => (isDemoMode ? [...customRoster, ...demoRoster] : customRoster),
@@ -270,50 +266,83 @@ export function DirectorTeamPage() {
     );
   };
 
-  const handleAddMember = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMember.name.trim()) return;
+  const handleOpenPersonDossier = (person: TeamPersonnelCardItem) => {
+    setSelectedPerson(person);
+    setEditRole(person.role);
+    setEditSite(person.assignedProjectName);
+    setResetPasswordInput("");
+    setIsEditingPerson(false);
+  };
 
-    const created: TeamPersonnelCardItem = {
-      id: `tm-custom-${Date.now()}`,
-      name: newMember.name.trim(),
-      title: newMember.title.trim() || newMember.role,
-      role: newMember.role,
-      credential: "Company Verified Staff",
-      location: newMember.location.trim() || "Lagos",
-      email: newMember.email.trim() || "staff@apexstructure.ng",
-      phone: newMember.phone.trim() || "+234 800 000 0000",
-      assignedSites: 1,
-      assignedProjectName:
-        newMember.assignedProjectName.trim() || "Active Company Site",
-      points: 0,
-      attendanceRate: 100,
-      status: newMember.role === "Office Coordinator" ? "ACTIVE" : "ON_SITE",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=180&auto=format&fit=crop&q=80",
-      specialties: newMember.specialtiesText
-        ? newMember.specialtiesText
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : ["Site Execution", "Safety Compliance"],
-    };
-
-    const nextCustom = [created, ...customRoster];
+  const handleSavePersonEdits = async () => {
+    if (!selectedPerson) return;
+    const nextDemo = demoRoster.map((m) =>
+      m.id === selectedPerson.id
+        ? { ...m, role: editRole, assignedProjectName: editSite.trim() || m.assignedProjectName }
+        : m
+    );
+    const nextCustom = customRoster.map((m) =>
+      m.id === selectedPerson.id
+        ? { ...m, role: editRole, assignedProjectName: editSite.trim() || m.assignedProjectName }
+        : m
+    );
+    setDemoRoster(nextDemo);
     setCustomRoster(nextCustom);
+    writeLocalData("vantaged_director_team_demo_roster", nextDemo);
     writeLocalData("vantaged_director_team_custom_roster", nextCustom);
-    setIsAddModalOpen(false);
-    setNewMember({
-      name: "",
-      title: "",
-      role: "Site Manager",
-      location: "Lekki Phase 1, Lagos",
-      assignedProjectName: "Lekki Phase 1 Five-Bedroom Villa",
-      email: "",
-      phone: "",
-      specialtiesText: "",
-    });
-    showToast(`${created.name} added to Team & Crew!`);
+    window.dispatchEvent(new Event(TEAM_ROSTER_UPDATE_EVENT));
+
+    if (resetPasswordInput.trim().length >= 6 && selectedPerson.email) {
+      const normalizedEmail = selectedPerson.email.trim().toLowerCase();
+      try {
+        await fetch("/api/contractor-accounts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyName: contractorUser.companyName || "Verified Construction Company",
+            rcNumber: contractorUser.rcNumber || "RC-VERIFIED",
+            directorName: selectedPerson.name,
+            email: normalizedEmail,
+            password: resetPasswordInput.trim(),
+            role: editRole,
+            phone: selectedPerson.phone,
+            issuedBy: "Company Director",
+          }),
+        });
+      } catch {}
+      const localAccounts = readLocalContractorAccounts();
+      const updatedAccounts = localAccounts.map((acc) =>
+        acc.email.trim().toLowerCase() === normalizedEmail
+          ? { ...acc, role: editRole, password: resetPasswordInput.trim() }
+          : acc
+      );
+      localStorage.setItem(KEY_REGISTERED_CONTRACTORS, JSON.stringify(updatedAccounts));
+    }
+
+    setSelectedPerson((prev) =>
+      prev
+        ? { ...prev, role: editRole, assignedProjectName: editSite.trim() || prev.assignedProjectName }
+        : prev
+    );
+    setResetPasswordInput("");
+    setIsEditingPerson(false);
+    showToast(
+      resetPasswordInput.trim().length >= 6
+        ? `Updated ${selectedPerson.name}'s role, site & login password!`
+        : `Updated ${selectedPerson.name}'s role and site assignment!`
+    );
+  };
+
+  const handleRemoveMember = (person: TeamPersonnelCardItem) => {
+    const nextDemo = demoRoster.filter((m) => m.id !== person.id);
+    const nextCustom = customRoster.filter((m) => m.id !== person.id);
+    setDemoRoster(nextDemo);
+    setCustomRoster(nextCustom);
+    writeLocalData("vantaged_director_team_demo_roster", nextDemo);
+    writeLocalData("vantaged_director_team_custom_roster", nextCustom);
+    window.dispatchEvent(new Event(TEAM_ROSTER_UPDATE_EVENT));
+    setSelectedPerson(null);
+    showToast(`Removed ${person.name} from Team & Crew.`);
   };
 
   return (
@@ -525,7 +554,7 @@ export function DirectorTeamPage() {
                 return (
                   <div
                     key={person.id}
-                    onClick={() => setSelectedPerson(person)}
+                    onClick={() => handleOpenPersonDossier(person)}
                     className={`group relative rounded-3xl p-5 flex flex-col justify-between transition-all duration-200 cursor-pointer shadow-xs hover:shadow-lg hover:-translate-y-1 ${
                       isFeatured
                         ? "bg-[var(--vt-color-orange-500,#EF5F18)] text-white border-2 border-[var(--vt-color-orange-600,#D84C0B)] shadow-[0_12px_28px_rgba(239,95,24,0.22)]"
@@ -671,258 +700,222 @@ export function DirectorTeamPage() {
         </div>
       </main>
 
-      {/* Personnel Dossier Modal */}
-      {selectedPerson && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setSelectedPerson(null)}
-        >
+      {/* Personnel Dossier Modal (Portaled above navbar with Edit Role/Site, Reset Password & Remove) */}
+      {mounted &&
+        selectedPerson &&
+        createPortal(
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-[var(--vt-color-indigo-950,#140B3B)]/55 backdrop-blur-xs animate-in fade-in duration-150 select-none font-sans"
+            onClick={() => setSelectedPerson(null)}
           >
-            <div className="p-6 bg-[var(--vt-color-indigo-900,#261A66)] text-white flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3.5">
-                <img
-                  src={selectedPerson.avatar}
-                  alt={selectedPerson.name}
-                  className="w-14 h-14 rounded-2xl object-cover ring-2 ring-white/30"
-                />
-                <div>
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--vt-color-orange-300,#FBA674)]">
-                    {selectedPerson.role} · {selectedPerson.credential}
-                  </span>
-                  <h2 className="text-lg font-extrabold text-white mt-0.5">
-                    {selectedPerson.name}
-                  </h2>
-                  <p className="text-xs text-[var(--vt-color-indigo-200,#D5D2EF)]">
-                    {selectedPerson.title}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedPerson(null)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto flex flex-col gap-4 text-xs">
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-                  <span className="text-[10px] font-bold uppercase text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                    Assigned Sites
-                  </span>
-                  <p className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
-                    {selectedPerson.assignedSites}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-                  <span className="text-[10px] font-bold uppercase text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                    Attendance
-                  </span>
-                  <p className="text-base font-extrabold text-[var(--vt-color-orange-600,#D84C0B)] mt-0.5">
-                    {selectedPerson.attendanceRate}%
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-                  <span className="text-[10px] font-bold uppercase text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                    Reward Points
-                  </span>
-                  <p className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
-                    {selectedPerson.points}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] space-y-1.5">
-                <p>
-                  <strong className="text-[var(--vt-color-indigo-900,#261A66)]">Primary Site:</strong>{" "}
-                  {selectedPerson.assignedProjectName}
-                </p>
-                <p>
-                  <strong className="text-[var(--vt-color-indigo-900,#261A66)]">Location:</strong>{" "}
-                  {selectedPerson.location}
-                </p>
-                <p>
-                  <strong className="text-[var(--vt-color-indigo-900,#261A66)]">Contact:</strong>{" "}
-                  {selectedPerson.email} · {selectedPerson.phone}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] block mb-2">
-                  Specialties &amp; Responsibilities
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedPerson.specialties.map((sp) => (
-                    <span
-                      key={sp}
-                      className="px-2.5 py-1 rounded-lg bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] font-bold text-[11px]"
-                    >
-                      {sp}
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150 text-[var(--vt-color-text-default,#261A66)]"
+            >
+              <div className="p-6 bg-[var(--vt-color-indigo-900,#261A66)] text-white flex items-start justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-3.5">
+                  <img
+                    src={selectedPerson.avatar}
+                    alt={selectedPerson.name}
+                    className="w-14 h-14 rounded-2xl object-cover ring-2 ring-white/30"
+                  />
+                  <div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--vt-color-orange-300,#FBA674)]">
+                      {selectedPerson.role} · {selectedPerson.credential}
                     </span>
-                  ))}
+                    <h2 className="text-lg font-extrabold text-white mt-0.5">
+                      {selectedPerson.name}
+                    </h2>
+                    <p className="text-xs text-[var(--vt-color-indigo-200,#D5D2EF)]">
+                      {selectedPerson.title}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-[var(--vt-color-neutral-50,#F7F7FA)] border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => handleToggleStatus(selectedPerson)}
-                className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] cursor-pointer"
-              >
-                {selectedPerson.status === "ON_SITE" ? "Mark as Active (Office)" : "Mark as On Site"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedPerson(null)}
-                className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Team Member Modal */}
-      {isAddModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setIsAddModalOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-          >
-            <div className="px-6 py-4 border-b border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                  Add Team &amp; Crew Member
-                </h3>
-                <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
-                  Assign a Site Manager, Office Coordinator, or Crew Lead to your company roster.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="w-8 h-8 rounded-lg hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] flex items-center justify-center cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleAddMember} className="p-6 overflow-y-auto flex flex-col gap-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newMember.name}
-                  onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                  placeholder="e.g. Engr. Segun Ogunleye"
-                  className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                    Role
-                  </label>
-                  <VantagedSelect
-                    value={newMember.role}
-                    onChange={(val) => setNewMember({ ...newMember, role: val as TeamRole })}
-                    options={[
-                      { value: "Site Manager", label: "Site Manager" },
-                      { value: "Office Coordinator", label: "Office Coordinator" },
-                      { value: "Crew Member", label: "Crew Member" },
-                      { value: "Director", label: "Director" },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                    Job Title
-                  </label>
-                  <input
-                    type="text"
-                    value={newMember.title}
-                    onChange={(e) => setNewMember({ ...newMember, title: e.target.value })}
-                    placeholder="e.g. Lead Site Supervisor"
-                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                    Assigned Site
-                  </label>
-                  <input
-                    type="text"
-                    value={newMember.assignedProjectName}
-                    onChange={(e) =>
-                      setNewMember({ ...newMember, assignedProjectName: e.target.value })
-                    }
-                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={newMember.location}
-                    onChange={(e) => setNewMember({ ...newMember, location: e.target.value })}
-                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                  Specialties (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  value={newMember.specialtiesText}
-                  onChange={(e) =>
-                    setNewMember({ ...newMember, specialtiesText: e.target.value })
-                  }
-                  placeholder="e.g. Rebar Inspection, Concrete Casting, Daily Logs"
-                  className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+                  onClick={() => setSelectedPerson(null)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="h-9 px-5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold cursor-pointer"
-                >
-                  Add to Team →
+                  ✕
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <div className="p-6 overflow-y-auto flex flex-col gap-4 text-xs">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+                    <span className="text-[10px] font-bold uppercase text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                      Assigned Sites
+                    </span>
+                    <p className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
+                      {selectedPerson.assignedSites}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+                    <span className="text-[10px] font-bold uppercase text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                      Attendance
+                    </span>
+                    <p className="text-base font-extrabold text-[var(--vt-color-orange-600,#D84C0B)] mt-0.5">
+                      {selectedPerson.attendanceRate}%
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
+                    <span className="text-[10px] font-bold uppercase text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                      Reward Points
+                    </span>
+                    <p className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
+                      {selectedPerson.points}
+                    </p>
+                  </div>
+                </div>
+
+                {isEditingPerson ? (
+                  <div className="p-4 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)]/60 border border-[var(--vt-color-orange-200,#FDCAA9)] space-y-3">
+                    <p className="font-extrabold text-[var(--vt-color-orange-700,#B33C08)] uppercase tracking-wider text-[10.5px]">
+                      Edit Staff Access &amp; Assignment
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                          Role
+                        </label>
+                        <VantagedSelect
+                          value={editRole}
+                          onChange={(val) => setEditRole(val as TeamRole)}
+                          options={[
+                            { value: "Site Manager", label: "Site Manager" },
+                            { value: "Office Coordinator", label: "Office Coordinator" },
+                            { value: "Crew Member", label: "Crew Member" },
+                            { value: "Director", label: "Director" },
+                          ]}
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                          Assigned Site
+                        </label>
+                        <input
+                          type="text"
+                          value={editSite}
+                          onChange={(e) => setEditSite(e.target.value)}
+                          className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                        Reset Login Password (Optional, min. 6 chars)
+                      </label>
+                      <input
+                        type="password"
+                        value={resetPasswordInput}
+                        onChange={(e) => setResetPasswordInput(e.target.value)}
+                        placeholder="Leave blank to keep existing password"
+                        className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                      />
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingPerson(false)}
+                        className="h-8 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSavePersonEdits}
+                        className="h-8 px-3.5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold cursor-pointer"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] space-y-1.5">
+                    <p>
+                      <strong className="text-[var(--vt-color-indigo-900,#261A66)]">Primary Site:</strong>{" "}
+                      {selectedPerson.assignedProjectName}
+                    </p>
+                    <p>
+                      <strong className="text-[var(--vt-color-indigo-900,#261A66)]">Location:</strong>{" "}
+                      {selectedPerson.location}
+                    </p>
+                    <p>
+                      <strong className="text-[var(--vt-color-indigo-900,#261A66)]">Contact:</strong>{" "}
+                      {selectedPerson.email} · {selectedPerson.phone}
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] block mb-2">
+                    Specialties &amp; Responsibilities
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedPerson.specialties.map((sp) => (
+                      <span
+                        key={sp}
+                        className="px-2.5 py-1 rounded-lg bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)] font-bold text-[11px]"
+                      >
+                        {sp}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-[var(--vt-color-neutral-50,#F7F7FA)] border-t border-[var(--vt-color-border-default,#E2E0EC)] flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStatus(selectedPerson)}
+                    className="h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:bg-[var(--vt-color-neutral-100,#EFEEF5)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] cursor-pointer"
+                  >
+                    {selectedPerson.status === "ON_SITE" ? "Mark Office" : "Mark On Site"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingPerson((prev) => !prev)}
+                    className="h-9 px-3 rounded-lg border border-[var(--vt-color-indigo-200,#D5D2EF)] bg-[var(--vt-color-indigo-50,#F4F3FC)] hover:bg-[var(--vt-color-indigo-100,#EAE7FA)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] cursor-pointer"
+                  >
+                    {isEditingPerson ? "Close Edit" : "Edit / Reset Password"}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {selectedPerson.role !== "Director" && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMember(selectedPerson)}
+                      className="h-9 px-3 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPerson(null)}
+                    className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Add Team Member Modal (with Staff Email + Login Password) */}
+      <AddTeamMemberModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onCreated={(created) => {
+          setCustomRoster(readLocalData("vantaged_director_team_custom_roster", []));
+          showToast(`Created login for ${created.name} (${created.email}) and added to Team & Crew!`);
+        }}
+      />
     </div>
   );
 }

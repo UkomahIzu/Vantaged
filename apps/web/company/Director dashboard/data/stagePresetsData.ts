@@ -2,6 +2,7 @@ export interface StageItem {
   order: number;
   title: string;
   evidence: string;
+  weightPercent?: number;
 }
 
 export interface StagePreset {

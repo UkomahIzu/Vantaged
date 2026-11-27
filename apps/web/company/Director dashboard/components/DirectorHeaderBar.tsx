@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "../../../client/context/ThemeContext";
 import { useContractorUser } from "../hooks/useContractorUser";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { useContractorCapacity } from "../hooks/useContractorCapacity";
 import { DIRECTOR_SEARCH_ITEMS, DirectorSearchItem } from "../data/directorData";
 import { DirectorProfileModal } from "./DirectorProfileModal";
 import {
@@ -13,6 +14,9 @@ import {
   SHARED_SYNC_EVENT,
   readCompanyLiveNotifications,
 } from "../../../shared/vantagedSyncBridge";
+import { readScopedCompanyAcceptedProjects } from "../../../shared/vantagedAuth";
+import { readLocalData } from "../utils/localPersistence";
+import { TEAM_ROSTER_UPDATE_EVENT } from "./AddTeamMemberModal";
 
 export function DirectorHeaderBar({
   leftSlot,
@@ -23,12 +27,90 @@ export function DirectorHeaderBar({
   const { theme, toggleTheme } = useTheme();
   const user = useContractorUser();
   const { isDemoMode } = useDirectorDemoMode();
+  const capacity = useContractorCapacity();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [dynamicSearchItems, setDynamicSearchItems] = useState<DirectorSearchItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const syncDynamicSearch = () => {
+      const items: DirectorSearchItem[] = [];
+
+      // 1. Live accepted projects
+      const accepted = readScopedCompanyAcceptedProjects<any>();
+      for (const p of accepted) {
+        if (!p?.id || !p?.title) continue;
+        items.push({
+          id: `live-proj-${p.id}`,
+          title: p.title,
+          subtitle: `${p.location || "Active Site"} · Client: ${p.ownerName || p.contractor?.name || "Owner"}`,
+          category: "Active Project",
+          url: `/contractor/projects/${p.id}`,
+        });
+      }
+
+      // 2. Project requests
+      const requests = readLocalData<any[]>("vantaged_director_requests", []);
+      for (const r of requests) {
+        if (!r?.id || !r?.title) continue;
+        items.push({
+          id: `live-req-${r.id}`,
+          title: r.title,
+          subtitle: `${r.ownerName || "Owner"} · ${r.status || "Project Request"}`,
+          category: "Request",
+          url: r.status === "Proposal Ready" ? `/contractor/requests/${r.id}/plan` : "/contractor/requests",
+        });
+      }
+
+      // 3. Company stage presets
+      const presets = readLocalData<any[]>("vantaged_company_stage_presets", []);
+      for (const pr of presets) {
+        if (!pr?.id || !pr?.name) continue;
+        items.push({
+          id: `live-preset-${pr.id}`,
+          title: pr.name,
+          subtitle: `${pr.category || "Custom"} · ${pr.stagesCount || pr.stages?.length || 0} Stages`,
+          category: "Stage Preset",
+          url: "/contractor/presets",
+        });
+      }
+
+      // 4. Company team & crew members
+      const team = readLocalData<any[]>("vantaged_director_team_custom_roster", []);
+      for (const m of team) {
+        if (!m?.id || !m?.name) continue;
+        items.push({
+          id: `live-team-${m.id}`,
+          title: m.name,
+          subtitle: `${m.role || "Staff"} · ${m.email || m.assignedProjectName || ""}`,
+          category: "Team",
+          url: "/contractor/team",
+        });
+      }
+
+      setDynamicSearchItems(items);
+    };
+
+    syncDynamicSearch();
+    window.addEventListener(SHARED_SYNC_EVENT, syncDynamicSearch);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, syncDynamicSearch);
+    window.addEventListener(TEAM_ROSTER_UPDATE_EVENT, syncDynamicSearch);
+    window.addEventListener("vantaged_company_projects_update", syncDynamicSearch);
+    window.addEventListener("vantaged_storage_update", syncDynamicSearch);
+    window.addEventListener("storage", syncDynamicSearch);
+    return () => {
+      window.removeEventListener(SHARED_SYNC_EVENT, syncDynamicSearch);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncDynamicSearch);
+      window.removeEventListener(TEAM_ROSTER_UPDATE_EVENT, syncDynamicSearch);
+      window.removeEventListener("vantaged_company_projects_update", syncDynamicSearch);
+      window.removeEventListener("vantaged_storage_update", syncDynamicSearch);
+      window.removeEventListener("storage", syncDynamicSearch);
+    };
+  }, []);
 
   useEffect(() => {
     const syncUnread = () => {
@@ -75,10 +157,11 @@ export function DirectorHeaderBar({
   }, []);
 
   const searchResults = useMemo(() => {
-    const pool = DIRECTOR_SEARCH_ITEMS.filter((item) => isDemoMode || !item.demoOnly);
+    const staticPool = DIRECTOR_SEARCH_ITEMS.filter((item) => isDemoMode || !item.demoOnly);
+    const pool = [...dynamicSearchItems, ...staticPool];
     const q = searchQuery.trim().toLowerCase();
     if (!q) {
-      return pool.slice(0, 5);
+      return pool.slice(0, 6);
     }
     return pool.filter(
       (item) =>
@@ -86,7 +169,7 @@ export function DirectorHeaderBar({
         item.subtitle.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q)
     );
-  }, [searchQuery, isDemoMode]);
+  }, [searchQuery, isDemoMode, dynamicSearchItems]);
 
   const handleSelectResult = (item: DirectorSearchItem) => {
     setIsDropdownOpen(false);
@@ -253,12 +336,25 @@ export function DirectorHeaderBar({
             )}
           </Link>
 
-          <Link
-            href="/contractor/projects"
-            className="h-9 px-3.5 rounded-md bg-[var(--vt-color-primary-default,#B33C08)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(179,60,8,0.28)] flex items-center gap-1.5 whitespace-nowrap"
-          >
-            <span>+ New Project</span>
-          </Link>
+          {capacity.canAddProject ? (
+            <Link
+              href="/contractor/projects"
+              className="h-9 px-3.5 rounded-md bg-[var(--vt-color-primary-default,#B33C08)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold transition-all shadow-[0_2px_8px_rgba(179,60,8,0.28)] flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <span>+ New Project</span>
+            </Link>
+          ) : (
+            <Link
+              href="/contractor/settings?tab=plan"
+              title={`All ${capacity.totalSlots} paid project slot${capacity.totalSlots === 1 ? "" : "s"} in use on ${capacity.planName}. Upgrade or buy extra slots.`}
+              className="h-9 px-3.5 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span>
+                Slots Full ({capacity.usedSlots}/{capacity.totalSlots}) · Upgrade
+              </span>
+            </Link>
+          )}
 
           <button
             type="button"

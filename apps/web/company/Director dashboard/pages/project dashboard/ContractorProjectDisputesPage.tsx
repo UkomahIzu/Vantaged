@@ -555,11 +555,20 @@ export function ContractorProjectDisputesPage({ projectId }: ContractorProjectDi
                           >
                             <div className="flex items-start gap-3 min-w-0">
                               {ev.previewUrl && (
-                                <img
-                                  src={ev.previewUrl}
-                                  alt={ev.title}
-                                  className="w-14 h-14 rounded-lg object-cover border border-[var(--vt-color-border-default,#E2E0EC)] shrink-0"
-                                />
+                                <a
+                                  href={ev.previewUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download={ev.fileName || ev.title}
+                                  title="Click to open / download evidence"
+                                  className="shrink-0 group relative block"
+                                >
+                                  <img
+                                    src={ev.previewUrl}
+                                    alt={ev.title}
+                                    className="w-14 h-14 rounded-lg object-cover border border-[var(--vt-color-border-default,#E2E0EC)] group-hover:opacity-85 transition-opacity"
+                                  />
+                                </a>
                               )}
                               <div className="min-w-0">
                                 <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">{ev.title}</p>
@@ -567,6 +576,15 @@ export function ContractorProjectDisputesPage({ projectId }: ContractorProjectDi
                                   {ev.fileType}
                                   {ev.fileName ? ` · ${ev.fileName}` : ""} · {ev.note}
                                 </p>
+                                {ev.previewUrl && (
+                                  <a
+                                    href={ev.previewUrl}
+                                    download={ev.fileName || `${ev.title}.png`}
+                                    className="inline-block mt-1 text-[10.5px] font-bold text-[var(--vt-color-orange-600,#D84C0B)] hover:underline"
+                                  >
+                                    Download / View File →
+                                  </a>
+                                )}
                               </div>
                             </div>
                             <span className="text-[10.5px] text-[var(--vt-color-neutral-500,#7C7894)] shrink-0">
@@ -626,10 +644,18 @@ export function ContractorProjectDisputesPage({ projectId }: ContractorProjectDi
                   )}
                   <button
                     type="button"
+                    disabled={
+                      selectedIssue.status === "Under Review" ||
+                      selectedIssue.status === "Resolved"
+                    }
                     onClick={handleMarkFixedForReinspection}
-                    className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.28)] cursor-pointer"
+                    className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] disabled:opacity-45 disabled:cursor-not-allowed text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.28)] cursor-pointer"
                   >
-                    Request Re-Check
+                    {selectedIssue.status === "Resolved"
+                      ? "Resolved ✓"
+                      : selectedIssue.status === "Under Review"
+                      ? "Awaiting Owner Re-Check"
+                      : "Request Re-Check"}
                   </button>
                 </div>
               </div>
@@ -750,6 +776,7 @@ export function ContractorProjectDisputesPage({ projectId }: ContractorProjectDi
               </label>
               <input
                 type="file"
+                required
                 accept="image/*,video/*,.pdf"
                 onChange={handleEvidenceFilePick}
                 className="w-full text-[11px] file:mr-2.5 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-[var(--vt-color-orange-50,#FFF4EE)] file:text-[var(--vt-color-orange-700,#B33C08)] file:font-bold file:cursor-pointer"

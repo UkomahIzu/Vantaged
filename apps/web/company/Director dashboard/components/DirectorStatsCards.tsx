@@ -1,39 +1,170 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { useContractorCapacity } from "../hooks/useContractorCapacity";
 import { DEMO_DIRECTOR_PROJECTS } from "../data/directorData";
 import { readScopedCompanyAcceptedProjects } from "../../../shared/vantagedAuth";
+import {
+  CONTRACTOR_SYNC_EVENT,
+  SHARED_SYNC_EVENT,
+} from "../../../shared/vantagedSyncBridge";
+import {
+  CONTRACTOR_STORAGE_EVENT,
+  ContractorProjectStage,
+  ContractorProjectTranche,
+  getContractorProjectDetail,
+  loadProjectKey,
+} from "../pages/project dashboard/contractorProjectData";
+import { readLocalData } from "../utils/localPersistence";
+
+function formatNairaShort(amount: number): string {
+  if (amount <= 0) return "₦0";
+  if (amount >= 1000000000) return `₦${(amount / 1000000000).toFixed(2)}B`;
+  if (amount >= 1000000) return `₦${(amount / 1000000).toFixed(1)}M`;
+  return `₦${amount.toLocaleString("en-NG")}`;
+}
 
 export function DirectorStatsCards() {
   const { isDemoMode } = useDirectorDemoMode();
-  const [acceptedCount, setAcceptedCount] = useState(0);
+  const capacity = useContractorCapacity();
+
+  const [metrics, setMetrics] = useState({
+    stagesNeedingAction: 0,
+    fixCount: 0,
+    reviewCount: 0,
+    pendingReceiptAmount: 0,
+    pendingReceiptCount: 0,
+    confirmedTotal: 0,
+    approvedStages: 0,
+    totalEvaluatedStages: 0,
+  });
 
   useEffect(() => {
-    const sync = () => {
-      setAcceptedCount(readScopedCompanyAcceptedProjects().length);
+    const compute = () => {
+      const liveAccepted = readScopedCompanyAcceptedProjects<any>();
+      const demoAllowed = isDemoMode
+        ? Math.max(0, capacity.totalSlots - liveAccepted.length)
+        : 0;
+      const projectIds = Array.from(
+        new Set([
+          ...liveAccepted.map((p: any) => p.id).filter(Boolean),
+          ...(isDemoMode
+            ? DEMO_DIRECTOR_PROJECTS.slice(0, demoAllowed).map((p) => p.id)
+            : []),
+        ])
+      );
+
+      let fixCount = 0;
+      let reviewCount = 0;
+      let disputedCount = 0;
+      let approvedStages = 0;
+      let totalEvaluatedStages = 0;
+      let pendingReceiptAmount = 0;
+      let pendingReceiptCount = 0;
+      let confirmedTotal = 0;
+
+      for (const pid of projectIds) {
+        const detail = getContractorProjectDetail(pid, true);
+        const stages = loadProjectKey<ContractorProjectStage[]>(pid, "stages", detail.stages);
+        const tranches = loadProjectKey<ContractorProjectTranche[]>(
+          pid,
+          "tranches",
+          detail.tranches
+        );
+
+        for (const st of stages) {
+          if (st.status === "Fix Requested") {
+            fixCount++;
+            totalEvaluatedStages++;
+          } else if (st.status === "Disputed") {
+            disputedCount++;
+            totalEvaluatedStages++;
+          } else if (st.status === "Ready for Review") {
+            reviewCount++;
+          } else if (st.status === "Approved") {
+            approvedStages++;
+            totalEvaluatedStages++;
+          }
+        }
+
+        for (const tr of tranches) {
+          if (tr.status === "Awaiting Your Confirmation") {
+            pendingReceiptCount++;
+            pendingReceiptAmount += tr.netPayout;
+          } else if (tr.status === "Receipt Confirmed") {
+            confirmedTotal += tr.netPayout;
+          }
+        }
+      }
+
+      // Also include any unconfirmed demo ledger item if in Demo Mode and no project tranches pending
+      if (isDemoMode && pendingReceiptCount === 0) {
+        const demoTxs = readLocalData<any[]>("vantaged_director_transactions", []);
+        const pendingDemo = demoTxs.filter(
+          (t) => t?.status === "Pending Receipt Confirmation"
+        );
+        if (pendingDemo.length > 0) {
+          pendingReceiptCount = pendingDemo.length;
+          pendingReceiptAmount = pendingDemo.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        }
+      }
+
+      setMetrics({
+        stagesNeedingAction: fixCount + disputedCount + reviewCount,
+        fixCount: fixCount + disputedCount,
+        reviewCount,
+        pendingReceiptAmount,
+        pendingReceiptCount,
+        confirmedTotal,
+        approvedStages,
+        totalEvaluatedStages,
+      });
     };
-    sync();
-    window.addEventListener("vantaged_company_projects_update", sync);
-    window.addEventListener("vantaged_storage_update", sync);
-    window.addEventListener("storage", sync);
+
+    compute();
+    window.addEventListener(CONTRACTOR_STORAGE_EVENT, compute);
+    window.addEventListener(SHARED_SYNC_EVENT, compute);
+    window.addEventListener(CONTRACTOR_SYNC_EVENT, compute);
+    window.addEventListener("vantaged_company_projects_update", compute);
+    window.addEventListener("vantaged_director_demo_toggle", compute);
+    window.addEventListener("storage", compute);
     return () => {
-      window.removeEventListener("vantaged_company_projects_update", sync);
-      window.removeEventListener("vantaged_storage_update", sync);
-      window.removeEventListener("storage", sync);
+      window.removeEventListener(CONTRACTOR_STORAGE_EVENT, compute);
+      window.removeEventListener(SHARED_SYNC_EVENT, compute);
+      window.removeEventListener(CONTRACTOR_SYNC_EVENT, compute);
+      window.removeEventListener("vantaged_company_projects_update", compute);
+      window.removeEventListener("vantaged_director_demo_toggle", compute);
+      window.removeEventListener("storage", compute);
     };
-  }, []);
+  }, [isDemoMode, capacity.totalSlots]);
 
-  const totalActive = (isDemoMode ? DEMO_DIRECTOR_PROJECTS.length : 0) + acceptedCount;
+  const totalActive = capacity.usedSlots;
   const activeProjectsDisplay = totalActive.toString().padStart(2, "0");
-  const slotSubtitle = isDemoMode
-    ? `${totalActive} / 3 Verified slots used`
-    : `${totalActive} / 1 Free starter slot used`;
+  const slotSubtitle = `${capacity.usedSlots} / ${capacity.totalSlots} ${capacity.planName} slot${capacity.totalSlots === 1 ? "" : "s"} used`;
 
-  const stagesPendingActionDisplay = isDemoMode ? "02" : "00";
-  const receiptsPendingDisplay = isDemoMode ? "₦22,500,000" : "₦0";
-  const ratingDisplay = isDemoMode ? "4.9 ★" : "—";
+  const stagesPendingActionDisplay = metrics.stagesNeedingAction.toString().padStart(2, "0");
+  const stageSubtitle =
+    metrics.stagesNeedingAction > 0
+      ? `${metrics.fixCount} fix/dispute · ${metrics.reviewCount} awaiting review`
+      : "No pending submissions or fixes";
+
+  const receiptsPendingDisplay = formatNairaShort(metrics.pendingReceiptAmount);
+  const approvalRate =
+    metrics.totalEvaluatedStages > 0
+      ? Math.round((metrics.approvedStages / metrics.totalEvaluatedStages) * 100)
+      : null;
+  const ratingDisplay = isDemoMode
+    ? "4.9 ★"
+    : approvalRate !== null
+    ? `${(4 + approvalRate / 100).toFixed(1)} ★`
+    : "—";
+  const ratingSubtitle = isDemoMode
+    ? "92% first-time approval rate"
+    : approvalRate !== null
+    ? `${approvalRate}% verified stage approval rate`
+    : "No verified stages completed yet";
 
   return (
     <div
@@ -74,7 +205,7 @@ export function DirectorStatsCards() {
         </div>
       </Link>
 
-      {/* 2. Stages Needing Site Action / Review */}
+      {/* 2. Stages Needing Site Action / Review (Live) */}
       <Link
         href="/contractor/projects"
         className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-400,#F78241)] rounded-xl p-5 shadow-[0_4px_16px_rgba(38,26,102,0.04)] hover:shadow-[0_8px_24px_rgba(239,95,24,0.12)] transition-all flex flex-col justify-between group cursor-pointer"
@@ -88,7 +219,7 @@ export function DirectorStatsCards() {
             </svg>
           </div>
           <span className="text-[11px] font-bold text-[var(--vt-color-orange-600,#D84C0B)] flex items-center gap-1 group-hover:underline">
-            <span>{isDemoMode ? "Needs attention" : "Up to date"}</span>
+            <span>{metrics.stagesNeedingAction > 0 ? "Needs attention" : "Up to date"}</span>
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="9 18 15 12 9 6" />
             </svg>
@@ -103,12 +234,12 @@ export function DirectorStatsCards() {
             Stages awaiting action
           </h3>
           <p className="text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5">
-            {isDemoMode ? "1 punch-list fix · 1 client review" : "No pending submissions or fixes"}
+            {stageSubtitle}
           </p>
         </div>
       </Link>
 
-      {/* 3. Pending Receipt Confirmations (3-Day Window) */}
+      {/* 3. Pending Receipt Confirmations (Live) */}
       <Link
         href="/contractor/transactions"
         className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-green-400,#52B874)] rounded-xl p-5 shadow-[0_4px_16px_rgba(38,26,102,0.04)] hover:shadow-[0_8px_24px_rgba(46,158,87,0.12)] transition-all flex flex-col justify-between group cursor-pointer"
@@ -121,7 +252,11 @@ export function DirectorStatsCards() {
             </svg>
           </div>
           <span className="text-[11px] font-bold text-[var(--vt-color-green-700,#1F6B3E)] flex items-center gap-1 transition-colors">
-            <span>{isDemoMode ? "1 Receipt (Day 2/3)" : "Ledger"}</span>
+            <span>
+              {metrics.pendingReceiptCount > 0
+                ? `${metrics.pendingReceiptCount} Pending`
+                : "Ledger"}
+            </span>
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="9 18 15 12 9 6" />
             </svg>
@@ -139,12 +274,12 @@ export function DirectorStatsCards() {
             Receipts awaiting confirm
           </h3>
           <p className="text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5 tabular-nums">
-            {isDemoMode ? "₦213,700,000 confirmed total" : "₦0 total confirmed payouts"}
+            {formatNairaShort(metrics.confirmedTotal)} confirmed payouts
           </p>
         </div>
       </Link>
 
-      {/* 4. Reputation & Rating */}
+      {/* 4. Reputation & Rating (Live) */}
       <Link
         href="/contractor/settings"
         className="bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-indigo-300,#ABA3E8)] rounded-xl p-5 shadow-[0_4px_16px_rgba(38,26,102,0.04)] hover:shadow-[0_8px_24px_rgba(38,26,102,0.1)] transition-all flex flex-col justify-between group cursor-pointer"
@@ -171,7 +306,7 @@ export function DirectorStatsCards() {
             Directory standing
           </h3>
           <p className="text-[11px] text-[var(--vt-color-neutral-400,#A3A0B8)] mt-0.5">
-            {isDemoMode ? "92% first-time approval rate" : "No completed project ratings yet"}
+            {ratingSubtitle}
           </p>
         </div>
       </Link>

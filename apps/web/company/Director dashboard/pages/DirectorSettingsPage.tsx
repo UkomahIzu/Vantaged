@@ -10,9 +10,14 @@ import { VantagedSelect } from "../../../client/Owner dashboard/components/Vanta
 import { useTheme } from "../../../client/context/ThemeContext";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
 import { useContractorUser } from "../hooks/useContractorUser";
+import {
+  broadcastContractorCapacityUpdate,
+  useContractorCapacity,
+} from "../hooks/useContractorCapacity";
 import { readLocalData, writeLocalData } from "../utils/localPersistence";
 import {
   getContractorSession,
+  signOutContractor,
   syncContractorCompanyMetaToAdmin,
 } from "../../../shared/vantagedAuth";
 import {
@@ -185,16 +190,37 @@ export function DirectorSettingsPage() {
   const { theme, toggleTheme } = useTheme();
   const { isDemoMode, toggleDemoMode } = useDirectorDemoMode();
   const directorUser = useContractorUser();
+  const capacity = useContractorCapacity();
 
   const [activeTab, setActiveTab] = useState<CompanySettingsTab>("profile");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const [profile, setProfile] = useState<CompanyProfileData>(() =>
-    readLocalData("vantaged_director_company_profile", DEFAULT_PROFILE)
-  );
-  const [bank, setBank] = useState<BankAccountData>(() =>
-    readLocalData("vantaged_director_bank_account", DEFAULT_BANK)
-  );
+  const [profile, setProfile] = useState<CompanyProfileData>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("vantaged_director_company_profile");
+        if (raw) return JSON.parse(raw) as CompanyProfileData;
+      } catch {}
+    }
+    return {
+      ...DEFAULT_PROFILE,
+      companyName: directorUser.companyName || DEFAULT_PROFILE.companyName,
+      rcNumber: directorUser.rcNumber || DEFAULT_PROFILE.rcNumber,
+      email: directorUser.email || DEFAULT_PROFILE.email,
+    };
+  });
+  const [bank, setBank] = useState<BankAccountData>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("vantaged_director_bank_account");
+        if (raw) return JSON.parse(raw) as BankAccountData;
+      } catch {}
+    }
+    return {
+      ...DEFAULT_BANK,
+      accountName: (directorUser.companyName || DEFAULT_BANK.accountName).toUpperCase(),
+    };
+  });
   const [selectedPlanId, setSelectedPlanId] = useState<ContractorPricingTier["id"]>(() =>
     normalizePlanId(readLocalData("vantaged_director_plan_id", "contractor-starter"))
   );
@@ -212,8 +238,22 @@ export function DirectorSettingsPage() {
   const [isVerifyingBank, setIsVerifyingBank] = useState<boolean>(false);
   const [bankVerifiedStatus, setBankVerifiedStatus] = useState<string | null>(null);
 
-  // Load live Nigerian banks from Paystack & verify Paystack checkout callback if present
+  // Load live Nigerian banks from Paystack, check ?tab= query param & verify Paystack checkout callback if present
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const tabParam = new URLSearchParams(window.location.search).get("tab");
+      if (tabParam === "plan" || tabParam === "subscription") {
+        setActiveTab("plan");
+      } else if (
+        tabParam === "profile" ||
+        tabParam === "bank" ||
+        tabParam === "notifications" ||
+        tabParam === "security"
+      ) {
+        setActiveTab(tabParam);
+      }
+    }
+
     fetchPaystackBanks().then((list) => {
       if (list.length > 0) {
         setPaystackBanks(list);
@@ -233,6 +273,7 @@ export function DirectorSettingsPage() {
           const nextPlanId = normalizePlanId(meta.planId);
           setSelectedPlanId(nextPlanId);
           writeLocalData("vantaged_director_plan_id", nextPlanId);
+          broadcastContractorCapacityUpdate();
           showToast(
             `Paystack verified (${result.data.reference})! Activated ${meta.planName || nextPlanId}.`
           );
@@ -242,6 +283,7 @@ export function DirectorSettingsPage() {
           const nextExtra = curr + added;
           setExtraSlotsCount(nextExtra);
           writeLocalData("vantaged_director_extra_slots", nextExtra);
+          broadcastContractorCapacityUpdate();
           showToast(
             `Paystack verified (${result.data.reference})! Added ${added} extra project slot${added > 1 ? "s" : ""}.`
           );
@@ -300,7 +342,10 @@ export function DirectorSettingsPage() {
     readLocalData("vantaged_director_billing_cycle", "monthly")
   );
   const [notifs, setNotifs] = useState<NotificationPrefsData>(() =>
-    readLocalData("vantaged_director_settings_notifs", DEFAULT_NOTIFS)
+    readLocalData(
+      "vantaged_director_notif_prefs",
+      readLocalData("vantaged_director_settings_notifs", DEFAULT_NOTIFS)
+    )
   );
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [showLegalModal, setShowLegalModal] = useState(false);
@@ -458,6 +503,7 @@ export function DirectorSettingsPage() {
     if (planId === "contractor-starter") {
       setSelectedPlanId(planId);
       writeLocalData("vantaged_director_plan_id", planId);
+      broadcastContractorCapacityUpdate();
       syncContractorCompanyMetaToAdmin({
         planId,
         planName,
@@ -532,6 +578,7 @@ export function DirectorSettingsPage() {
     const updatedExtra = extraSlotsCount - 1;
     setExtraSlotsCount(updatedExtra);
     writeLocalData("vantaged_director_extra_slots", updatedExtra);
+    broadcastContractorCapacityUpdate();
     syncContractorCompanyMetaToAdmin({
       planId: selectedPlanId,
       planName: activePlan.name,
@@ -544,6 +591,7 @@ export function DirectorSettingsPage() {
   const handleTogglePref = (key: keyof NotificationPrefsData) => {
     const next = { ...notifs, [key]: !notifs[key] };
     setNotifs(next);
+    writeLocalData("vantaged_director_notif_prefs", next);
     writeLocalData("vantaged_director_settings_notifs", next);
     showToast("Preferences saved.");
   };
@@ -1009,7 +1057,7 @@ export function DirectorSettingsPage() {
 
         {/* Tab 3: Plan & Project Slots */}
         {activeTab === "plan" && (() => {
-          const usedSlots: number = isDemoMode ? 3 : 0;
+          const usedSlots: number = capacity.usedSlots;
           const baseSlots = activePlan.capacitySlots;
           const totalSlots = baseSlots + extraSlotsCount;
           const remainingSlots = Math.max(0, totalSlots - usedSlots);
@@ -1647,7 +1695,10 @@ export function DirectorSettingsPage() {
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
-                onClick={() => router.push("/contractor/login")}
+                onClick={() => {
+                  signOutContractor();
+                  router.replace("/contractor/login");
+                }}
                 className="h-9 px-4 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold cursor-pointer"
               >
                 Sign Out of Company Account

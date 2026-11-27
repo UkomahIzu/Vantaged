@@ -15,6 +15,8 @@ import {
 } from "./contractorProjectData";
 import { useContractorProject } from "./useContractorProject";
 import { SHARED_SYNC_EVENT } from "../../../../shared/vantagedSyncBridge";
+import { readLocalData } from "../../utils/localPersistence";
+import { TEAM_ROSTER_UPDATE_EVENT } from "../../components/AddTeamMemberModal";
 
 interface ContractorProjectTeamPageProps {
   projectId: string;
@@ -34,18 +36,28 @@ export function ContractorProjectTeamPage({ projectId }: ContractorProjectTeamPa
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newLocation, setNewLocation] = useState(project.location);
+  const [companyStaffPool, setCompanyStaffPool] = useState<any[]>([]);
+  const [selectedPoolId, setSelectedPoolId] = useState<string>("");
+
+  useEffect(() => {
+    setNewLocation(project.location);
+  }, [project.location]);
 
   useEffect(() => {
     const sync = () => {
       setTeam(loadProjectKey(projectId, "team", project.siteTeam));
+      const customRoster = readLocalData<any[]>("vantaged_director_team_custom_roster", []);
+      setCompanyStaffPool(Array.isArray(customRoster) ? customRoster : []);
     };
     sync();
     window.addEventListener(CONTRACTOR_STORAGE_EVENT, sync);
     window.addEventListener(SHARED_SYNC_EVENT, sync);
+    window.addEventListener(TEAM_ROSTER_UPDATE_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener(CONTRACTOR_STORAGE_EVENT, sync);
       window.removeEventListener(SHARED_SYNC_EVENT, sync);
+      window.removeEventListener(TEAM_ROSTER_UPDATE_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, [projectId, project.siteTeam]);
@@ -69,27 +81,53 @@ export function ContractorProjectTeamPage({ projectId }: ContractorProjectTeamPa
     }
   };
 
+  const handleSelectCompanyStaff = (staffId: string) => {
+    setSelectedPoolId(staffId);
+    const match = companyStaffPool.find((m) => m.id === staffId);
+    if (!match) return;
+    setNewName(match.name || "");
+    const mappedRole: ContractorSiteMember["role"] =
+      match.role === "Director" ||
+      match.role === "Site Manager" ||
+      match.role === "Office Coordinator"
+        ? match.role
+        : "Site Foreman";
+    setNewRole(mappedRole);
+    setNewPhone(match.phone || "");
+    setNewEmail(match.email || "");
+    setNewLocation(match.location || project.location);
+  };
+
+  const handleRemoveSiteMember = (member: ContractorSiteMember) => {
+    const next = team.filter((m) => m.id !== member.id);
+    setTeam(next);
+    saveProjectKey(projectId, "team", next);
+    showToast(`Removed ${member.name} from ${project.title}.`);
+  };
+
   const handleAddSiteMember = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
 
+    const matchedPool = companyStaffPool.find((m) => m.id === selectedPoolId);
     const added: ContractorSiteMember = {
-      id: `crew-${Date.now()}`,
+      id: matchedPool?.id ? `crew-${matchedPool.id}` : `crew-${Date.now()}`,
       name: newName.trim(),
       role: newRole,
       phone: newPhone.trim() || "+234 800 000 0000",
-      email: newEmail.trim() || "crew@apexstructure.ng",
+      email: newEmail.trim() || "Verified Company Staff",
       location: newLocation.trim() || project.location,
       assigned: true,
-      points: 0,
+      points: Number(matchedPool?.points) || 0,
     };
 
-    const next = [added, ...team];
+    const next = [added, ...team.filter((m) => m.id !== added.id)];
     setTeam(next);
     saveProjectKey(projectId, "team", next);
     setNewName("");
     setNewPhone("");
     setNewEmail("");
+    setSelectedPoolId("");
     setIsAddModalOpen(false);
     showToast(`${added.name} added and assigned to ${project.title}.`);
   };
@@ -227,9 +265,20 @@ export function ContractorProjectTeamPage({ projectId }: ContractorProjectTeamPa
                   }
                   description={`${member.role} · ${member.location} · ${member.phone}`}
                 />
-                <span className="px-2 py-0.5 rounded-full bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[10px] font-bold text-[var(--vt-color-orange-700,#B33C08)] shrink-0">
-                  {member.points} pts
-                </span>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-[10px] font-bold text-[var(--vt-color-orange-700,#B33C08)]">
+                    {member.points} pts
+                  </span>
+                  {member.role !== "Director" && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSiteMember(member)}
+                      className="text-[10.5px] font-bold text-rose-600 hover:underline cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -250,6 +299,25 @@ export function ContractorProjectTeamPage({ projectId }: ContractorProjectTeamPa
             <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
               Add Team Member to Site
             </h3>
+
+            {companyStaffPool.length > 0 && (
+              <div className="p-3 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)]/60 border border-[var(--vt-color-orange-200,#FDCAA9)]">
+                <label className="block font-bold text-[var(--vt-color-orange-700,#B33C08)] mb-1">
+                  Pick from Company Team &amp; Crew Roster
+                </label>
+                <VantagedSelect
+                  value={selectedPoolId}
+                  onChange={handleSelectCompanyStaff}
+                  options={[
+                    { value: "", label: "Or enter a new site member below..." },
+                    ...companyStaffPool.map((m) => ({
+                      value: m.id,
+                      label: `${m.name} (${m.role})`,
+                    })),
+                  ]}
+                />
+              </div>
+            )}
 
             <div>
               <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
@@ -308,7 +376,7 @@ export function ContractorProjectTeamPage({ projectId }: ContractorProjectTeamPa
               </label>
               <input
                 type="email"
-                placeholder="staff@apexstructure.ng"
+                placeholder="staff@company.com"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 className="w-full h-9 px-3 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"

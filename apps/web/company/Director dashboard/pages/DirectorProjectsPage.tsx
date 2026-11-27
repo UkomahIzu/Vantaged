@@ -13,7 +13,7 @@ import { useScrollRestoration } from "../../../client/Owner dashboard/hooks/useS
 import { VantagedSelect } from "../../../client/Owner dashboard/components/VantagedSelect";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
 import { useContractorUser } from "../hooks/useContractorUser";
-import { readLocalData } from "../utils/localPersistence";
+import { useContractorCapacity } from "../hooks/useContractorCapacity";
 import {
   CompanySentOwnerRequest,
   pushOwnerLiveNotification,
@@ -27,22 +27,30 @@ import {
 import {
   DEMO_DIRECTOR_ACTIVE_FOLDER_PROJECTS,
   DEMO_DIRECTOR_HISTORY_FOLDER_PROJECTS,
-  DEMO_DIRECTOR_PROJECTS,
 } from "../data/directorData";
-
-const DEFAULT_PLAN_MAP: Record<string, { name: string; slots: number }> = {
-  "contractor-starter": { name: "Starter Contractor", slots: 1 },
-  "contractor-verified": { name: "Verified Builder", slots: 3 },
-  "contractor-prime": { name: "Prime Consortium", slots: 8 },
-};
-
-function normalizePlanId(raw: string): string {
-  if (raw === "starter" || raw === "contractor-starter") return "contractor-starter";
-  if (raw === "enterprise" || raw === "contractor-prime") return "contractor-prime";
-  return "contractor-verified";
-}
+import {
+  ContractorProjectStage,
+  computeProjectMetrics,
+  getContractorProjectDetail,
+  loadProjectKey,
+} from "./project dashboard/contractorProjectData";
 
 const STORAGE_KEY_ACCEPTED_PROJECTS = "vantaged_company_accepted_projects";
+
+function parseNairaBudgetValue(raw: string): number {
+  if (!raw) return 0;
+  // Handle ranges like "₦100M - ₦250M" by taking the upper bound
+  const parts = raw.split(/[-–]/);
+  const target = (parts[parts.length - 1] || raw).trim().toUpperCase();
+  const numMatch = target.replace(/,/g, "").match(/[\d.]+/);
+  if (!numMatch) return 0;
+  const num = parseFloat(numMatch[0]);
+  if (Number.isNaN(num)) return 0;
+  if (target.includes("B")) return num * 1_000_000_000;
+  if (target.includes("M")) return num * 1_000_000;
+  if (target.includes("K")) return num * 1_000;
+  return num;
+}
 
 export function DirectorProjectsPage() {
   const router = useRouter();
@@ -171,7 +179,6 @@ export function DirectorProjectsPage() {
   }, []);
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [inspectProject, setInspectProject] = useState<ProjectItem | null>(null);
   const [isSendRequestOpen, setIsSendRequestOpen] = useState(false);
   const [ownerIdentifier, setOwnerIdentifier] = useState("");
   const [reqTitle, setReqTitle] = useState("");
@@ -192,17 +199,49 @@ export function DirectorProjectsPage() {
 
   const { isDemoMode } = useDirectorDemoMode();
   const contractorUser = useContractorUser();
+  const capacity = useContractorCapacity();
 
-  const activeProjects = useMemo(
+  const totalCompanySlots = capacity.totalSlots;
+  const extraSlotsCount = capacity.extraSlots;
+  const activePlanInfo = { name: capacity.planName, slots: capacity.baseSlots };
+
+  // Partition live projects: 100% verified / Completed projects automatically move to Contract History
+  const { liveActiveProjects, liveCompletedProjects } = useMemo(() => {
+    const active: ProjectItem[] = [];
+    const completed: ProjectItem[] = [];
+    for (const proj of acceptedProjects) {
+      let verifiedPct = proj.progressPercent;
+      if (typeof window !== "undefined") {
+        const detail = getContractorProjectDetail(proj.id, true);
+        const stages = loadProjectKey<ContractorProjectStage[]>(proj.id, "stages", detail.stages);
+        if (stages.length > 0) {
+          verifiedPct = computeProjectMetrics(stages).verifiedPercent;
+        }
+      }
+      if (proj.status === "Completed" || verifiedPct >= 100) {
+        completed.push({ ...proj, status: "Completed", progressPercent: 100 });
+      } else {
+        active.push({ ...proj, progressPercent: verifiedPct });
+      }
+    }
+    return { liveActiveProjects: active, liveCompletedProjects: completed };
+  }, [acceptedProjects]);
+
+  // Never allow demo projects to exceed paid project slots
+  const activeProjects = useMemo(() => {
+    if (!isDemoMode) return liveActiveProjects;
+    const demoAllowed = Math.max(0, totalCompanySlots - liveActiveProjects.length);
+    return [...liveActiveProjects, ...DEMO_DIRECTOR_ACTIVE_FOLDER_PROJECTS.slice(0, demoAllowed)];
+  }, [isDemoMode, liveActiveProjects, totalCompanySlots]);
+
+  const canAddProject = activeProjects.length < totalCompanySlots;
+  const isOverCapacity = liveActiveProjects.length > totalCompanySlots;
+  const contractHistory = useMemo(
     () =>
       isDemoMode
-        ? [...acceptedProjects, ...DEMO_DIRECTOR_ACTIVE_FOLDER_PROJECTS]
-        : acceptedProjects,
-    [isDemoMode, acceptedProjects]
-  );
-  const contractHistory = useMemo(
-    () => (isDemoMode ? DEMO_DIRECTOR_HISTORY_FOLDER_PROJECTS : []),
-    [isDemoMode]
+        ? [...liveCompletedProjects, ...DEMO_DIRECTOR_HISTORY_FOLDER_PROJECTS]
+        : liveCompletedProjects,
+    [isDemoMode, liveCompletedProjects]
   );
 
   const currentList = viewMode === "active" ? activeProjects : contractHistory;
@@ -261,8 +300,8 @@ export function DirectorProjectsPage() {
       if (sortBy === "progress-desc") return b.progressPercent - a.progressPercent;
       if (sortBy === "progress-asc") return a.progressPercent - b.progressPercent;
       if (sortBy === "budget-desc" || sortBy === "budget-asc") {
-        const valA = parseFloat(a.escrowAmount.replace(/[^0-9.]/g, ""));
-        const valB = parseFloat(b.escrowAmount.replace(/[^0-9.]/g, ""));
+        const valA = parseNairaBudgetValue(a.escrowAmount);
+        const valB = parseNairaBudgetValue(b.escrowAmount);
         return sortBy === "budget-desc" ? valB - valA : valA - valB;
       }
       if (sortBy === "name-asc") {
@@ -279,54 +318,6 @@ export function DirectorProjectsPage() {
     (filterClient !== "all" ? 1 : 0) +
     (filterStage !== "all" ? 1 : 0) +
     (sortBy !== "recent" ? 1 : 0);
-
-  const [planMap, setPlanMap] = useState<Record<string, { name: string; slots: number }>>(DEFAULT_PLAN_MAP);
-  const [planId, setPlanId] = useState<string>(() =>
-    normalizePlanId(readLocalData("vantaged_director_plan_id", "contractor-verified"))
-  );
-  const [extraSlotsCount, setExtraSlotsCount] = useState<number>(() =>
-    readLocalData("vantaged_director_extra_slots", 0)
-  );
-
-  useEffect(() => {
-    const syncCapacity = () => {
-      setPlanId(normalizePlanId(readLocalData("vantaged_director_plan_id", "contractor-verified")));
-      setExtraSlotsCount(Math.max(0, Number(readLocalData("vantaged_director_extra_slots", 0)) || 0));
-    };
-    syncCapacity();
-    window.addEventListener("storage", syncCapacity);
-    window.addEventListener("focus", syncCapacity);
-    return () => {
-      window.removeEventListener("storage", syncCapacity);
-      window.removeEventListener("focus", syncCapacity);
-    };
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/pricing")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const tiers = data?.roles?.contractor?.tiers;
-        if (!Array.isArray(tiers)) return;
-        const next: Record<string, { name: string; slots: number }> = { ...DEFAULT_PLAN_MAP };
-        for (const t of tiers) {
-          if (t?.id && typeof t.capacitySlots === "number") {
-            next[t.id] = { name: t.name || t.id, slots: t.capacitySlots };
-          }
-        }
-        setPlanMap(next);
-      })
-      .catch(() => {});
-  }, []);
-
-  const activePlanInfo = planMap[planId] ?? DEFAULT_PLAN_MAP["contractor-verified"];
-  const totalCompanySlots = activePlanInfo.slots + extraSlotsCount;
-  const canAddProject = activeProjects.length < totalCompanySlots;
-
-  const inspectMeta = useMemo(() => {
-    if (!inspectProject) return null;
-    return DEMO_DIRECTOR_PROJECTS.find((p) => p.id === inspectProject.id) ?? null;
-  }, [inspectProject]);
 
   const validateOwnerIdentifier = (val: string): "email" | "phone" | null => {
     const trimmed = val.trim();
@@ -472,22 +463,33 @@ export function DirectorProjectsPage() {
                 {viewMode === "active" ? "Active Projects" : "Contract History"}
               </h1>
               {viewMode === "active" && (
-                <div
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition-all ${
-                    !canAddProject
-                      ? "bg-amber-50 border-amber-200 text-amber-800"
-                      : "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-200,#FDCAA9)] text-[var(--vt-color-orange-700,#B33C08)]"
-                  }`}
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      !canAddProject ? "bg-amber-500" : "bg-[var(--vt-color-orange-500,#EF5F18)]"
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition-all ${
+                      !canAddProject
+                        ? "bg-amber-50 border-amber-200 text-amber-800"
+                        : "bg-[var(--vt-color-orange-50,#FFF4EE)] border-[var(--vt-color-orange-200,#FDCAA9)] text-[var(--vt-color-orange-700,#B33C08)]"
                     }`}
-                  />
-                  <span>
-                    Capacity: {activeProjects.length} / {totalCompanySlots} Slots ({activePlanInfo.name}
-                    {extraSlotsCount > 0 ? ` + ${extraSlotsCount} Extra` : ""})
-                  </span>
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        !canAddProject ? "bg-amber-500" : "bg-[var(--vt-color-orange-500,#EF5F18)]"
+                      }`}
+                    />
+                    <span>
+                      Capacity: {activeProjects.length} / {totalCompanySlots} Slot
+                      {totalCompanySlots === 1 ? "" : "s"} ({activePlanInfo.name}
+                      {extraSlotsCount > 0 ? ` + ${extraSlotsCount} Extra` : ""})
+                    </span>
+                  </div>
+                  {!canAddProject && (
+                    <Link
+                      href="/contractor/settings?tab=plan"
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white transition-colors"
+                    >
+                      Upgrade Slots →
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
@@ -812,6 +814,22 @@ export function DirectorProjectsPage() {
           </div>
         )}
 
+        {/* Slot Limit Warning Banner when at or above paid slots */}
+        {viewMode === "active" && isOverCapacity && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="text-xs text-rose-900 leading-snug">
+              <strong>Paid Slot Limit Exceeded ({acceptedProjects.length} / {totalCompanySlots}):</strong>{" "}
+              Projects beyond your {totalCompanySlots} paid slot{totalCompanySlots === 1 ? "" : "s"} are restricted until you upgrade your plan or purchase extra project slots.
+            </div>
+            <Link
+              href="/contractor/settings?tab=plan"
+              className="h-8 px-3.5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold flex items-center justify-center shrink-0 whitespace-nowrap"
+            >
+              Upgrade Plan / Buy Slots
+            </Link>
+          </div>
+        )}
+
         {/* Folder Cards Grid */}
         <section className="w-full pb-8">
           {filteredAndSortedProjects.length === 0 ? (
@@ -868,115 +886,45 @@ export function DirectorProjectsPage() {
             )
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-7">
-              {filteredAndSortedProjects.map((project) => (
-                <ProjectFolderCard
-                  key={project.id}
-                  project={project}
-                  variant={viewMode === "active" ? "orange" : "white"}
-                  isSelected={selectedProjectId === project.id}
-                  onSelect={(p) => {
-                    setSelectedProjectId(p.id);
-                    router.push(`/contractor/projects/${p.id}`);
-                  }}
-                />
-              ))}
+              {filteredAndSortedProjects.map((project, idx) => {
+                const isSlotLocked = viewMode === "active" && idx >= totalCompanySlots;
+                return (
+                  <div key={project.id} className="relative">
+                    <div className={isSlotLocked ? "opacity-55 pointer-events-none select-none" : ""}>
+                      <ProjectFolderCard
+                        project={project}
+                        variant={viewMode === "active" ? "orange" : "white"}
+                        isSelected={selectedProjectId === project.id}
+                        onSelect={(p) => {
+                          if (isSlotLocked) return;
+                          setSelectedProjectId(p.id);
+                          router.push(`/contractor/projects/${p.id}`);
+                        }}
+                      />
+                    </div>
+                    {isSlotLocked && (
+                      <div className="absolute inset-0 rounded-2xl bg-[var(--vt-color-indigo-950,#140B3B)]/45 backdrop-blur-[1.5px] flex flex-col items-center justify-center text-center p-5 gap-2.5">
+                        <span className="px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-extrabold uppercase tracking-wider">
+                          Slot Limit Reached
+                        </span>
+                        <p className="text-xs font-bold text-white max-w-[220px] leading-snug">
+                          Upgrade your plan or add an extra slot to unlock this project workspace.
+                        </p>
+                        <Link
+                          href="/contractor/settings?tab=plan"
+                          className="h-8 px-3.5 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold flex items-center justify-center shadow-md"
+                        >
+                          Upgrade / Buy Slot
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
       </main>
-
-      {/* Project Quick-Inspect Modal when clicking a folder */}
-      {inspectProject && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setInspectProject(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl p-6 flex flex-col gap-4"
-          >
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--vt-color-neutral-100,#EFEEF5)]">
-              <div className="min-w-0">
-                <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[var(--vt-color-orange-600,#D84C0B)]">
-                  {inspectProject.jobId} · {inspectProject.category}
-                </span>
-                <h3 className="text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
-                  {inspectProject.title}
-                </h3>
-                <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
-                  {inspectProject.location} · {inspectProject.specs}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setInspectProject(null)}
-                className="w-8 h-8 rounded-lg text-[var(--vt-color-neutral-400,#A3A0B8)] hover:text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] flex items-center justify-center cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span className="text-[10.5px] font-bold uppercase text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                  Client / Owner
-                </span>
-                <p className="font-bold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
-                  {inspectProject.contractor.name}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)]">
-                <span className="text-[10.5px] font-bold uppercase text-[var(--vt-color-neutral-400,#A3A0B8)]">
-                  Contract Value
-                </span>
-                <p className="font-mono font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
-                  {inspectProject.escrowAmount}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-                  {inspectProject.currentScope}
-                </span>
-                <span className="font-mono font-extrabold text-[var(--vt-color-orange-700,#B33C08)]">
-                  {inspectProject.progressPercent}% Verified
-                  {inspectMeta ? ` · ${inspectMeta.reportedPercent}% Reported` : ""}
-                </span>
-              </div>
-              <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-[var(--vt-color-orange-200,#FDCAA9)]">
-                <div
-                  className="h-full bg-[var(--vt-color-orange-500,#EF5F18)] rounded-full"
-                  style={{ width: `${inspectProject.progressPercent}%` }}
-                />
-              </div>
-              {inspectMeta?.delayFlag && (
-                <p className="text-[11px] font-bold text-rose-700 mt-2">
-                  ⚠ {inspectMeta.delayFlag}
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-1">
-              <button
-                type="button"
-                onClick={() => setInspectProject(null)}
-                className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] cursor-pointer"
-              >
-                Close
-              </button>
-              <Link
-                href="/contractor/transactions"
-                onClick={() => setInspectProject(null)}
-                className="h-9 px-4 rounded-lg bg-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-indigo-800,#352488)] text-white text-xs font-bold flex items-center justify-center"
-              >
-                View Escrow &amp; Receipts
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Toast Banner */}
       {toastMessage && (
@@ -1020,7 +968,7 @@ export function DirectorProjectsPage() {
                     </p>
                   </div>
                   <Link
-                    href="/contractor/settings"
+                    href="/contractor/settings?tab=plan"
                     className="h-8 px-3 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-[11px] font-bold flex items-center justify-center shrink-0"
                   >
                     Upgrade / Buy Slots

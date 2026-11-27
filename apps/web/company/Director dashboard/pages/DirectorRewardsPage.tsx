@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { DirectorSidebarNav } from "../components/DirectorSidebarNav";
 import { DirectorHeaderBar } from "../components/DirectorHeaderBar";
@@ -8,6 +9,7 @@ import { useScrollRestoration } from "../../../client/Owner dashboard/hooks/useS
 import { VantagedSelect } from "../../../client/Owner dashboard/components/VantagedSelect";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
 import { readLocalData, writeLocalData } from "../utils/localPersistence";
+import { TEAM_ROSTER_UPDATE_EVENT } from "../components/AddTeamMemberModal";
 
 interface StaffRewardMember {
   id: string;
@@ -16,6 +18,7 @@ interface StaffRewardMember {
   site: string;
   points: number;
   streakDays: number;
+  isLiveTeam?: boolean;
 }
 
 interface RewardActivityItem {
@@ -138,12 +141,17 @@ const INITIAL_REWARD_RULES: RewardRuleItem[] = [
 export function DirectorRewardsPage() {
   const scrollRef = useScrollRestoration<HTMLElement>("director_rewards");
   const { isDemoMode } = useDirectorDemoMode();
+  const [mounted, setMounted] = useState(false);
 
-  const [staff, setStaff] = useState<StaffRewardMember[]>(() =>
+  const [demoStaff, setDemoStaff] = useState<StaffRewardMember[]>(() =>
     readLocalData("vantaged_director_rewards_staff", INITIAL_STAFF_LEADERBOARD)
   );
-  const [activity, setActivity] = useState<RewardActivityItem[]>(() =>
+  const [liveTeamStaff, setLiveTeamStaff] = useState<StaffRewardMember[]>([]);
+  const [demoActivity, setDemoActivity] = useState<RewardActivityItem[]>(() =>
     readLocalData("vantaged_director_rewards_activity", INITIAL_REWARD_ACTIVITY)
+  );
+  const [liveActivity, setLiveActivity] = useState<RewardActivityItem[]>(() =>
+    readLocalData("vantaged_director_rewards_live_activity", [])
   );
   const [rules, setRules] = useState<RewardRuleItem[]>(() =>
     readLocalData("vantaged_director_reward_rules", INITIAL_REWARD_RULES)
@@ -161,18 +169,47 @@ export function DirectorRewardsPage() {
 
   // Award Bonus Modal
   const [isAwardOpen, setIsAwardOpen] = useState(false);
-  const [awardMemberId, setAwardMemberId] = useState("rw-1");
+  const [awardMemberId, setAwardMemberId] = useState("");
+  const [selectedRuleId, setSelectedRuleId] = useState<string>("custom");
   const [awardPoints, setAwardPoints] = useState("50");
   const [awardReason, setAwardReason] = useState("");
 
+  useEffect(() => {
+    setMounted(true);
+    const syncLiveTeam = () => {
+      const customRoster = readLocalData<any[]>("vantaged_director_team_custom_roster", []);
+      setLiveTeamStaff(
+        Array.isArray(customRoster)
+          ? customRoster.map((m) => ({
+              id: m.id,
+              name: m.name,
+              role: m.role || "Site Staff",
+              site: m.assignedProjectName || "Active Company Site",
+              points: Number(m.points) || 0,
+              streakDays: m.streakDays ?? 1,
+              isLiveTeam: true,
+            }))
+          : []
+      );
+      setLiveActivity(readLocalData("vantaged_director_rewards_live_activity", []));
+    };
+    syncLiveTeam();
+    window.addEventListener(TEAM_ROSTER_UPDATE_EVENT, syncLiveTeam);
+    window.addEventListener("storage", syncLiveTeam);
+    return () => {
+      window.removeEventListener(TEAM_ROSTER_UPDATE_EVENT, syncLiveTeam);
+      window.removeEventListener("storage", syncLiveTeam);
+    };
+  }, []);
+
   const visibleStaff = useMemo(() => {
-    if (!isDemoMode) return [];
-    return [...staff].sort((a, b) => b.points - a.points);
-  }, [isDemoMode, staff]);
+    const combined = isDemoMode ? [...liveTeamStaff, ...demoStaff] : liveTeamStaff;
+    return [...combined].sort((a, b) => b.points - a.points);
+  }, [isDemoMode, liveTeamStaff, demoStaff]);
 
   const visibleActivity = useMemo(
-    () => (isDemoMode ? activity : []),
-    [isDemoMode, activity]
+    () => (isDemoMode ? [...liveActivity, ...demoActivity] : liveActivity),
+    [isDemoMode, liveActivity, demoActivity]
   );
 
   const totalTeamPoints = useMemo(
@@ -189,13 +226,7 @@ export function DirectorRewardsPage() {
 
   const persistRules = (next: RewardRuleItem[]) => {
     setRules(next);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("vantaged_director_reward_rules", JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-    }
+    writeLocalData("vantaged_director_reward_rules", next);
   };
 
   const openAddRuleModal = () => {
@@ -255,29 +286,73 @@ export function DirectorRewardsPage() {
     showToast(`Removed rule "${title}".`);
   };
 
+  const openAwardModal = (memberId?: string) => {
+    const defaultMember = memberId || visibleStaff[0]?.id || "";
+    setAwardMemberId(defaultMember);
+    const firstRule = rules[0];
+    if (firstRule) {
+      setSelectedRuleId(firstRule.id);
+      setAwardPoints(String(firstRule.points));
+      setAwardReason(firstRule.title);
+    } else {
+      setSelectedRuleId("custom");
+      setAwardPoints("50");
+      setAwardReason("");
+    }
+    setIsAwardOpen(true);
+  };
+
+  const handleSelectRewardRule = (ruleId: string) => {
+    setSelectedRuleId(ruleId);
+    const matched = rules.find((r) => r.id === ruleId);
+    if (matched) {
+      setAwardPoints(String(matched.points));
+      setAwardReason(matched.title);
+    }
+  };
+
   const handleAwardSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const pts = Math.max(5, parseInt(awardPoints, 10) || 25);
-    const target = staff.find((m) => m.id === awardMemberId);
+    const target = visibleStaff.find((m) => m.id === awardMemberId);
     if (!target) return;
 
-    const nextStaff = staff.map((m) =>
-      m.id === awardMemberId ? { ...m, points: m.points + pts } : m
-    );
-    const nextActivity: RewardActivityItem[] = [
-      {
-        id: `ra-${Date.now()}`,
-        memberName: target.name,
-        points: pts,
-        reason: awardReason.trim() || "Director bonus for great site work",
-        date: "Just now",
-      },
-      ...activity,
-    ];
-    setStaff(nextStaff);
-    setActivity(nextActivity);
-    writeLocalData("vantaged_director_rewards_staff", nextStaff);
-    writeLocalData("vantaged_director_rewards_activity", nextActivity);
+    const newAct: RewardActivityItem = {
+      id: `ra-${Date.now()}`,
+      memberName: target.name,
+      points: pts,
+      reason: awardReason.trim() || "Director bonus for great site work",
+      date: "Just now",
+    };
+
+    if (target.isLiveTeam) {
+      const nextLiveStaff = liveTeamStaff.map((m) =>
+        m.id === target.id ? { ...m, points: m.points + pts } : m
+      );
+      setLiveTeamStaff(nextLiveStaff);
+
+      // Sync awarded points directly back to Team & Crew custom roster!
+      const rawCustom = readLocalData<any[]>("vantaged_director_team_custom_roster", []);
+      const updatedCustom = rawCustom.map((m) =>
+        m.id === target.id ? { ...m, points: (Number(m.points) || 0) + pts } : m
+      );
+      writeLocalData("vantaged_director_team_custom_roster", updatedCustom);
+      window.dispatchEvent(new Event(TEAM_ROSTER_UPDATE_EVENT));
+
+      const nextLiveAct = [newAct, ...liveActivity];
+      setLiveActivity(nextLiveAct);
+      writeLocalData("vantaged_director_rewards_live_activity", nextLiveAct);
+    } else {
+      const nextDemoStaff = demoStaff.map((m) =>
+        m.id === target.id ? { ...m, points: m.points + pts } : m
+      );
+      const nextDemoAct = [newAct, ...demoActivity];
+      setDemoStaff(nextDemoStaff);
+      setDemoActivity(nextDemoAct);
+      writeLocalData("vantaged_director_rewards_staff", nextDemoStaff);
+      writeLocalData("vantaged_director_rewards_activity", nextDemoAct);
+    }
+
     setIsAwardOpen(false);
     setAwardReason("");
     showToast(`Awarded +${pts} pts to ${target.name}!`);
@@ -309,12 +384,6 @@ export function DirectorRewardsPage() {
           }
         />
 
-        {toastMessage && (
-          <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-bold shadow-xl">
-            ✓ {toastMessage}
-          </div>
-        )}
-
         {/* Header */}
         <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
           <div>
@@ -328,8 +397,8 @@ export function DirectorRewardsPage() {
 
           <button
             type="button"
-            disabled={!isDemoMode}
-            onClick={() => setIsAwardOpen(true)}
+            disabled={visibleStaff.length === 0}
+            onClick={() => openAwardModal()}
             className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-2xs cursor-pointer disabled:opacity-45 shrink-0"
           >
             + Award Bonus Points
@@ -346,7 +415,7 @@ export function DirectorRewardsPage() {
               {totalTeamPoints.toLocaleString()} pts
             </p>
             <p className="text-[11px] text-[var(--vt-color-orange-800,#8F320D)] mt-1">
-              Earned by {visibleStaff.length} staff members
+              Earned by {visibleStaff.length} staff member{visibleStaff.length === 1 ? "" : "s"}
             </p>
           </div>
 
@@ -358,7 +427,9 @@ export function DirectorRewardsPage() {
               {topPerformer ? topPerformer.name : "None yet"}
             </p>
             <p className="text-[11px] text-[var(--vt-color-green-700,#1F6B3E)] font-semibold mt-1">
-              {topPerformer ? `${topPerformer.points} pts · ${topPerformer.role}` : "Turn on Demo Data to preview"}
+              {topPerformer
+                ? `${topPerformer.points} pts · ${topPerformer.role}`
+                : "Add staff in Team & Crew to track points"}
             </p>
           </div>
 
@@ -370,7 +441,7 @@ export function DirectorRewardsPage() {
               {rules.length}
             </p>
             <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
-              Automatic ways to earn points
+              Selectable presets for awarding points
             </p>
           </div>
         </section>
@@ -392,8 +463,16 @@ export function DirectorRewardsPage() {
               </div>
 
               {visibleStaff.length === 0 ? (
-                <div className="py-12 text-center rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-dashed border-[var(--vt-color-border-default,#E2E0EC)] text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
-                  No staff reward points yet. Points appear here as your team logs site photos and passes checks.
+                <div className="py-10 px-4 text-center rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-dashed border-[var(--vt-color-border-default,#E2E0EC)] text-xs text-[var(--vt-color-neutral-500,#7C7894)] flex flex-col items-center gap-3">
+                  <p className="max-w-sm">
+                    No staff members added yet. Add Site Managers, Office Coordinators, or Crew in Team &amp; Crew to start awarding points.
+                  </p>
+                  <Link
+                    href="/contractor/team"
+                    className="h-8 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold inline-flex items-center"
+                  >
+                    Go to Team &amp; Crew →
+                  </Link>
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
@@ -432,10 +511,7 @@ export function DirectorRewardsPage() {
                             </span>
                             <button
                               type="button"
-                              onClick={() => {
-                                setAwardMemberId(member.id);
-                                setIsAwardOpen(true);
-                              }}
+                              onClick={() => openAwardModal(member.id)}
                               className="h-7 px-2.5 rounded-md bg-white hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)] cursor-pointer"
                             >
                               + Award
@@ -511,7 +587,7 @@ export function DirectorRewardsPage() {
                     How Team Members Earn Points
                   </h2>
                   <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                    Edit point values or add your own company rules
+                    Edit point values or add custom rules usable when awarding bonuses
                   </p>
                 </div>
                 <button
@@ -576,178 +652,218 @@ export function DirectorRewardsPage() {
         </section>
       </main>
 
-      {/* Award Bonus Points Modal */}
-      {isAwardOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
-          onClick={() => setIsAwardOpen(false)}
-        >
+      {/* Award Bonus Points Modal (Portaled above navbar, uses live staff + custom rules) */}
+      {mounted &&
+        isAwardOpen &&
+        createPortal(
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl overflow-hidden"
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-[var(--vt-color-indigo-950,#140B3B)]/55 backdrop-blur-xs select-none font-sans"
+            onClick={() => setIsAwardOpen(false)}
           >
-            <div className="px-5 py-4 border-b border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] flex items-center justify-between">
-              <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                Award Bonus Points
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsAwardOpen(false)}
-                className="w-7 h-7 rounded-lg hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] flex items-center justify-center cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleAwardSubmit} className="p-5 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                  Team Member
-                </label>
-                <VantagedSelect
-                  value={awardMemberId}
-                  onChange={(val) => setAwardMemberId(val)}
-                  options={staff.map((m) => ({
-                    value: m.id,
-                    label: `${m.name} (${m.points} pts)`,
-                  }))}
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                  Points to Give
-                </label>
-                <VantagedSelect
-                  value={awardPoints}
-                  onChange={(val) => setAwardPoints(val)}
-                  options={[
-                    { value: "25", label: "+25 pts (Daily Site Excellence)" },
-                    { value: "50", label: "+50 pts (Fast Turnaround)" },
-                    { value: "75", label: "+75 pts (Clean Inspection)" },
-                    { value: "150", label: "+150 pts (Major Milestone)" },
-                  ]}
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                  Reason
-                </label>
-                <input
-                  type="text"
-                  value={awardReason}
-                  onChange={(e) => setAwardReason(e.target.value)}
-                  placeholder="e.g. Completed slab pour ahead of schedule"
-                  className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl overflow-hidden text-[var(--vt-color-text-default,#261A66)]"
+            >
+              <div className="px-5 py-4 border-b border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] flex items-center justify-between">
+                <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                  Award Bonus Points
+                </h3>
                 <button
                   type="button"
                   onClick={() => setIsAwardOpen(false)}
-                  className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+                  className="w-7 h-7 rounded-lg hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] flex items-center justify-center cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white font-bold cursor-pointer"
-                >
-                  Give Points
+                  ✕
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* Add / Edit Reward Rule Modal */}
-      {isRuleModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
-          onClick={() => setIsRuleModalOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl overflow-hidden"
-          >
-            <div className="px-5 py-4 border-b border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] flex items-center justify-between">
-              <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                {editingRuleId ? "Edit Reward Rule" : "Add New Reward Rule"}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsRuleModalOpen(false)}
-                className="w-7 h-7 rounded-lg hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] flex items-center justify-center cursor-pointer"
-              >
-                ✕
-              </button>
+              <form onSubmit={handleAwardSubmit} className="p-5 space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Team Member
+                  </label>
+                  <VantagedSelect
+                    value={awardMemberId}
+                    onChange={(val) => setAwardMemberId(val)}
+                    options={visibleStaff.map((m) => ({
+                      value: m.id,
+                      label: `${m.name} (${m.points} pts)`,
+                    }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Reward Rule Preset
+                  </label>
+                  <VantagedSelect
+                    value={selectedRuleId}
+                    onChange={(val) => handleSelectRewardRule(val)}
+                    options={[
+                      ...rules.map((r) => ({
+                        value: r.id,
+                        label: `+${r.points} pts · ${r.title}`,
+                      })),
+                      { value: "custom", label: "Custom Bonus Amount" },
+                    ]}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Points to Give
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    step={5}
+                    required
+                    value={awardPoints}
+                    onChange={(e) => {
+                      setAwardPoints(e.target.value);
+                      setSelectedRuleId("custom");
+                    }}
+                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-mono font-bold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Reason
+                  </label>
+                  <input
+                    type="text"
+                    value={awardReason}
+                    onChange={(e) => setAwardReason(e.target.value)}
+                    placeholder="e.g. Completed slab pour ahead of schedule"
+                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAwardOpen(false)}
+                    className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white font-bold cursor-pointer"
+                  >
+                    Give Points
+                  </button>
+                </div>
+              </form>
             </div>
+          </div>,
+          document.body
+        )}
 
-            <form onSubmit={handleSaveRule} className="p-5 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                  Rule Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={ruleForm.title}
-                  onChange={(e) => setRuleForm({ ...ruleForm, title: e.target.value })}
-                  placeholder="e.g. Zero Safety Incidents This Month"
-                  className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                  Points Awarded *
-                </label>
-                <input
-                  type="number"
-                  min={5}
-                  step={5}
-                  required
-                  value={ruleForm.points}
-                  onChange={(e) => setRuleForm({ ...ruleForm, points: e.target.value })}
-                  className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-mono font-bold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                  How Staff Earn It
-                </label>
-                <textarea
-                  rows={2}
-                  value={ruleForm.desc}
-                  onChange={(e) => setRuleForm({ ...ruleForm, desc: e.target.value })}
-                  placeholder="Describe what the team member needs to do..."
-                  className="w-full p-2.5 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] resize-none"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
+      {/* Add / Edit Reward Rule Modal (Portaled above navbar) */}
+      {mounted &&
+        isRuleModalOpen &&
+        createPortal(
+          <div
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-[var(--vt-color-indigo-950,#140B3B)]/55 backdrop-blur-xs select-none font-sans"
+            onClick={() => setIsRuleModalOpen(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl overflow-hidden text-[var(--vt-color-text-default,#261A66)]"
+            >
+              <div className="px-5 py-4 border-b border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] flex items-center justify-between">
+                <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                  {editingRuleId ? "Edit Reward Rule" : "Add New Reward Rule"}
+                </h3>
                 <button
                   type="button"
                   onClick={() => setIsRuleModalOpen(false)}
-                  className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+                  className="w-7 h-7 rounded-lg hover:bg-[var(--vt-color-neutral-200,#E2E0EC)] text-[var(--vt-color-neutral-500,#7C7894)] flex items-center justify-center cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white font-bold cursor-pointer"
-                >
-                  {editingRuleId ? "Save Changes" : "Add Rule"}
+                  ✕
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <form onSubmit={handleSaveRule} className="p-5 space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Rule Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={ruleForm.title}
+                    onChange={(e) => setRuleForm({ ...ruleForm, title: e.target.value })}
+                    placeholder="e.g. Zero Safety Incidents This Month"
+                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-semibold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    Points Awarded *
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    step={5}
+                    required
+                    value={ruleForm.points}
+                    onChange={(e) => setRuleForm({ ...ruleForm, points: e.target.value })}
+                    className="w-full h-9 px-3 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-mono font-bold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                    How Staff Earn It
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={ruleForm.desc}
+                    onChange={(e) => setRuleForm({ ...ruleForm, desc: e.target.value })}
+                    placeholder="Describe what the team member needs to do..."
+                    className="w-full p-2.5 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] resize-none"
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRuleModalOpen(false)}
+                    className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white font-bold cursor-pointer"
+                  >
+                    {editingRuleId ? "Save Changes" : "Add Rule"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Toast */}
+      {mounted &&
+        toastMessage &&
+        createPortal(
+          <div
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+            className="fixed bottom-6 right-6 z-[130] px-4 py-2.5 rounded-xl bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-bold shadow-xl select-none font-sans"
+          >
+            ✓ {toastMessage}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useContractorUser } from "../hooks/useContractorUser";
-import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { useContractorCapacity } from "../hooks/useContractorCapacity";
 import { signOutContractor } from "../../../shared/vantagedAuth";
 
 interface DirectorProfileModalProps {
@@ -15,7 +15,7 @@ interface DirectorProfileModalProps {
 export function DirectorProfileModal({ isOpen, onClose }: DirectorProfileModalProps) {
   const router = useRouter();
   const user = useContractorUser();
-  const { isDemoMode } = useDirectorDemoMode();
+  const capacity = useContractorCapacity();
 
   const handleLogout = () => {
     onClose();
@@ -83,7 +83,7 @@ export function DirectorProfileModal({ isOpen, onClose }: DirectorProfileModalPr
                 Subscription Quota
               </span>
               <div className="mt-1 font-bold text-sm text-[var(--vt-color-indigo-900,#261A66)] tabular-nums">
-                {isDemoMode ? "Verified Builder (3 / 3)" : "Starter Free Slot (0 / 1)"}
+                {capacity.planName} ({capacity.usedSlots} / {capacity.totalSlots})
               </div>
             </div>
           </div>

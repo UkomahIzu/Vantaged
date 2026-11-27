@@ -18,7 +18,10 @@ import {
   saveProjectKey,
 } from "./contractorProjectData";
 import { useContractorProject } from "./useContractorProject";
-import { SHARED_SYNC_EVENT } from "../../../../shared/vantagedSyncBridge";
+import {
+  SHARED_SYNC_EVENT,
+  pushOwnerLiveNotification,
+} from "../../../../shared/vantagedSyncBridge";
 
 interface ContractorProjectStagesPageProps {
   projectId: string;
@@ -58,29 +61,38 @@ export function ContractorProjectStagesPage({ projectId }: ContractorProjectStag
     };
   }, [projectId, project.stages]);
 
-  // Fetch synced Admin + Company presets
+  // Fetch synced Company + Admin + Platform presets
   useEffect(() => {
     fetch("/api/presets")
       .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
-          const mapped: StagePreset[] = json.data.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            category: p.category || "Residential",
-            stagesCount: Array.isArray(p.stages) ? p.stages.length : 0,
-            typicalDuration: p.typicalDuration || "6 to 12 Months",
-            description: p.description || "Verified platform stage template",
-            stages: Array.isArray(p.stages)
-              ? p.stages.map((s: any, idx: number) => ({
-                  order: idx + 1,
-                  title: s.title || s.name || `Stage ${idx + 1}`,
-                  evidence: s.evidence || "Upload geo-tagged stage photos and inspection sign-off",
-                }))
-              : [],
-          }));
-          setAvailablePresets(mapped);
-          setSelectedPresetId(mapped[0].id);
+      .then((data) => {
+        if (!data?.success) return;
+        const companyCustom: StagePreset[] = Array.isArray(data.companyPresets)
+          ? data.companyPresets.map((p: StagePreset) => ({
+              ...p,
+              source: "company" as const,
+              isCustom: true,
+            }))
+          : [];
+        const adminCustom: StagePreset[] = Array.isArray(data.adminCustomPresets)
+          ? data.adminCustomPresets.map((p: StagePreset) => ({
+              ...p,
+              source: "admin" as const,
+            }))
+          : [];
+        const overrides =
+          data.adminOverrides && typeof data.adminOverrides === "object"
+            ? data.adminOverrides
+            : {};
+        const mergedBuiltIn = BUILT_IN_PLATFORM_PRESETS.map((bp) =>
+          overrides[bp.id]
+            ? { ...bp, ...overrides[bp.id], isModified: true, source: "platform" as const }
+            : { ...bp, source: "platform" as const }
+        );
+        const combined = [...companyCustom, ...adminCustom, ...mergedBuiltIn];
+        if (combined.length > 0) {
+          setAvailablePresets(combined);
+          setSelectedPresetId(combined[0]!.id);
         }
       })
       .catch(() => {});
@@ -133,6 +145,14 @@ export function ContractorProjectStagesPage({ projectId }: ContractorProjectStag
         : s
     );
     persistStages(next);
+    pushOwnerLiveNotification({
+      projectId,
+      projectTitle: project.title,
+      category: "site",
+      title: `Stage Ready for Your Review: ${submittingStage.title}`,
+      description: `Your contractor submitted "${submittingStage.title}" for inspection and sign-off on ${project.title}.`,
+      linkUrl: `/owner/projects/${projectId}/stages/${submittingStage.id}`,
+    });
     showToast(`Submitted "${submittingStage.title}" to owner for review.`);
     setSubmittingStage(null);
     setConfirmQualityCheck(false);

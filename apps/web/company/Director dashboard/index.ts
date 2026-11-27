@@ -2,7 +2,6 @@ export { DirectorDashboardHomePage } from "./pages/DirectorDashboardHomePage";
 export { DirectorProjectsPage } from "./pages/DirectorProjectsPage";
 export { DirectorRequestsPage } from "./pages/DirectorRequestsPage";
 export { ContractorPlanReviewPage } from "./pages/ContractorPlanReviewPage";
-export { DirectorMessagesPage } from "./pages/DirectorMessagesPage";
 export { DirectorPresetsPage } from "./pages/DirectorPresetsPage";
 export { DirectorTeamPage } from "./pages/DirectorTeamPage";
 export { DirectorNotificationsPage } from "./pages/DirectorNotificationsPage";
@@ -17,6 +16,7 @@ export { DirectorStatsCards } from "./components/DirectorStatsCards";
 export { DirectorPortfolioAndQueue } from "./components/DirectorPortfolioAndQueue";
 export { DirectorBottomSummary } from "./components/DirectorBottomSummary";
 export { DirectorProfileModal } from "./components/DirectorProfileModal";
+export { AddTeamMemberModal } from "./components/AddTeamMemberModal";
 export {
   useDirectorDemoMode,
   getIsDirectorDemoMode,
@@ -24,5 +24,12 @@ export {
   STORAGE_KEY_DIRECTOR_DEMO,
 } from "./hooks/useDirectorDemoMode";
 export { useContractorUser, type ContractorUser } from "./hooks/useContractorUser";
+export {
+  useContractorCapacity,
+  broadcastContractorCapacityUpdate,
+  CONTRACTOR_CAPACITY_EVENT,
+  type ContractorCapacityState,
+  type ContractorPlanId,
+} from "./hooks/useContractorCapacity";
 export * from "./data/directorData";
 export * from "./pages/project dashboard";

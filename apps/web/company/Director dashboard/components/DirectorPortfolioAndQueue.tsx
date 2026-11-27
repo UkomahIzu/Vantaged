@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { useContractorCapacity } from "../hooks/useContractorCapacity";
 import {
   DEMO_DIRECTOR_PROJECTS,
   DEMO_WAITING_ACTIONS,
@@ -15,11 +16,23 @@ import {
   readCompanyLiveNotifications,
 } from "../../../shared/vantagedSyncBridge";
 import { readScopedCompanyAcceptedProjects } from "../../../shared/vantagedAuth";
+import {
+  CONTRACTOR_STORAGE_EVENT,
+  ContractorProjectIssue,
+  ContractorProjectStage,
+  ContractorProjectTranche,
+  ContractorSiteMember,
+  computeProjectMetrics,
+  formatNairaCompact,
+  getContractorProjectDetail,
+  loadProjectKey,
+} from "../pages/project dashboard/contractorProjectData";
 
 type PortfolioTab = "ALL" | "CONTRACTOR_TURN" | "CLIENT_TURN";
 
 export function DirectorPortfolioAndQueue() {
   const { isDemoMode } = useDirectorDemoMode();
+  const capacity = useContractorCapacity();
   const [tab, setTab] = useState<PortfolioTab>("ALL");
   const [liveProjects, setLiveProjects] = useState<DirectorProjectSummary[]>([]);
   const [liveWaiting, setLiveWaiting] = useState<WaitingActionItem[]>([]);
@@ -28,25 +41,72 @@ export function DirectorPortfolioAndQueue() {
     const sync = () => {
       const parsed = readScopedCompanyAcceptedProjects();
       setLiveProjects(
-        parsed.map((p: any) => ({
-          id: p.id,
-          name: p.title,
-          clientName: p.contractor?.assignedRep || "Property Owner",
-          location: p.location || "Nigeria",
-          currentStage: p.stageSubtitle || "Stage 1: Mobilization",
-          verifiedPercent: p.progressPercent || 0,
-          reportedPercent: p.progressPercent || 0,
-          status: "ACTIVE" as const,
-          ballInCourt: "CONTRACTOR" as const,
-          contractValue: p.escrowAmount || "₦0",
-          escrowReceived: "₦0",
-          assignedCrewCount: 1,
-        }))
+        parsed.map((p: any) => {
+          const detail = getContractorProjectDetail(p.id, true);
+          const stages = loadProjectKey<ContractorProjectStage[]>(p.id, "stages", detail.stages);
+          const tranches = loadProjectKey<ContractorProjectTranche[]>(
+            p.id,
+            "tranches",
+            detail.tranches
+          );
+          const issues = loadProjectKey<ContractorProjectIssue[]>(p.id, "issues", detail.issues);
+          const team = loadProjectKey<ContractorSiteMember[]>(p.id, "team", detail.siteTeam);
+
+          const metrics = computeProjectMetrics(stages);
+          const activeStage =
+            stages.find((s) => s.status === "Disputed") ||
+            stages.find((s) => s.status === "Fix Requested") ||
+            stages.find((s) => s.status === "Ready for Review") ||
+            stages.find((s) => s.status === "In Progress") ||
+            stages.find((s) => s.status === "Scheduled") ||
+            stages[stages.length - 1];
+
+          const hasOpenDispute =
+            stages.some((s) => s.status === "Disputed") ||
+            issues.some((i) => i.kind === "Formal Dispute" && i.status !== "Resolved");
+          const hasFixRequest =
+            stages.some((s) => s.status === "Fix Requested") ||
+            issues.some((i) => i.kind === "Fix Request" && i.status !== "Resolved");
+
+          const receivedSum = tranches
+            .filter((t) => t.status === "Receipt Confirmed")
+            .reduce((sum, t) => sum + t.netPayout, 0);
+
+          const assignedCrewCount = Math.max(
+            1,
+            team.filter((m) => m.assigned).length
+          );
+
+          return {
+            id: p.id,
+            name: p.title || detail.title,
+            clientName: p.ownerName || p.contractor?.name || detail.client.name || "Property Owner",
+            location: p.location || detail.location || "Nigeria",
+            currentStage: activeStage
+              ? activeStage.title
+              : p.stageSubtitle || "Stage 1: Mobilization",
+            verifiedPercent: metrics.verifiedPercent,
+            reportedPercent: metrics.reportedPercent,
+            status: hasOpenDispute ? ("ON_HOLD_DISPUTE" as const) : ("ACTIVE" as const),
+            ballInCourt:
+              activeStage?.status === "Ready for Review"
+                ? ("CLIENT" as const)
+                : ("CONTRACTOR" as const),
+            contractValue: p.escrowAmount || formatNairaCompact(detail.contractValue),
+            escrowReceived: formatNairaCompact(receivedSum),
+            assignedCrewCount,
+            delayFlag: hasOpenDispute
+              ? "Active stage dispute"
+              : hasFixRequest
+              ? "Fix requested"
+              : undefined,
+          };
+        })
       );
 
       const notifs = readCompanyLiveNotifications().filter((n) => n.isUnread);
       setLiveWaiting(
-        notifs.slice(0, 5).map((n) => ({
+        notifs.map((n) => ({
           id: n.id,
           category:
             n.category === "receipt"
@@ -64,11 +124,13 @@ export function DirectorPortfolioAndQueue() {
       );
     };
     sync();
+    window.addEventListener(CONTRACTOR_STORAGE_EVENT, sync);
     window.addEventListener("vantaged_company_projects_update", sync);
     window.addEventListener(SHARED_SYNC_EVENT, sync);
     window.addEventListener(CONTRACTOR_SYNC_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
+      window.removeEventListener(CONTRACTOR_STORAGE_EVENT, sync);
       window.removeEventListener("vantaged_company_projects_update", sync);
       window.removeEventListener(SHARED_SYNC_EVENT, sync);
       window.removeEventListener(CONTRACTOR_SYNC_EVENT, sync);
@@ -76,9 +138,10 @@ export function DirectorPortfolioAndQueue() {
     };
   }, []);
 
+  const demoAllowedCount = Math.max(0, capacity.totalSlots - liveProjects.length);
   const projects = isDemoMode
-    ? [...liveProjects, ...DEMO_DIRECTOR_PROJECTS]
-    : liveProjects;
+    ? [...liveProjects, ...DEMO_DIRECTOR_PROJECTS.slice(0, demoAllowedCount)]
+    : liveProjects.slice(0, Math.max(capacity.totalSlots, liveProjects.length));
   const waitingItems = isDemoMode
     ? [...liveWaiting, ...DEMO_WAITING_ACTIONS]
     : liveWaiting;
@@ -96,13 +159,13 @@ export function DirectorPortfolioAndQueue() {
 
   return (
     <div className="flex flex-col gap-5 sm:gap-6 w-full select-none font-sans">
-      {/* Contextual Dispute Banner (no standalone Disputes sidebar tab) */}
-      {isDemoMode && activeDisputeProject && (
+      {/* Contextual Dispute Banner (Live & Demo) */}
+      {activeDisputeProject && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
           <div className="flex items-start sm:items-center gap-2.5 min-w-0">
             <span className="w-2 h-2 rounded-full bg-rose-600 mt-1.5 sm:mt-0 shrink-0 animate-pulse" />
             <p className="text-xs font-semibold text-rose-800 leading-snug">
-              <strong>{activeDisputeProject.name}:</strong> {activeDisputeProject.currentStage} is on hold due to an active stage dispute (11 days remaining on 14-day resolution window).
+              <strong>{activeDisputeProject.name}:</strong> {activeDisputeProject.currentStage} is on hold due to an active stage dispute. Submit supporting evidence or a cure plan to resolve.
             </p>
           </div>
           <Link
@@ -115,21 +178,21 @@ export function DirectorPortfolioAndQueue() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 w-full items-stretch">
-        {/* Left: Clean Company Projects & Progress Card */}
-        <div className="lg:col-span-7 xl:col-span-8 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.04)] flex flex-col justify-between min-h-[360px]">
+        {/* Left: Clean Company Projects & Progress Card (No horizontal scroll) */}
+        <div className="lg:col-span-7 xl:col-span-8 min-w-0 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.04)] flex flex-col min-h-[360px] lg:h-[440px] lg:max-h-[440px] overflow-hidden">
           {/* Clean Card Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[var(--vt-color-neutral-100,#EFEEF5)]">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[var(--vt-color-neutral-100,#EFEEF5)] shrink-0 min-w-0">
+            <div className="min-w-0">
               <span className="text-[10px] font-bold tracking-wider text-[var(--vt-color-orange-600,#D84C0B)] uppercase block">
                 PORTFOLIO OVERVIEW
               </span>
-              <h2 className="text-base sm:text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight mt-0.5">
+              <h2 className="text-base sm:text-lg font-extrabold text-[var(--vt-color-indigo-900,#261A66)] tracking-tight mt-0.5 truncate">
                 Company Projects &amp; Progress
               </h2>
             </div>
 
             {projects.length > 0 ? (
-              <div className="flex items-center gap-1 p-1 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] self-start sm:self-auto">
+              <div className="flex flex-wrap items-center gap-1 p-1 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] self-start sm:self-auto max-w-full">
                 {(
                   [
                     { id: "ALL", label: `All Sites (${projects.length})` },
@@ -167,7 +230,7 @@ export function DirectorPortfolioAndQueue() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] border border-[var(--vt-color-orange-200,#FDCAA9)]">
-                    STARTER BUILDER · 1 FREE PROJECT SLOT READY
+                    {capacity.planName.toUpperCase()} · {capacity.remainingSlots} PROJECT SLOT{capacity.remainingSlots === 1 ? "" : "S"} READY
                   </span>
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--vt-color-green-700,#1F6B3E)]">
                     <span className="w-1.5 h-1.5 rounded-full bg-[var(--vt-color-green-500,#2E9E57)]" />
@@ -247,8 +310,8 @@ export function DirectorPortfolioAndQueue() {
               </button>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col justify-between pt-2">
-              <div className="divide-y divide-[var(--vt-color-neutral-100,#EFEEF5)]">
+            <div className="flex-1 min-h-0 min-w-0 flex flex-col justify-between pt-2 overflow-x-hidden">
+              <div className="divide-y divide-[var(--vt-color-neutral-100,#EFEEF5)] flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin pr-1">
                 {filteredProjects.map((project) => {
                   const statusMeta =
                     project.status === "ON_HOLD_DISPUTE"
@@ -273,7 +336,7 @@ export function DirectorPortfolioAndQueue() {
                     <Link
                       key={project.id}
                       href={`/contractor/projects/${project.id}`}
-                      className="py-4 px-2 -mx-2 rounded-lg hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/70 transition-colors group flex flex-col gap-2.5"
+                      className="py-3.5 px-2.5 w-full max-w-full min-w-0 rounded-lg hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]/70 transition-colors group flex flex-col gap-2.5 overflow-hidden"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
@@ -336,9 +399,9 @@ export function DirectorPortfolioAndQueue() {
                 })}
               </div>
 
-              <div className="pt-3 mt-2 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center justify-between text-xs">
+              <div className="pt-3 mt-2 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center justify-between text-xs shrink-0">
                 <span className="text-[var(--vt-color-neutral-500,#7C7894)] tabular-nums">
-                  Showing {filteredProjects.length} of {projects.length} active sites
+                  Showing {filteredProjects.length} of {projects.length} active · {capacity.usedSlots}/{capacity.totalSlots} slots
                 </span>
                 <Link
                   href="/contractor/projects"
@@ -351,9 +414,9 @@ export function DirectorPortfolioAndQueue() {
           )}
         </div>
 
-        {/* Right: Waiting on You Cross-Role Queue */}
-        <div className="lg:col-span-5 xl:col-span-4 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.04)] flex flex-col justify-between min-h-[360px]">
-          <div className="border-b border-[var(--vt-color-neutral-100,#EFEEF5)] pb-4 mb-4 flex items-center justify-between gap-2">
+        {/* Right: Waiting on You Cross-Role Queue (Bounded & Scrollable) */}
+        <div className="lg:col-span-5 xl:col-span-4 bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-xl p-5 sm:p-6 shadow-[0_4px_16px_rgba(38,26,102,0.04)] flex flex-col h-[420px] lg:h-[440px] max-h-[440px] overflow-hidden">
+          <div className="border-b border-[var(--vt-color-neutral-100,#EFEEF5)] pb-4 mb-3 flex items-center justify-between gap-2 shrink-0">
             <div className="min-w-0">
               <span className="text-[10px] font-bold tracking-wider text-[var(--vt-color-indigo-700,#43379A)] uppercase block">
                 ACTION QUEUE
@@ -371,7 +434,7 @@ export function DirectorPortfolioAndQueue() {
           </div>
 
           {waitingItems.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 my-auto">
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center p-6 my-auto">
               <div className="w-11 h-11 rounded-full bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-400,#A3A0B8)] flex items-center justify-center mb-2.5">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -386,7 +449,7 @@ export function DirectorPortfolioAndQueue() {
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-[var(--vt-color-neutral-100,#EFEEF5)] flex-1 overflow-y-auto scrollbar-thin pr-1">
+            <div className="divide-y divide-[var(--vt-color-neutral-100,#EFEEF5)] flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin pr-1.5">
               {waitingItems.map((item) => (
                 <Link
                   key={item.id}

@@ -4,7 +4,6 @@ export type DirectorNavId =
   | "home"
   | "projects"
   | "requests"
-  | "messages"
   | "transactions"
   | "presets"
   | "team"
@@ -23,7 +22,6 @@ export const DIRECTOR_NAV_ITEMS: DirectorNavConfigItem[] = [
   { id: "home", label: "Home", href: "/contractor/dashboard" },
   { id: "projects", label: "Projects", href: "/contractor/projects" },
   { id: "requests", label: "Project Requests", href: "/contractor/requests" },
-  { id: "messages", label: "Messages", href: "/contractor/messages" },
   { id: "transactions", label: "Transactions", href: "/contractor/transactions" },
   { id: "presets", label: "Stage Presets", href: "/contractor/presets" },
   { id: "team", label: "Team & Crew", href: "/contractor/team" },

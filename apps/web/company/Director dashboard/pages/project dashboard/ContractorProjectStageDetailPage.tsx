@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { DirectorHeaderBar } from "../../components/DirectorHeaderBar";
 import { useScrollRestoration } from "../../../../client/Owner dashboard/hooks/useScrollRestoration";
@@ -38,6 +39,9 @@ export function ContractorProjectStageDetailPage({
   const [activeTab, setActiveTab] = useState<"checklist" | "proof" | "comments">("checklist");
   const [mediaFilter, setMediaFilter] = useState<"all" | "photo" | "video" | "lab_report">("all");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [previewProof, setPreviewProof] = useState<ContractorProofItem | null>(null);
+  const [isLocatingGps, setIsLocatingGps] = useState(false);
 
   // Upload Proof Modal
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -45,7 +49,7 @@ export function ContractorProjectStageDetailPage({
   const [proofTitle, setProofTitle] = useState("");
   const [proofCaption, setProofCaption] = useState("");
   const [proofChecklistId, setProofChecklistId] = useState("none");
-  const [proofGps, setProofGps] = useState("6.4474° N, 3.4723° E");
+  const [proofGps, setProofGps] = useState(project.location || "Site GPS");
   const [proofPreviewUrl, setProofPreviewUrl] = useState<string | undefined>(undefined);
   const [proofFileName, setProofFileName] = useState<string>("");
   const [autoCompleteChecklist, setAutoCompleteChecklist] = useState(true);
@@ -61,6 +65,7 @@ export function ContractorProjectStageDetailPage({
   const [confirmReadyCheck, setConfirmReadyCheck] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const sync = () => {
       setStages(loadProjectKey(projectId, "stages", project.stages));
     };
@@ -122,6 +127,45 @@ export function ContractorProjectStageDetailPage({
     showToast("Checklist item added.");
   };
 
+  const handleDeleteChecklistItem = (itemId: string) => {
+    updateCurrentStage((prev) => ({
+      ...prev,
+      checklist: prev.checklist.filter((c) => c.id !== itemId),
+    }));
+    showToast("Checklist item removed.");
+  };
+
+  const handleDeleteProofItem = (proofId: string) => {
+    updateCurrentStage((prev) => ({
+      ...prev,
+      proofItems: prev.proofItems.filter((p) => p.id !== proofId),
+    }));
+    if (previewProof?.id === proofId) setPreviewProof(null);
+    showToast("Proof item removed.");
+  };
+
+  const handleUseCurrentGps = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      showToast("Geolocation is not supported in this browser.");
+      return;
+    }
+    setIsLocatingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(4);
+        const lng = pos.coords.longitude.toFixed(4);
+        setProofGps(`${lat}° N, ${lng}° E`);
+        setIsLocatingGps(false);
+        showToast("Captured live GPS coordinates!");
+      },
+      () => {
+        setIsLocatingGps(false);
+        showToast("Could not read GPS location. Enter coordinates manually.");
+      },
+      { timeout: 6000 }
+    );
+  };
+
   const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -129,7 +173,8 @@ export function ContractorProjectStageDetailPage({
     if (!proofTitle.trim()) {
       setProofTitle(file.name.replace(/\.[^/.]+$/, ""));
     }
-    if (file.type.startsWith("image/")) {
+    // Store data URL for images, videos, and PDFs (capped at 4MB for localStorage safety)
+    if (file.size <= 4 * 1024 * 1024) {
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === "string") {
@@ -139,6 +184,7 @@ export function ContractorProjectStageDetailPage({
       reader.readAsDataURL(file);
     } else {
       setProofPreviewUrl(undefined);
+      showToast("File is over 4 MB — saved file metadata without inline preview.");
     }
   };
 
@@ -153,13 +199,9 @@ export function ContractorProjectStageDetailPage({
       caption: proofCaption.trim() || "Geo-tagged field proof uploaded by site team.",
       uploadedAt: "Just now",
       uploadedBy: user.fullName,
-      gpsCoords: proofGps.trim() || "6.4474° N, 3.4723° E",
+      gpsCoords: proofGps.trim() || project.location || "Site GPS",
       checklistItemId: proofChecklistId !== "none" ? proofChecklistId : undefined,
-      thumbnailUrl:
-        proofPreviewUrl ||
-        (proofType !== "lab_report"
-          ? "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=80"
-          : undefined),
+      thumbnailUrl: proofPreviewUrl,
       fileSize: proofFileName ? `${proofFileName}` : proofType === "lab_report" ? "1.2 MB PDF" : undefined,
     };
 
@@ -423,7 +465,7 @@ export function ContractorProjectStageDetailPage({
                       : "bg-[var(--vt-color-neutral-50,#F7F7FA)] border-[var(--vt-color-border-default,#E2E0EC)]"
                   }`}
                 >
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 flex-1">
                     <VantagedCheckbox
                       checked={item.isCompleted}
                       onChange={(checked) => handleToggleChecklist(item.id, checked)}
@@ -443,16 +485,26 @@ export function ContractorProjectStageDetailPage({
                   </div>
 
                   {stage.status !== "Approved" && !isStageLocked && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProofChecklistId(item.id);
-                        setIsUploadOpen(true);
-                      }}
-                      className="h-8 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-400,#F78241)] text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] shrink-0 cursor-pointer"
-                    >
-                      Attach Proof
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProofChecklistId(item.id);
+                          setIsUploadOpen(true);
+                        }}
+                        className="h-8 px-3 rounded-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-400,#F78241)] text-[11px] font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-700,#B33C08)] cursor-pointer"
+                      >
+                        Attach Proof
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteChecklistItem(item.id)}
+                        title="Remove checklist item"
+                        className="h-8 px-2.5 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-[11px] font-bold text-rose-700 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -532,26 +584,64 @@ export function ContractorProjectStageDetailPage({
                     key={item.id}
                     className="rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] overflow-hidden bg-white flex flex-col justify-between shadow-2xs"
                   >
-                    {item.thumbnailUrl ? (
-                      <div className="h-40 w-full bg-[var(--vt-color-neutral-100,#EFEEF5)] relative overflow-hidden">
-                        <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
+                    {item.thumbnailUrl && item.type === "photo" ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewProof(item)}
+                        className="h-40 w-full bg-[var(--vt-color-neutral-100,#EFEEF5)] relative overflow-hidden cursor-pointer group"
+                      >
+                        <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                         <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-black/70 text-white text-[10px] font-bold uppercase">
-                          {item.type === "video" ? "Video" : "Geo-Photo"}
+                          Geo-Photo
                         </span>
-                      </div>
+                        <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/65 text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                          Click to Zoom
+                        </span>
+                      </button>
+                    ) : item.type === "video" ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewProof(item)}
+                        className="h-40 w-full bg-[var(--vt-color-indigo-950,#140B3B)] relative overflow-hidden flex flex-col items-center justify-center gap-1.5 text-white cursor-pointer group"
+                      >
+                        <span className="w-10 h-10 rounded-full bg-white/15 group-hover:bg-[var(--vt-color-orange-500,#EF5F18)] flex items-center justify-center transition-colors">
+                          ▶
+                        </span>
+                        <span className="text-[11px] font-bold">Play Site Video</span>
+                        {item.fileSize && <span className="text-[10px] text-white/70">{item.fileSize}</span>}
+                      </button>
                     ) : (
-                      <div className="h-28 w-full bg-[var(--vt-color-indigo-50,#EEF0FF)] flex flex-col items-center justify-center gap-1 text-[var(--vt-color-indigo-900,#261A66)]">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewProof(item)}
+                        className="h-28 w-full bg-[var(--vt-color-indigo-50,#EEF0FF)] hover:bg-[var(--vt-color-indigo-100,#E1DFFB)] flex flex-col items-center justify-center gap-1 text-[var(--vt-color-indigo-900,#261A66)] cursor-pointer transition-colors"
+                      >
                         <span className="px-2.5 py-0.5 rounded-md bg-white border border-[var(--vt-color-indigo-200,#C7C3E6)] text-[10px] font-bold uppercase">
                           Lab / Test Report PDF
                         </span>
                         {item.fileSize && <span className="text-[11px] font-semibold">{item.fileSize}</span>}
-                      </div>
+                        <span className="text-[10px] font-bold text-[var(--vt-color-orange-600,#D84C0B)]">
+                          Click to View / Download
+                        </span>
+                      </button>
                     )}
 
                     <div className="p-3.5 space-y-1.5">
-                      <h4 className="text-xs font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                        {item.title}
-                      </h4>
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="text-xs font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                          {item.title}
+                        </h4>
+                        {!isStageLocked && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProofItem(item.id)}
+                            title="Remove proof"
+                            className="text-[10px] font-bold text-rose-600 hover:underline shrink-0 cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                       <p className="text-[11px] text-[var(--vt-color-neutral-600,#5E5A7D)] leading-relaxed">
                         {item.caption}
                       </p>
@@ -726,9 +816,19 @@ export function ContractorProjectStageDetailPage({
                 />
               </div>
               <div>
-                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
-                  GPS Coordinates
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">
+                    GPS Coordinates
+                  </label>
+                  <button
+                    type="button"
+                    disabled={isLocatingGps}
+                    onClick={handleUseCurrentGps}
+                    className="text-[10.5px] font-bold text-[var(--vt-color-orange-600,#D84C0B)] hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    {isLocatingGps ? "Locating..." : "Use My GPS"}
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={proofGps}
@@ -821,6 +921,98 @@ export function ContractorProjectStageDetailPage({
           </div>
         </div>
       )}
+      {/* Proof Lightbox / Video / PDF Preview Modal (Portaled above navbar) */}
+      {mounted &&
+        previewProof &&
+        createPortal(
+          <div
+            style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
+            className="fixed inset-0 z-[120] bg-[var(--vt-color-indigo-950,#140B3B)]/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 font-sans"
+            onClick={() => setPreviewProof(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-3xl bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-[var(--vt-color-text-default,#261A66)]"
+            >
+              <div className="px-5 py-4 bg-[var(--vt-color-indigo-900,#261A66)] text-white flex items-center justify-between gap-3 shrink-0">
+                <div className="min-w-0">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--vt-color-orange-300,#FBA674)]">
+                    {previewProof.type === "video"
+                      ? "Site Video"
+                      : previewProof.type === "lab_report"
+                      ? "Lab / Test Report"
+                      : "Geo-Tagged Site Photo"}{" "}
+                    · {previewProof.uploadedAt}
+                  </span>
+                  <h3 className="text-base font-extrabold truncate">{previewProof.title}</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewProof(null)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-5 overflow-y-auto flex-1 flex flex-col gap-4 items-center bg-[var(--vt-color-neutral-50,#F7F7FA)]">
+                {previewProof.type === "photo" && previewProof.thumbnailUrl ? (
+                  <img
+                    src={previewProof.thumbnailUrl}
+                    alt={previewProof.title}
+                    className="max-h-[55vh] w-auto rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-sm object-contain"
+                  />
+                ) : previewProof.type === "video" && previewProof.thumbnailUrl ? (
+                  <video
+                    src={previewProof.thumbnailUrl}
+                    controls
+                    className="max-h-[55vh] w-full rounded-xl bg-black border border-[var(--vt-color-border-default,#E2E0EC)]"
+                  />
+                ) : (
+                  <div className="w-full py-12 px-6 rounded-xl bg-white border border-dashed border-[var(--vt-color-border-default,#E2E0EC)] text-center space-y-2">
+                    <p className="text-sm font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
+                      {previewProof.fileSize || previewProof.title}
+                    </p>
+                    <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)]">
+                      {previewProof.thumbnailUrl
+                        ? "Document file attached and ready for download."
+                        : "File metadata recorded on stage."}
+                    </p>
+                  </div>
+                )}
+
+                <div className="w-full p-3.5 rounded-xl bg-white border border-[var(--vt-color-border-default,#E2E0EC)] text-xs space-y-1">
+                  <p className="text-[var(--vt-color-neutral-700,#443E63)]">{previewProof.caption}</p>
+                  <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)]">
+                    GPS: <strong>{previewProof.gpsCoords}</strong> · Uploaded by {previewProof.uploadedBy}
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-5 py-3.5 bg-white border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-2 shrink-0">
+                {previewProof.thumbnailUrl ? (
+                  <a
+                    href={previewProof.thumbnailUrl}
+                    download={previewProof.fileSize || previewProof.title}
+                    className="h-9 px-4 rounded-lg bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold inline-flex items-center"
+                  >
+                    Download File
+                  </a>
+                ) : (
+                  <span />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPreviewProof(null)}
+                  className="h-9 px-4 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] cursor-pointer"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

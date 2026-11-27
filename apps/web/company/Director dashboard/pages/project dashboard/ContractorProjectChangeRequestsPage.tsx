@@ -34,6 +34,12 @@ export function ContractorProjectChangeRequestsPage({ projectId }: ContractorPro
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Builder Quote Modal State (for Owner-initiated "Needs Builder Quote" requests)
+  const [quoteTarget, setQuoteTarget] = useState<ContractorVariationRequest | null>(null);
+  const [quoteCostInput, setQuoteCostInput] = useState("");
+  const [quoteDaysInput, setQuoteDaysInput] = useState("3");
+  const [quoteBoqInput, setQuoteBoqInput] = useState("");
+
   // New Variation Form State
   const [title, setTitle] = useState("");
   const [linkedStage, setLinkedStage] = useState(project.stages[0]?.title || "Stage 1");
@@ -43,6 +49,14 @@ export function ContractorProjectChangeRequestsPage({ projectId }: ContractorPro
   const [reason, setReason] = useState("");
   const [boqBreakdown, setBoqBreakdown] = useState("");
   const [confirmWaitApproval, setConfirmWaitApproval] = useState(false);
+
+  useEffect(() => {
+    if (project.stages[0]?.title) {
+      setLinkedStage((prev) =>
+        project.stages.some((s) => s.title === prev) ? prev : project.stages[0]!.title
+      );
+    }
+  }, [project.stages]);
 
   useEffect(() => {
     const sync = () => {
@@ -121,14 +135,29 @@ export function ContractorProjectChangeRequestsPage({ projectId }: ContractorPro
     showToast(`Variation ${newVO.code} sent to ${project.client.name} for approval.`);
   };
 
-  const handleSendQuoteForOwnerRequest = (vo: ContractorVariationRequest) => {
+  const openQuoteModal = (vo: ContractorVariationRequest) => {
+    setQuoteTarget(vo);
+    setQuoteCostInput(vo.costImpact > 0 ? String(vo.costImpact) : "");
+    setQuoteDaysInput(String(vo.timelineDays || 3));
+    setQuoteBoqInput(vo.boqBreakdown || "");
+  };
+
+  const handleSubmitBuilderQuote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quoteTarget) return;
+    const parsedCost = parseInt(quoteCostInput.replace(/[^0-9-]/g, ""), 10) || 0;
+    const parsedDays = Math.max(0, parseInt(quoteDaysInput, 10) || 0);
     const quoted: ContractorVariationRequest = {
-      ...vo,
+      ...quoteTarget,
       status: "Awaiting Owner Approval",
-      costImpact: vo.costImpact || 2_500_000,
-      timelineDays: vo.timelineDays || 3,
+      costImpact: parsedCost,
+      timelineDays: parsedDays,
+      boqBreakdown:
+        quoteBoqInput.trim() ||
+        quoteTarget.boqBreakdown ||
+        "Detailed contractor pricing & materials breakdown attached.",
     };
-    const next = variations.map((item) => (item.id === vo.id ? quoted : item));
+    const next = variations.map((item) => (item.id === quoteTarget.id ? quoted : item));
     setVariations(next);
     saveProjectKey(projectId, "variations", next);
     syncContractorVariationToOwner({
@@ -143,7 +172,8 @@ export function ContractorProjectChangeRequestsPage({ projectId }: ContractorPro
       boqBreakdown: quoted.boqBreakdown,
       requestedBy: "Owner",
     });
-    showToast(`Sent quote for "${vo.title}" back to ${project.client.name} for approval.`);
+    setQuoteTarget(null);
+    showToast(`Sent quote (${formatNairaFull(parsedCost)}, +${parsedDays}d) to ${project.client.name}.`);
   };
 
   const statusPill = (status: ContractorVariationRequest["status"]) => {
@@ -327,10 +357,10 @@ export function ContractorProjectChangeRequestsPage({ projectId }: ContractorPro
                   <div className="flex justify-end pt-2 border-t border-[var(--vt-color-neutral-100,#EFEEF5)]">
                     <button
                       type="button"
-                      onClick={() => handleSendQuoteForOwnerRequest(vo)}
+                      onClick={() => openQuoteModal(vo)}
                       className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold shadow-[0_2px_8px_rgba(239,95,24,0.28)] cursor-pointer"
                     >
-                      Send Quote to Owner
+                      Enter Quote &amp; Send to Owner
                     </button>
                   </div>
                 )}
@@ -339,6 +369,100 @@ export function ContractorProjectChangeRequestsPage({ projectId }: ContractorPro
           )}
         </section>
       </main>
+
+      {/* Builder Quote Modal for Owner-Initiated Change Requests */}
+      {quoteTarget && (
+        <div
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setQuoteTarget(null)}
+        >
+          <form
+            onSubmit={handleSubmitBuilderQuote}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xl p-6 space-y-4 text-xs"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase text-[var(--vt-color-orange-600,#D84C0B)]">
+                  {quoteTarget.code} · Owner Request
+                </span>
+                <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
+                  Submit Contractor Quote
+                </h3>
+                <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
+                  Enter your price, schedule impact, and cost breakdown for &ldquo;{quoteTarget.title}&rdquo;.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuoteTarget(null)}
+                className="w-7 h-7 rounded-lg bg-[var(--vt-color-neutral-100,#EFEEF5)] font-bold cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                  Quoted Cost Impact (₦) *
+                </label>
+                <input
+                  type="number"
+                  required
+                  value={quoteCostInput}
+                  onChange={(e) => setQuoteCostInput(e.target.value)}
+                  placeholder="e.g. 3500000"
+                  className="w-full h-9 px-3 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] font-mono font-bold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                  Extra Days Needed *
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  required
+                  value={quoteDaysInput}
+                  onChange={(e) => setQuoteDaysInput(e.target.value)}
+                  className="w-full h-9 px-3 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] font-mono font-bold outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-[var(--vt-color-indigo-900,#261A66)] mb-1">
+                BOQ / Materials &amp; Labor Breakdown *
+              </label>
+              <textarea
+                rows={3}
+                required
+                value={quoteBoqInput}
+                onChange={(e) => setQuoteBoqInput(e.target.value)}
+                placeholder="Break down materials, labor, and equipment costs for the property owner..."
+                className="w-full p-3 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)] resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setQuoteTarget(null)}
+                className="h-9 px-4 rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] bg-white font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="h-9 px-4 rounded-md bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white font-bold cursor-pointer"
+              >
+                Send Quote to Owner
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* New Variation Modal */}
       {isNewModalOpen && (

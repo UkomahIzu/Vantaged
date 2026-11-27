@@ -1,5 +1,27 @@
 [
   {
+    "id": "pay-1795729074541",
+    "reference": "VTG-1795729072667-6557",
+    "purpose": "company_plan",
+    "email": "my@gmail.com",
+    "amountNaira": 260000,
+    "status": "SUCCESS",
+    "metadata": {
+      "companyId": "ctr-acc-1795466864831",
+      "planId": "contractor-verified",
+      "planName": "Verified Builder",
+      "baseSlots": 3,
+      "billingCycle": "monthly",
+      "purpose": "company_plan",
+      "requestedAmountNaira": 260000,
+      "paystackChargeNaira": 260000
+    },
+    "applied": true,
+    "createdAt": "2026-11-26T21:37:54.541Z",
+    "channel": "card",
+    "verifiedAt": "2026-11-26T21:39:00.083Z"
+  },
+  {
     "id": "payout-1795659637103",
     "reference": "VTG-OUT-1795659637101-360",
     "purpose": "stage_payout",

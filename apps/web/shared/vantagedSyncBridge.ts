@@ -846,7 +846,9 @@ export function appendSharedMessage(params: {
         projectTitle: t.projectTitle,
         title: `New message from ${params.senderName}`,
         description: newMsg.text.slice(0, 110),
-        href: `/contractor/messages?conv=${t.id}`,
+        href: t.projectId
+          ? `/contractor/projects/${normalizeCanonicalProjectId(t.projectId)}`
+          : "/contractor/projects",
       });
     } else {
       pushOwnerLiveNotification({

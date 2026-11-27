@@ -13,9 +13,20 @@ import {
   CONTRACTOR_SYNC_EVENT,
   SHARED_SYNC_EVENT,
   readCompanyLiveNotifications,
-  readSharedConversations,
 } from "../../../shared/vantagedSyncBridge";
-import { readScopedCompanyAcceptedProjects, signOutContractor } from "../../../shared/vantagedAuth";
+import {
+  readScopedCompanyAcceptedProjects,
+  signOutContractor,
+} from "../../../shared/vantagedAuth";
+import { useContractorCapacity } from "../hooks/useContractorCapacity";
+import { readLocalData } from "../utils/localPersistence";
+import {
+  CONTRACTOR_STORAGE_EVENT,
+  ContractorProjectTranche,
+  getContractorProjectDetail,
+  loadProjectKey,
+} from "../pages/project dashboard/contractorProjectData";
+import { DEMO_DIRECTOR_PROJECT_REQUESTS } from "../data/directorData";
 
 function renderNavIcon(id: DirectorNavId, isActive: boolean) {
   const cls = `w-4 h-4 shrink-0 transition-colors ${
@@ -44,12 +55,6 @@ function renderNavIcon(id: DirectorNavId, isActive: boolean) {
         <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 12h-6l-2 3h-4l-2-3H2" />
           <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-        </svg>
-      );
-    case "messages":
-      return (
-        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       );
     case "transactions":
@@ -111,20 +116,24 @@ export function DirectorSidebarNav({
   const user = useContractorUser();
   const { isDemoMode, toggleDemoMode } = useDirectorDemoMode();
 
+  const capacity = useContractorCapacity();
   const [activeItem, setActiveItem] = useState<DirectorNavId>(currentActiveItem || "home");
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [liveUnreadMessages, setLiveUnreadMessages] = useState(0);
   const [liveUnreadNotifs, setLiveUnreadNotifs] = useState(0);
-  const [liveProjectsCount, setLiveProjectsCount] = useState(0);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [pendingReceiptsCount, setPendingReceiptsCount] = useState(0);
 
   useEffect(() => {
+    const DEMO_REQ_IDS = new Set([
+      ...DEMO_DIRECTOR_PROJECT_REQUESTS.map((r) => r.id),
+      "brf-1",
+      "brf-2",
+      "brf-3",
+    ]);
+
     const syncCounts = () => {
-      const threads = readSharedConversations(isDemoMode);
-      setLiveUnreadMessages(
-        threads.reduce((acc, t) => acc + (t.contractorUnreadCount || 0), 0)
-      );
       const liveNotifs = readCompanyLiveNotifications().filter((n) => n.isUnread).length;
       let demoUnread = 0;
       if (isDemoMode) {
@@ -143,19 +152,57 @@ export function DirectorSidebarNav({
         }
       }
       setLiveUnreadNotifs(liveNotifs + demoUnread);
-      setLiveProjectsCount(readScopedCompanyAcceptedProjects().length);
+
+      // Compute real pending requests count
+      const allReqs = readLocalData<any[]>("vantaged_director_requests", []);
+      const visibleReqs = isDemoMode
+        ? allReqs
+        : allReqs.filter((r) => r?.id && !DEMO_REQ_IDS.has(r.id));
+      const openReqs = visibleReqs.filter(
+        (r) =>
+          r?.status === "Under Contractor Review" ||
+          r?.status === "Drafting Milestone Plan"
+      ).length;
+      setPendingRequestsCount(openReqs);
+
+      // Compute real pending receipts count across active projects (+ demo ledger in demo mode)
+      const accepted = readScopedCompanyAcceptedProjects<any>();
+      let pendingRcpts = 0;
+      for (const proj of accepted) {
+        if (!proj?.id) continue;
+        const detail = getContractorProjectDetail(proj.id, true);
+        const tranches = loadProjectKey<ContractorProjectTranche[]>(
+          proj.id,
+          "tranches",
+          detail.tranches
+        );
+        pendingRcpts += tranches.filter(
+          (t) => t.status === "Awaiting Your Confirmation"
+        ).length;
+      }
+      if (isDemoMode) {
+        const demoTxs = readLocalData<any[]>("vantaged_director_transactions", []);
+        pendingRcpts += demoTxs.filter(
+          (t) => t?.status === "Pending Receipt Confirmation"
+        ).length;
+      }
+      setPendingReceiptsCount(pendingRcpts);
     };
     syncCounts();
+    window.addEventListener(CONTRACTOR_STORAGE_EVENT, syncCounts);
     window.addEventListener(SHARED_SYNC_EVENT, syncCounts);
     window.addEventListener(CONTRACTOR_SYNC_EVENT, syncCounts);
     window.addEventListener("vantaged_company_projects_update", syncCounts);
     window.addEventListener("vantaged_director_demo_toggle", syncCounts);
+    window.addEventListener("vantaged_storage_update", syncCounts);
     window.addEventListener("storage", syncCounts);
     return () => {
+      window.removeEventListener(CONTRACTOR_STORAGE_EVENT, syncCounts);
       window.removeEventListener(SHARED_SYNC_EVENT, syncCounts);
       window.removeEventListener(CONTRACTOR_SYNC_EVENT, syncCounts);
       window.removeEventListener("vantaged_company_projects_update", syncCounts);
       window.removeEventListener("vantaged_director_demo_toggle", syncCounts);
+      window.removeEventListener("vantaged_storage_update", syncCounts);
       window.removeEventListener("storage", syncCounts);
     };
   }, [isDemoMode]);
@@ -174,19 +221,18 @@ export function DirectorSidebarNav({
   }, [currentActiveItem, pathname]);
 
   const getBadge = (id: DirectorNavId): number | undefined => {
-    if (id === "messages") {
-      return liveUnreadMessages > 0 ? liveUnreadMessages : undefined;
-    }
     if (id === "notifications") {
       return liveUnreadNotifs > 0 ? liveUnreadNotifs : undefined;
     }
     if (id === "projects") {
-      const total = (isDemoMode ? 3 : 0) + liveProjectsCount;
-      return total > 0 ? total : undefined;
+      return capacity.usedSlots > 0 ? capacity.usedSlots : undefined;
     }
-    if (!isDemoMode) return undefined;
-    if (id === "requests") return 1;
-    if (id === "transactions") return 1;
+    if (id === "requests") {
+      return pendingRequestsCount > 0 ? pendingRequestsCount : undefined;
+    }
+    if (id === "transactions") {
+      return pendingReceiptsCount > 0 ? pendingReceiptsCount : undefined;
+    }
     return undefined;
   };
 
@@ -458,7 +504,7 @@ export function DirectorSidebarNav({
               <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
               <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
             </svg>
-            {isDemoMode && (
+            {liveUnreadNotifs > 0 && (
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[var(--vt-color-orange-500,#EF5F18)] ring-1.5 ring-white" />
             )}
           </Link>

@@ -22,6 +22,7 @@ import {
 import { useScrollRestoration } from "../../../client/Owner dashboard/hooks/useScrollRestoration";
 import { VantagedSelect } from "../../../client/Owner dashboard/components/VantagedSelect";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { useContractorCapacity } from "../hooks/useContractorCapacity";
 import {
   DEMO_DIRECTOR_PROJECT_REQUESTS,
   DirectorProjectRequestItem,
@@ -138,6 +139,8 @@ export function DirectorRequestsPage() {
   const router = useRouter();
   const scrollRef = useScrollRestoration<HTMLElement>("director_requests");
   const { isDemoMode } = useDirectorDemoMode();
+  const capacity = useContractorCapacity();
+  const [showSlotLimitModal, setShowSlotLimitModal] = useState(false);
 
   const [viewMode, setViewMode] = useState<"requests" | "plans">("requests");
   const [requests, setRequests] = useState<DirectorProjectRequestItem[]>(() =>
@@ -436,6 +439,10 @@ export function DirectorRequestsPage() {
   };
 
   const openProposalModal = (req: DirectorProjectRequestItem) => {
+    if (!capacity.canAddProject && req.status !== "Proposal Ready") {
+      setShowSlotLimitModal(true);
+      return;
+    }
     loadAllPresets();
     setProposalTarget(req);
     setProposedBudget(req.estimatedBudget);
@@ -535,6 +542,7 @@ export function DirectorRequestsPage() {
     id: string,
     nextStatus: DirectorProjectRequestItem["status"]
   ) => {
+    const targetReq = requests.find((item) => item.id === id);
     const next = requests.map((item) =>
       item.id === id ? { ...item, status: nextStatus } : item
     );
@@ -543,6 +551,74 @@ export function DirectorRequestsPage() {
     setActiveRequest((prev) =>
       prev && prev.id === id ? { ...prev, status: nextStatus } : prev
     );
+
+    // Persist status change to backend /api/project-requests & notify Owner
+    const meta = requestMetaById[id] || {};
+    const session = getContractorSession();
+    const companyName = session?.companyName || meta.companyName || "Construction Company";
+
+    if (!DEMO_REQUEST_ID_SET.has(id)) {
+      fetch("/api/project-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          status: nextStatus,
+          contractorResponseDate: "Just now",
+        }),
+      }).catch(() => {});
+
+      // Also update local owner briefs cache for same-browser reactivity
+      if (typeof window !== "undefined") {
+        try {
+          const briefKeys = Array.from(
+            new Set([
+              STORAGE_KEY_BRIEFS,
+              getOwnerScopedKey(STORAGE_KEY_BRIEFS),
+              ...(meta.ownerId ? [`${STORAGE_KEY_BRIEFS}__${meta.ownerId}`] : []),
+            ])
+          );
+          for (const bk of briefKeys) {
+            const raw = localStorage.getItem(bk);
+            if (!raw) continue;
+            const list: ProjectBrief[] = JSON.parse(raw);
+            if (!Array.isArray(list)) continue;
+            const updated = list.map((b) =>
+              b.id === id
+                ? { ...b, status: nextStatus as ProjectBrief["status"], contractorResponseDate: "Just now" }
+                : b
+            );
+            localStorage.setItem(bk, JSON.stringify(updated));
+          }
+        } catch {}
+      }
+
+      if (targetReq && (nextStatus === "Declined" || nextStatus === "Drafting Milestone Plan")) {
+        pushOwnerLiveNotification({
+          targetOwnerId: meta.ownerId,
+          targetOwnerIdentifier: meta.ownerIdentifier || meta.ownerEmail,
+          category: "site",
+          projectTitle: targetReq.title,
+          title:
+            nextStatus === "Declined"
+              ? `Project Brief Declined by ${companyName}`
+              : `${companyName} Started Drafting Your Milestone Plan`,
+          description:
+            nextStatus === "Declined"
+              ? `${companyName} declined the brief for "${targetReq.title}". You can invite another verified company.`
+              : `${companyName} is preparing your stage plan and budget proposal for "${targetReq.title}".`,
+          linkUrl: "/owner/find-companies?tab=briefs",
+        });
+        broadcastPortalSync();
+      }
+    }
+
+    if (nextStatus === "Declined") {
+      showToast(`Declined project request "${targetReq?.title || id}" and notified owner.`);
+      setActiveRequest(null);
+    } else if (nextStatus === "Drafting Milestone Plan") {
+      showToast(`Marked "${targetReq?.title || id}" as Drafting Milestone Plan.`);
+    }
   };
 
   /**
@@ -762,6 +838,24 @@ export function DirectorRequestsPage() {
                   ? `${pendingCount} Awaiting Review`
                   : `${planContracts.length} Awaiting Owner's Approval`}
               </span>
+              <Link
+                href="/contractor/settings?tab=plan"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition-colors ${
+                  !capacity.canAddProject
+                    ? "bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100"
+                    : "bg-white border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] hover:border-[var(--vt-color-orange-300,#FBA674)]"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    !capacity.canAddProject ? "bg-amber-500" : "bg-[var(--vt-color-green-500,#2E9E57)]"
+                  }`}
+                />
+                <span>
+                  Slots: {capacity.usedSlots}/{capacity.totalSlots}
+                  {!capacity.canAddProject ? " · Full (Upgrade)" : ""}
+                </span>
+              </Link>
             </div>
             <p className="text-xs text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
               {viewMode === "requests"
@@ -920,7 +1014,7 @@ export function DirectorRequestsPage() {
 
                     <div className="pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center justify-between">
                       <span className="text-[11px] font-medium text-[var(--vt-color-neutral-500,#7C7894)]">
-                        Showing <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{filteredRequests.length}</strong> of {visiblePool.length}
+                        Showing <strong className="text-[var(--vt-color-indigo-900,#261A66)]">{filteredRequests.length}</strong> of {currentTabList.length}
                       </span>
                       <button
                         type="button"
@@ -965,10 +1059,14 @@ export function DirectorRequestsPage() {
                   </svg>
                 </div>
                 <h3 className="text-lg sm:text-xl font-extrabold text-[var(--vt-color-indigo-900,#261A66)]">
-                  No Incoming Project Requests Yet
+                  {viewMode === "plans"
+                    ? "No Plans & Contracts Sent Yet"
+                    : "No Incoming Project Requests Yet"}
                 </h3>
                 <p className="text-xs sm:text-sm text-[var(--vt-color-neutral-500,#7C7894)] max-w-md mt-1.5 leading-relaxed">
-                  When property owners submit project briefs to your firm from Find Verified Builders, their request folders will appear here for review.
+                  {viewMode === "plans"
+                    ? "Once you send a milestone stage preset and budget proposal for an owner's brief, it will appear here while awaiting their approval."
+                    : "When property owners submit project briefs to your firm from Find Verified Builders, their request folders will appear here for review."}
                 </p>
                 <div className="mt-5">
                   <Link
@@ -1729,6 +1827,77 @@ export function DirectorRequestsPage() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Project Slot Capacity Limit Reached Modal */}
+      {showSlotLimitModal && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setShowSlotLimitModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white border border-[var(--vt-color-border-default,#E2E0EC)] rounded-2xl shadow-2xl overflow-hidden text-xs"
+          >
+            <div className="px-6 py-4 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800">
+                  Slot Capacity Reached
+                </span>
+                <h3 className="text-base font-extrabold text-[var(--vt-color-indigo-900,#261A66)] mt-0.5">
+                  All Paid Project Slots Are Active
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSlotLimitModal(false)}
+                className="w-8 h-8 rounded-lg hover:bg-amber-100 text-amber-900 flex items-center justify-center cursor-pointer"
+              >
+                <IconClose className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-[var(--vt-color-neutral-600,#5E5A7D)] leading-relaxed">
+                Your company is currently using{" "}
+                <strong className="text-[var(--vt-color-indigo-900,#261A66)]">
+                  {capacity.usedSlots} of {capacity.totalSlots}
+                </strong>{" "}
+                paid project slot{capacity.totalSlots === 1 ? "" : "s"} on{" "}
+                <strong className="text-[var(--vt-color-indigo-900,#261A66)]">
+                  {capacity.planName}
+                </strong>
+                {capacity.extraSlots > 0
+                  ? ` (+${capacity.extraSlots} extra slot${capacity.extraSlots === 1 ? "" : "s"})`
+                  : ""}
+                . Upgrade your subscription tier or purchase an extra project slot before sending a new milestone proposal.
+              </p>
+              <div className="p-3 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between">
+                <span className="font-semibold text-[var(--vt-color-neutral-600,#5E5A7D)]">
+                  Active Slots Used
+                </span>
+                <span className="font-extrabold text-[var(--vt-color-orange-700,#B33C08)] tabular-nums">
+                  {capacity.usedSlots} / {capacity.totalSlots} Slots
+                </span>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-[var(--vt-color-neutral-50,#F7F7FA)] border-t border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowSlotLimitModal(false)}
+                className="h-9 px-4 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-bold text-[var(--vt-color-neutral-600,#5E5A7D)] cursor-pointer"
+              >
+                Close
+              </button>
+              <Link
+                href="/contractor/settings?tab=plan"
+                className="h-9 px-4 rounded-xl bg-[var(--vt-color-orange-500,#EF5F18)] hover:bg-[var(--vt-color-orange-600,#D84C0B)] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs"
+              >
+                <span>Upgrade / Buy Slots</span>
+                <IconArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         </div>
       )}

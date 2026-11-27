@@ -11,6 +11,7 @@ import {
   loadProjectKey,
 } from "./contractorProjectData";
 import { useContractorProject } from "./useContractorProject";
+import { SHARED_SYNC_EVENT } from "../../../../shared/vantagedSyncBridge";
 
 export type ContractorProjectTab =
   | "overview"
@@ -39,6 +40,7 @@ export function ContractorProjectSidebarNav({
     .join("") || "BA";
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   const project = useContractorProject(projectId);
 
@@ -81,9 +83,11 @@ export function ContractorProjectSidebarNav({
 
     sync();
     window.addEventListener(CONTRACTOR_STORAGE_EVENT, sync);
+    window.addEventListener(SHARED_SYNC_EVENT, sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener(CONTRACTOR_STORAGE_EVENT, sync);
+      window.removeEventListener(SHARED_SYNC_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, [projectId, project.stages, project.tranches, project.issues, project.variations]);
@@ -171,8 +175,7 @@ export function ContractorProjectSidebarNav({
   ];
 
   const closeMobileDrawer = () => {
-    const drawer = document.getElementById("mobile-contractor-project-drawer");
-    if (drawer) drawer.classList.add("hidden");
+    setIsMobileDrawerOpen(false);
   };
 
   return (
@@ -208,10 +211,7 @@ export function ContractorProjectSidebarNav({
 
         <button
           type="button"
-          onClick={() => {
-            const drawer = document.getElementById("mobile-contractor-project-drawer");
-            if (drawer) drawer.classList.remove("hidden");
-          }}
+          onClick={() => setIsMobileDrawerOpen(true)}
           className="w-9 h-9 rounded-lg bg-[var(--vt-color-neutral-50,#F7F7FA)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] border border-[var(--vt-color-border-default,#E2E0EC)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-600,#D84C0B)] flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
           aria-label="Open project menu"
         >
@@ -224,10 +224,11 @@ export function ContractorProjectSidebarNav({
       </header>
 
       {/* Mobile Slide-Out Drawer */}
+      {isMobileDrawerOpen && (
       <div
         id="mobile-contractor-project-drawer"
         style={{ fontFamily: "'Outfit', var(--vt-font-sans), sans-serif" }}
-        className="hidden md:hidden fixed inset-0 z-50"
+        className="md:hidden fixed inset-0 z-50"
       >
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs" onClick={closeMobileDrawer} />
         <div className="fixed inset-y-0 left-0 w-[82%] max-w-xs bg-white shadow-2xl flex flex-col justify-between p-4 z-10 border-r border-[var(--vt-color-border-default,#E2E0EC)]">
@@ -302,16 +303,31 @@ export function ContractorProjectSidebarNav({
             </nav>
 
             <div className="flex flex-col gap-1.5 pt-2 border-t border-[var(--vt-color-neutral-100,#EFEEF5)]">
-              <Link href="/contractor/projects" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]">
+              <Link
+                href="/contractor/projects"
+                onClick={closeMobileDrawer}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
+              >
                 <span>← All Company Projects</span>
               </Link>
-              <Link href="/contractor/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]">
+              <Link
+                href="/contractor/dashboard"
+                onClick={closeMobileDrawer}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] hover:bg-[var(--vt-color-neutral-50,#F7F7FA)]"
+              >
                 <span>Company Dashboard Home</span>
               </Link>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              closeMobileDrawer();
+              setIsProfileModalOpen(true);
+            }}
+            className="w-full text-left pt-3 border-t border-[var(--vt-color-neutral-100,#EFEEF5)] flex items-center gap-2.5 cursor-pointer hover:opacity-85 transition-opacity"
+          >
             <div className="w-8 h-8 rounded-full bg-[var(--vt-color-indigo-900,#261A66)] text-white text-xs font-extrabold flex items-center justify-center shrink-0">
               {userInitials}
             </div>
@@ -319,9 +335,10 @@ export function ContractorProjectSidebarNav({
               <p className="text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] truncate">{user.fullName}</p>
               <p className="text-[10px] text-[var(--vt-color-orange-600,#D84C0B)] font-bold uppercase truncate">{user.companyName}</p>
             </div>
-          </div>
+          </button>
         </div>
       </div>
+      )}
 
       {/* Desktop Left Sidebar */}
       <aside

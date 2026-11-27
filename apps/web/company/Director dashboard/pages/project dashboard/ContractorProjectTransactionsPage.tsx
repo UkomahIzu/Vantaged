@@ -182,55 +182,121 @@ export function ContractorProjectTransactionsPage({ projectId }: ContractorProje
           </div>
         </section>
 
-        {/* 4 Financial KPI Cards */}
+        {/* 4 Interactive Financial KPI Cards */}
         <section className="shrink-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs">
-            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-              Money Received
-            </span>
+          <button
+            type="button"
+            onClick={() =>
+              setStatusFilter((prev) =>
+                prev === "Receipt Confirmed" ? "all" : "Receipt Confirmed"
+              )
+            }
+            className={`text-left bg-white p-4.5 rounded-2xl border shadow-2xs transition-all cursor-pointer group ${
+              statusFilter === "Receipt Confirmed"
+                ? "border-[var(--vt-color-green-500,#2E9E57)] ring-2 ring-[var(--vt-color-green-500,#2E9E57)]/20"
+                : "border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-green-400,#52B874)]"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Money Received
+              </span>
+              <span className="text-[10px] font-bold text-[var(--vt-color-green-700,#1F6B3E)]">
+                {statusFilter === "Receipt Confirmed" ? "Filtered ✓" : "Filter →"}
+              </span>
+            </div>
             <p className="text-xl sm:text-2xl font-black text-[var(--vt-color-green-700,#1F6B3E)] mt-1">
               {formatNairaCompact(totalConfirmedNet)}
             </p>
             <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
               Paid to your bank account
             </p>
-          </div>
+          </button>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs">
-            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-600,#D84C0B)]">
-              Needs Confirmation
-            </span>
+          <button
+            type="button"
+            onClick={() =>
+              setStatusFilter((prev) =>
+                prev === "Awaiting Your Confirmation"
+                  ? "all"
+                  : "Awaiting Your Confirmation"
+              )
+            }
+            className={`text-left bg-white p-4.5 rounded-2xl border shadow-2xs transition-all cursor-pointer group ${
+              statusFilter === "Awaiting Your Confirmation"
+                ? "border-[var(--vt-color-orange-500,#EF5F18)] ring-2 ring-[var(--vt-color-orange-500,#EF5F18)]/20"
+                : "border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-orange-400,#F78241)]"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-orange-600,#D84C0B)]">
+                Needs Confirmation
+              </span>
+              <span className="text-[10px] font-bold text-[var(--vt-color-orange-600,#D84C0B)]">
+                {statusFilter === "Awaiting Your Confirmation" ? "Filtered ✓" : "Filter →"}
+              </span>
+            </div>
             <p className="text-xl sm:text-2xl font-black text-[var(--vt-color-orange-600,#D84C0B)] mt-1">
               {pendingConfirmations.length} Payment{pendingConfirmations.length === 1 ? "" : "s"}
             </p>
             <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
               Confirm within 3 days
             </p>
-          </div>
+          </button>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs">
-            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-              5% Warranty Hold
-            </span>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("all")}
+            className={`text-left bg-white p-4.5 rounded-2xl border shadow-2xs transition-all cursor-pointer group ${
+              statusFilter === "all"
+                ? "border-[var(--vt-color-indigo-400,#8B7CE8)] ring-2 ring-[var(--vt-color-indigo-500,#5D4CE0)]/15"
+                : "border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-indigo-300,#ABA3E8)]"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                5% Warranty Hold
+              </span>
+              <span className="text-[10px] font-bold text-[var(--vt-color-indigo-700,#43379A)]">
+                {statusFilter === "all" ? "All ✓" : "Show All →"}
+              </span>
+            </div>
             <p className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-1">
               {formatNairaCompact(totalRetainageHeld)}
             </p>
             <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
               Released after warranty period
             </p>
-          </div>
+          </button>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-[var(--vt-color-border-default,#E2E0EC)] shadow-2xs">
-            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
-              Money on Vantaged
-            </span>
+          <button
+            type="button"
+            onClick={() =>
+              setStatusFilter((prev) =>
+                prev === "Held in Escrow" ? "all" : "Held in Escrow"
+              )
+            }
+            className={`text-left bg-white p-4.5 rounded-2xl border shadow-2xs transition-all cursor-pointer group ${
+              statusFilter === "Held in Escrow"
+                ? "border-[var(--vt-color-indigo-500,#5D4CE0)] ring-2 ring-[var(--vt-color-indigo-500,#5D4CE0)]/20"
+                : "border-[var(--vt-color-border-default,#E2E0EC)] hover:border-[var(--vt-color-indigo-300,#ABA3E8)]"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)]">
+                Money on Vantaged
+              </span>
+              <span className="text-[10px] font-bold text-[var(--vt-color-indigo-700,#43379A)]">
+                {statusFilter === "Held in Escrow" ? "Filtered ✓" : "Filter →"}
+              </span>
+            </div>
             <p className="text-xl sm:text-2xl font-black text-[var(--vt-color-indigo-900,#261A66)] mt-1">
               {formatNairaCompact(totalInEscrow)}
             </p>
             <p className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-1">
               Held safely for next stage
             </p>
-          </div>
+          </button>
         </section>
 
         {/* Payment Schedule */}
@@ -430,7 +496,35 @@ export function ContractorProjectTransactionsPage({ projectId }: ContractorProje
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const receiptText = [
+                    "VANTAGED VERIFIED PAYOUT RECEIPT",
+                    "================================",
+                    `Reference: ${receiptTarget.reference}`,
+                    `Bank Session ID: ${receiptTarget.bankSessionId || receiptTarget.reference}`,
+                    `Project: ${project.title}`,
+                    `Stage: ${receiptTarget.stageTitle}`,
+                    `Gross Tranche: ${formatNairaFull(receiptTarget.grossAmount)}`,
+                    `5% Warranty Hold: -${formatNairaFull(receiptTarget.retainageAmount)}`,
+                    `Net Settled: ${formatNairaFull(receiptTarget.netPayout)}`,
+                    `Confirmed Date: ${receiptTarget.confirmedAt || "Confirmed"}`,
+                  ].join("\n");
+                  const blob = new Blob([receiptText], { type: "text/plain;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `vantaged-receipt-${receiptTarget.reference}.txt`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  showToast(`Downloaded receipt ${receiptTarget.reference}.`);
+                }}
+                className="h-9 px-3.5 rounded-md border border-[var(--vt-color-border-default,#E2E0EC)] bg-white hover:bg-[var(--vt-color-neutral-50,#F7F7FA)] text-[var(--vt-color-indigo-900,#261A66)] font-bold cursor-pointer"
+              >
+                Download Receipt
+              </button>
               <button
                 type="button"
                 onClick={() => setReceiptTarget(null)}

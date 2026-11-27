@@ -3,12 +3,26 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useDirectorDemoMode } from "../hooks/useDirectorDemoMode";
+import { useContractorUser } from "../hooks/useContractorUser";
 import { DEMO_TEAM_MEMBERS, DirectorTeamSummary } from "../data/directorData";
 import { readLocalData } from "../utils/localPersistence";
+import { TEAM_ROSTER_UPDATE_EVENT } from "./AddTeamMemberModal";
 
 export function DirectorBottomSummary() {
   const { isDemoMode } = useDirectorDemoMode();
+  const contractorUser = useContractorUser();
   const [savedTeam, setSavedTeam] = useState<DirectorTeamSummary[]>([]);
+  const [savedProfile, setSavedProfile] = useState<{
+    rcNumber?: string;
+    corenLicense?: string;
+    tinNumber?: string;
+  } | null>(null);
+  const [savedBank, setSavedBank] = useState<{
+    bankName?: string;
+    accountNumber?: string;
+    accountName?: string;
+    lastUpdated?: string;
+  } | null>(null);
 
   useEffect(() => {
     const sync = () => {
@@ -25,17 +39,56 @@ export function DirectorBottomSummary() {
             }))
           : []
       );
+
+      if (typeof window !== "undefined") {
+        try {
+          const rawProf = localStorage.getItem("vantaged_director_company_profile");
+          setSavedProfile(rawProf ? JSON.parse(rawProf) : null);
+        } catch {
+          setSavedProfile(null);
+        }
+        try {
+          const rawBank = localStorage.getItem("vantaged_director_bank_account");
+          setSavedBank(rawBank ? JSON.parse(rawBank) : null);
+        } catch {
+          setSavedBank(null);
+        }
+      }
     };
     sync();
+    window.addEventListener(TEAM_ROSTER_UPDATE_EVENT, sync);
     window.addEventListener("vantaged_storage_update", sync);
     window.addEventListener("storage", sync);
+    window.addEventListener("focus", sync);
     return () => {
+      window.removeEventListener(TEAM_ROSTER_UPDATE_EVENT, sync);
       window.removeEventListener("vantaged_storage_update", sync);
       window.removeEventListener("storage", sync);
+      window.removeEventListener("focus", sync);
     };
   }, []);
 
-  const team = isDemoMode ? DEMO_TEAM_MEMBERS : savedTeam;
+  const team = isDemoMode ? [...savedTeam, ...DEMO_TEAM_MEMBERS] : savedTeam;
+
+  const effectiveRc = savedProfile?.rcNumber || contractorUser.rcNumber || "";
+  const isVerified =
+    isDemoMode || Boolean(effectiveRc && effectiveRc !== "RC-PENDING");
+  const verificationSummary = isDemoMode
+    ? "CAC Active · COREN & BPP verified (Renews Nov 2027)"
+    : isVerified
+    ? `CAC ${effectiveRc}${savedProfile?.corenLicense ? ` · ${savedProfile.corenLicense}` : " · Company Verified"}`
+    : "Upload CAC, TIN, Director NIN & optional COREN license";
+
+  const hasBank = Boolean(savedBank?.bankName && savedBank?.accountNumber);
+  const maskedAcct = savedBank?.accountNumber
+    ? `****${String(savedBank.accountNumber).slice(-4)}`
+    : "****4821";
+  const bankSummary = hasBank
+    ? `${savedBank?.bankName} · ${maskedAcct} · ${savedBank?.accountName || contractorUser.companyName}`
+    : isDemoMode
+    ? "Zenith Bank · ****4821 · Matches CAC name (48h Lock)"
+    : "Add corporate NUBAN matching CAC registration";
+  const bankBadge = hasBank || isDemoMode ? "LOCKED" : "UNSET";
 
   return (
     <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 w-full select-none font-sans">
@@ -150,40 +203,42 @@ export function DirectorBottomSummary() {
 
         <div className="space-y-3 text-xs">
           <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <div className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">
-                Verification & Badges
+                Verification &amp; Badges
               </div>
-              <div className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                {isDemoMode
-                  ? "CAC Active · COREN & BPP verified (Renews Nov 2027)"
-                  : "Upload CAC, TIN, Director NIN & optional COREN license"}
+              <div className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
+                {verificationSummary}
               </div>
             </div>
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                isDemoMode
+                isVerified
                   ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)]"
                   : "bg-amber-100 text-[var(--vt-color-indigo-950,#170F42)] border border-amber-300"
               }`}
             >
-              {isDemoMode ? "VERIFIED" : "ACTION NEEDED"}
+              {isVerified ? "VERIFIED" : "ACTION NEEDED"}
             </span>
           </div>
 
           <div className="p-3.5 rounded-xl bg-[var(--vt-color-neutral-50,#F7F7FA)] border border-[var(--vt-color-border-default,#E2E0EC)] flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <div className="font-bold text-[var(--vt-color-indigo-900,#261A66)]">
                 Settlement Bank Account
               </div>
-              <div className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5">
-                {isDemoMode
-                  ? "Zenith Bank · ****4821 · Matches CAC name (48h Lock)"
-                  : "Add corporate NUBAN matching CAC registration"}
+              <div className="text-[11px] text-[var(--vt-color-neutral-500,#7C7894)] mt-0.5 truncate">
+                {bankSummary}
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)] shrink-0">
-              {isDemoMode ? "LOCKED" : "UNSET"}
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                bankBadge === "LOCKED"
+                  ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border border-[var(--vt-color-green-200,#A3D9B1)]"
+                  : "bg-[var(--vt-color-neutral-100,#EFEEF5)] text-[var(--vt-color-neutral-600,#5E5A7D)]"
+              }`}
+            >
+              {bankBadge}
             </span>
           </div>
         </div>

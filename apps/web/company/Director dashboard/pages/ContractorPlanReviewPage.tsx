@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DirectorSidebarNav } from "../components/DirectorSidebarNav";
 import { DirectorHeaderBar } from "../components/DirectorHeaderBar";
+import { VantagedSelect } from "../../../client/Owner dashboard/components/VantagedSelect";
 import {
   IconAlertTriangle,
   IconArrowLeft,
@@ -229,12 +230,13 @@ export function ContractorPlanReviewPage({
 
     const contractValue = parseBudgetToNaira(proposedBudgetStr);
 
-    const rawStages: StageItem[] =
+    const rawStages: Array<StageItem & { weightPercent?: number }> =
       remoteProposed?.stages && remoteProposed.stages.length > 0
-        ? remoteProposed.stages.map((s, idx) => ({
+        ? remoteProposed.stages.map((s: any, idx) => ({
             order: s.order || idx + 1,
             title: s.title,
             evidence: s.evidence,
+            weightPercent: typeof s.weightPercent === "number" ? s.weightPercent : undefined,
           }))
         : localSent?.preset?.stages && localSent.preset.stages.length > 0
         ? localSent.preset.stages
@@ -253,9 +255,16 @@ export function ContractorPlanReviewPage({
     const count = rawStages.length || 1;
     const baseWeight = Math.floor(100 / count);
     const remainder = 100 - baseWeight * count;
+    const hasCustomWeights =
+      rawStages.every((s) => typeof s.weightPercent === "number" && s.weightPercent > 0) &&
+      rawStages.reduce((acc, s) => acc + (s.weightPercent || 0), 0) === 100;
 
     const stagesWithWeights = rawStages.map((s, idx) => {
-      const weightPercent = idx === count - 1 ? baseWeight + remainder : baseWeight;
+      const weightPercent = hasCustomWeights
+        ? s.weightPercent!
+        : idx === count - 1
+        ? baseWeight + remainder
+        : baseWeight;
       return {
         ...s,
         order: idx + 1,
@@ -316,7 +325,14 @@ export function ContractorPlanReviewPage({
       (p) => p.name === resolvedPlan.presetName
     );
     setEditPresetId(matchedPreset?.id || allPresets[0]?.id || "preset_duplex");
-    setEditStages(resolvedPlan.rawStages.map((s) => ({ ...s })));
+    setEditStages(
+      resolvedPlan.stages.map((s) => ({
+        order: s.order,
+        title: s.title,
+        evidence: s.evidence,
+        weightPercent: s.weightPercent,
+      }))
+    );
     setIsEditModalOpen(true);
   };
 
@@ -324,9 +340,39 @@ export function ContractorPlanReviewPage({
     setEditPresetId(presetId);
     const found = allPresets.find((p) => p.id === presetId);
     if (found) {
-      setEditStages(found.stages.map((s) => ({ ...s })));
+      const cnt = found.stages.length || 1;
+      const base = Math.floor(100 / cnt);
+      const rem = 100 - base * cnt;
+      setEditStages(
+        found.stages.map((s, idx) => ({
+          ...s,
+          weightPercent:
+            typeof s.weightPercent === "number"
+              ? s.weightPercent
+              : idx === cnt - 1
+              ? base + rem
+              : base,
+        }))
+      );
     }
   };
+
+  const handleAutoBalanceWeights = () => {
+    setEditStages((prev) => {
+      const cnt = prev.length || 1;
+      const base = Math.floor(100 / cnt);
+      const rem = 100 - base * cnt;
+      return prev.map((s, idx) => ({
+        ...s,
+        weightPercent: idx === cnt - 1 ? base + rem : base,
+      }));
+    });
+  };
+
+  const editWeightsTotal = editStages.reduce(
+    (sum, s) => sum + (Number(s.weightPercent) || 0),
+    0
+  );
 
   const handleSaveAndResendPlan = (e: React.FormEvent) => {
     e.preventDefault();
@@ -353,6 +399,9 @@ export function ContractorPlanReviewPage({
         evidence:
           s.evidence.trim() ||
           "Geofenced site photos, inspection checklist & lab certificate",
+        ...(typeof s.weightPercent === "number" && s.weightPercent > 0
+          ? { weightPercent: s.weightPercent }
+          : {}),
       }));
 
     const finalStages =
@@ -537,7 +586,7 @@ export function ContractorPlanReviewPage({
   const companyDisplayName =
     session?.companyName ||
     remoteBrief?.companyName ||
-    "Julius B. Consortium";
+    "Verified Construction Company";
   const directorDisplayName = session?.fullName || "Project Director";
 
   return (
@@ -1053,17 +1102,14 @@ export function ContractorPlanReviewPage({
                   <label className="block text-[10.5px] font-bold uppercase tracking-wider text-[var(--vt-color-neutral-400,#A3A0B8)] mb-1">
                     Load Stage Preset Template
                   </label>
-                  <select
+                  <VantagedSelect
                     value={editPresetId}
-                    onChange={(e) => handleSelectEditPreset(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-[var(--vt-color-border-default,#E2E0EC)] bg-[var(--vt-color-neutral-50,#F7F7FA)] text-xs font-bold text-[var(--vt-color-indigo-900,#261A66)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
-                  >
-                    {allPresets.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleSelectEditPreset(val)}
+                    options={allPresets.map((p) => ({
+                      value: p.id,
+                      label: p.name,
+                    }))}
+                  />
                 </div>
               </div>
 
@@ -1077,23 +1123,44 @@ export function ContractorPlanReviewPage({
                       Customize stage titles or required verification evidence before sending to {resolvedPlan.ownerName}.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditStages((prev) => [
-                        ...prev,
-                        {
-                          order: prev.length + 1,
-                          title: "",
-                          evidence: "",
-                        },
-                      ])
-                    }
-                    className="h-8 px-3 rounded-lg bg-[var(--vt-color-neutral-100,#ECEBF3)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-600,#D84C0B)] text-xs font-bold transition-colors border border-[var(--vt-color-border-default,#E2E0EC)] inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <IconPlus className="w-3.5 h-3.5" />
-                    <span>Add Stage</span>
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className={`px-2 py-1 rounded-md text-[10.5px] font-mono font-bold border ${
+                        editWeightsTotal === 100
+                          ? "bg-[var(--vt-color-green-50,#E9F6EC)] text-[var(--vt-color-green-700,#1F6B3E)] border-[var(--vt-color-green-200,#A3D9B1)]"
+                          : "bg-amber-50 text-amber-800 border-amber-200"
+                      }`}
+                    >
+                      Weight Total: {editWeightsTotal}%
+                    </span>
+                    {editWeightsTotal !== 100 && (
+                      <button
+                        type="button"
+                        onClick={handleAutoBalanceWeights}
+                        className="h-8 px-2.5 rounded-lg border border-[var(--vt-color-orange-300,#FBA674)] bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-orange-700,#B33C08)] text-[11px] font-bold cursor-pointer"
+                      >
+                        Auto-balance 100%
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditStages((prev) => [
+                          ...prev,
+                          {
+                            order: prev.length + 1,
+                            title: "",
+                            evidence: "",
+                            weightPercent: 0,
+                          },
+                        ])
+                      }
+                      className="h-8 px-3 rounded-lg bg-[var(--vt-color-neutral-100,#ECEBF3)] hover:bg-[var(--vt-color-orange-50,#FFF4EE)] text-[var(--vt-color-indigo-900,#261A66)] hover:text-[var(--vt-color-orange-600,#D84C0B)] text-xs font-bold transition-colors border border-[var(--vt-color-border-default,#E2E0EC)] inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <IconPlus className="w-3.5 h-3.5" />
+                      <span>Add Stage</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
@@ -1128,7 +1195,7 @@ export function ContractorPlanReviewPage({
                           </button>
                         )}
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                         <input
                           type="text"
                           required
@@ -1143,7 +1210,7 @@ export function ContractorPlanReviewPage({
                             )
                           }
                           placeholder="Stage title"
-                          className="h-8 px-2.5 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                          className="sm:col-span-5 h-8 px-2.5 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-semibold text-[var(--vt-color-indigo-900,#261A66)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
                         />
                         <input
                           type="text"
@@ -1158,8 +1225,30 @@ export function ContractorPlanReviewPage({
                             )
                           }
                           placeholder="Required inspection proof"
-                          className="h-8 px-2.5 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs text-[var(--vt-color-neutral-700,#443E63)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                          className="sm:col-span-5 h-8 px-2.5 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs text-[var(--vt-color-neutral-700,#443E63)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
                         />
+                        <div className="sm:col-span-2 relative">
+                          <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={stg.weightPercent ?? ""}
+                            onChange={(e) => {
+                              const val = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                              setEditStages((prev) =>
+                                prev.map((item, i) =>
+                                  i === idx ? { ...item, weightPercent: val } : item
+                                )
+                              );
+                            }}
+                            placeholder="%"
+                            title="Stage payment weight (%)"
+                            className="w-full h-8 pl-2 pr-5 rounded-lg border border-[var(--vt-color-border-default,#E2E0EC)] bg-white text-xs font-mono font-bold text-[var(--vt-color-indigo-900,#261A66)] outline-none focus:border-[var(--vt-color-orange-500,#EF5F18)]"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-[var(--vt-color-neutral-400,#A3A0B8)] pointer-events-none">
+                            %
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}
